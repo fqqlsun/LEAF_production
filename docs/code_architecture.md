@@ -3,10 +3,10 @@
 There are three major data structures used in LEAF production tool and all of them are python dictionary objects. Of the three, two are defined as global variables and have been named “COLL_OPTIONS” and “PROD_OPTIONS”, respectively. The third object can be named in any way user want, but must be passed to the main function (“LEAF_tool_main”) of LEAF production tool. The following sections provide detailed descriptions on the objects.
     
 ### 1.1 Image Collection Options
-This python dictionary currently contains two key:value pairs for storing the options associated with Sentinel-2 and Landsat-8 dataset, respectively. The two keys are “COPERNICUS/S2_SR” and “LANDSAT/LC08/C02/T1_SR”, which are the catalog names used by GEE for the two datasets. The values corresponding to the two keys are also python dictionary objects including 18 key:value pairs. 
+This python dictionary currently contains TWO "key:value" pairs for storing the options associated with Sentinel-2 and Landsat-8 dataset, respectively. The two keys are “COPERNICUS/S2_SR” and “LANDSAT/LC08/C02/T1_SR”, which are the catalog names used by GEE for the two datasets. The values corresponding to the two keys are also python dictionary objects including 18 key:value pairs. 
  
 ### 1.2 Product Options
-This python dictionary object includes eight key:value pairs. Each key:value pair contains the information related to one biophysical parameter product. Currently, four biophysical parameters (LAI, fCOVER, fAPAR and Albedo) can be generated with the LEAF production tool  
+This python dictionary object includes EIGHT "key:value" pairs. Each key:value pair contains the information related to one biophysical parameter product. Currently, four biophysical parameters (LAI, fCOVER, fAPAR and Albedo) can be generated with the LEAF production tool  
 
 
 
@@ -15,7 +15,7 @@ To execute the LEAF production tool, a number of parameters are required to be p
 
 ![](/wiki_images/LEAF_param_dict.png)
 
-Specifically, the dictionary includes 9 “key : value” pairs, which are described in detail as follows:
+Specifically, the dictionary includes NINE “key:value” pairs, which are described in detail as follows:
 
 (1) 'sensor: a single integer that represents a satellite sensor. The valid values for this key are 5, 7, 8, 9 and 101, which stand for Landsat 5, 7, 8, 9 and Sentinel-2, respectively. 
 
