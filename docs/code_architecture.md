@@ -1,6 +1,6 @@
 ## 1. Major Data Structures Used In LEAF Production Tool
 
-There are three major data structures used in LEAF production tool and all of them are python dictionary objects. Of the three dictionary objects, two are defined as global variables and named “COLL_OPTIONS” and “PROD_OPTIONS”, respectively. The third one can be named in any user-preferred way, but must be passed to the main function (“LEAF_tool_main”) of LEAF production tool. The detailed descriptions on the three dictionary objects are provided in the following three sections.
+There are three major data structures used in LEAF production tool and all of them are python dictionary objects. Of the three, two are defined as global variables and have been named “COLL_OPTIONS” and “PROD_OPTIONS”, respectively. The third object can be named in any way user want, but must be passed to the main function (“LEAF_tool_main”) of LEAF production tool. The following sections provide detailed descriptions on the objects.
     
 ### 1.1 Image Collection Options
 This is a python dictionary currently containing two key:value pairs for storing the options associated with Sentinel-2 and Landsat-8 dataset, respectively. The two keys are “COPERNICUS/S2_SR” and “LANDSAT/LC08/C01/T1_SR”, which are the catalog names used by Google Earth Engine for the two datasets. The values paired with the two keys are also python dictionary objects including 18 key:value pairs. 
