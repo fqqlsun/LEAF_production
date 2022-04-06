@@ -1,41 +1,41 @@
-## 1. Major Data Structures Used In LEAF Production Tool
+## 1. Major Data Structures Used In The LEAF Production Tool
 
 There are three major data structures used in LEAF production tool and all of them are python dictionary objects. Of the three, two are defined as global variables and have been named “COLL_OPTIONS” and “PROD_OPTIONS”, respectively. The third object can be named in any way user want, but must be passed to the main function (“LEAF_tool_main”) of LEAF production tool. The following sections provide detailed descriptions on the objects.
     
 ### 1.1 Image Collection Options
-This python dictionary currently contains TWO "key:value" pairs for storing the options associated with Sentinel-2 and Landsat-8 dataset, respectively. The two keys are “COPERNICUS/S2_SR” and “LANDSAT/LC08/C02/T1_SR”, which are the catalog names used by GEE for the two datasets. The values corresponding to the two keys are also python dictionary objects including 18 key:value pairs. 
+This python dictionary currently contains TWO "key:value" pairs to store the options associated with Sentinel-2 and Landsat-8 dataset, respectively. The two keys are “COPERNICUS/S2_SR” and “LANDSAT/LC08/C02/T1_SR”, which are the catalog names used by GEE for the two datasets. The values corresponding to the two keys are also python dictionary objects including SEVENTEEN "key:value" pairs. The main contents of the seventeen items include the property names used by a dataset for imaging angles, cloud coverage, and the links to the neural network coefficients to be applied for biophysical parameter extraction. This dictionary is defined in LEAFNets.py.
  
 ### 1.2 Product Options
-This python dictionary object includes EIGHT "key:value" pairs. Each key:value pair contains the information related to one biophysical parameter product. Currently, four biophysical parameters (LAI, fCOVER, fAPAR and Albedo) can be generated with the LEAF production tool  
+This python dictionary object includes EIGHT "key:value" pairs. Four of them are for currently producable biophysical parameters (LAI, fCOVER, fAPAR and Albedo) and rest are for potential developments. Each key:value pair in this dictionary contains the information related to one biophysical parameter product. This dictionary is also defined in LEAFNets.py.
 
 
 
-### 1.3 Parameter Dictionary for Running LEAF Production Tool
+### 1.3 Parameter Dictionary for Running the LEAF Production Tool
 To execute the LEAF production tool, a number of parameters are required to be provided. To facilitate the transfer of the parameters, a python dictionary is utilized as a container. An example of the parameter dictionary is displayed below:
 
 ![](/wiki_images/LEAF_param_dict.png)
 
 Specifically, the dictionary includes NINE “key:value” pairs, which are described in detail as follows:
 
-(1) 'sensor: a single integer that represents a satellite sensor. The valid values for this key are 5, 7, 8, 9 and 101, which stand for Landsat 5, 7, 8, 9 and Sentinel-2, respectively. 
+(1) 'sensor: an integer representing a satellite sensor. The valid values for this key are 5, 7, 8, 9 and 101, which stand for Landsat 5, 7, 8, 9 and Sentinel-2, respectively. 
 
-(2) 'year' : a 4 digits integer, identifying the year of image acquisition (e.g., 2020).
+(2) 'year' : a 4-digits integer, identifying the year of the image acquisitions (e.g., 2020).
 
-(3) 'months' : a list of integers (e.g., [6, 7, 8] represent June, July and August). With a list of integers within the range of 1 to 12, several monthly biophysical parameter products can be generated through one execution of the LEAF production tool. If the list contains only one integer with its value outside the range, the biophysical parameter products corresponding to the peak season (June 15 to September 15) of a year (specified by 'year' key) will be produced.
+(3) 'months' : a list of integers (1 to 12) representing the (summer) monthes of a year (e.g., [6, 7, 8] denote June, July and August). With a list of monthes, several monthly biophysical parameter products can be generated through one execution of the LEAF production tool. This list can also include only one negative integer. In this case, the biophysical parameter products corresponding to the peak season (June 15 to September 15) of a year (specified by 'year' key) will be produced.
 
-(4) 'prod_names' : a list of strings standing for different biophysical parameters. Currently, LEAF production tool can be used to generate a subset or a full set of 4 biophysical parameters ['LAI', 'fCOVER', 'Albedo', 'fAPAR'].
+(4) 'prod_names' : a list of biophysical parameter name strings, which could be a subset or all of 'LAI', 'fCOVER', 'Albedo' and 'fAPAR'.
 
-(5) 'tile_names' : a list of strings representing different tiles. The basic spatial unit of the LEAF production tool is a tile, which is a 900km x 900km area and defined by the Canadian tile griding system. Providing a list of tile names means the biophysical parameter products for multiple tiles can be generated through one execution of the LEAF production tool.
+(5) 'tile_names' : a list of tile name strings. The regular spatial unit of the LEAF production tool is a tile, which is a 900km x 900km area and defined by the Canadian tile griding system. Providing a list of tile names means the biophysical parameter products for multiple tiles can be created within one execution of the LEAF production tool.
 
-(6) 'spatial_scale' : a single integer defining the spatial resolution (in meter) of exported product maps.
+(6) 'spatial_scale' : an integer defining the spatial resolution (in meter) of exported products.
 
-(7) 'location' : a single string specifying the location to export the product maps. There are two valid strings for this parameter, 'drive' and 'storage', representing Google Drive (GD) and Google Cloud Storage (GCS), respectively.
+(7) 'location' : a string specifying the location to export the products. The valid string for this parameter could be either 'drive' or 'storage', representing Google Drive (GD) and Google Cloud Storage (GCS), respectively.
 
-(8) 'bucket' : the name string of a bucket on GCS. This parameter only is used when the value corresponding to the 'location' key is 'storage'.
+(8) 'bucket' : a customized name string of a bucket on GCS. This parameter only is used when the exporting location is GCS (when value corresponding to 'location' is 'storage'). Note that a bucket with this name must exist on your GCS before exporting products. 
 
-(9) 'out_folder' : the folder name on GD or GCS for holding a set of exported biophysical parameter maps corresponding to one tile and one year. An empty string for this key means a folder name will be created automatically with a tile name (an element of the list associated with the ‘tile_names’ key) and the acquisition year (the value corresponding to the “year” key).
+(9) 'out_folder' : the folder name on GD or GCS for holding the exported biophysical parameter products. If you do not want the products for different tiles are exported in the same folder, just leave an empty string for this key. In this case, the LEAF production tool will automatically create separate folders for the products of different tiles using a tile name and the image acquisition year specified in the dictionary items with ‘tile_names’ and “year” as keys.
 
-In summary, of the 9 key:value pairs of the input dictionary, six keys ('sensor', 'year', 'spatial_scale', 'location', 'bucket' and 'out_folder') require a single value, while the other three need a list. With the different combinations between the lists, various production scenarios can be carried out. For instance, to generate monthly (e.g., July and August) biophysical parameter maps for multiple tiles (e.g., 'tile41', 'tile42' and 'tile43'), two lists, [7, 8] and ['tile41', 'tile42', 'tile43'], should be provided for 'months' and 'tile_names' keys.
+Of the NINE items of an input parameter dictionary, six (with 'sensor', 'year', 'spatial_scale', 'location', 'bucket' and 'out_folder' as keys) require a single value, while the other three (with 'months', 'prod_name' and 'tile_names' as keys) need a list. Obviously, with the different combinations between the lists, various production scenarios can be carried out. For instance, to generate monthly (e.g., July and August) biophysical parameter maps for multiple tiles (e.g., 'tile41', 'tile42' and 'tile43'), two lists, [7, 8] and ['tile41', 'tile42', 'tile43'], should be specified for 'months' and 'tile_names' keys.
 
 ## 2. Function Call Graph Of LEAF Production Tool
 
