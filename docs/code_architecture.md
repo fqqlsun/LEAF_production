@@ -6,7 +6,7 @@ There are three major data structures used in LEAF production tool and all of th
 This python dictionary currently contains two key:value pairs for storing the options associated with Sentinel-2 and Landsat-8 dataset, respectively. The two keys are “COPERNICUS/S2_SR” and “LANDSAT/LC08/C02/T1_SR”, which are the catalog names used by GEE for the two datasets. The values corresponding to the two keys are also python dictionary objects including 18 key:value pairs. 
  
 ### 1.2 Product Options
-This is a python dictionary object with 8 key:value pairs. Each key:value pair contains the option information related to one biophysical parameter product. Currently, the four major products that can be generated with the LEAF production tool are LAI, fCOVER, fAPAR and Albedo. 
+This python dictionary object includes eight key:value pairs. Each key:value pair contains the information related to one biophysical parameter product. Currently, four biophysical parameters (LAI, fCOVER, fAPAR and Albedo) can be generated with the LEAF production tool  
 
 
 
