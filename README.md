@@ -1,7 +1,6 @@
-# Readme
+This is Landscape Evolution And Forecasting (LEAF) production tool implemented with Python programming language, plus Earth Engine (EE) python API. With this tool, users can efficiently produce biophysical parameter maps with associated uncertainty estimates from the surface reflectance satellite imagery hosted in Google Earth Engine (GEE). The two major features of this tool are: (1) various production requirements can be achieved by configuring a flexible input parameter dictionary object; (2) all results can be automatically exported to a specified location (either Google Drive or Google Cloud Storage) in a batch mode. 
 
+The regular output spatial unit of this tool is a 900km x 900km tile, which is defined by the Canadian geospatial tile griding system (there are 26 tiles covering the Canadian landmass). However, a customized polygon can also be utilized to define the spatial area of a production. Currently, four types of biophysical products (LAI, fCOVER, fAPAR and Albedo) can be generated with this tool. Next figure shows the flowchart of LEAF production tool.
+![](/wiki_images/flowchart.png)
 
-This is production version of the Landscape Evolution And Forecasting (LEAF) toolbox implemented with Python. Compared with original LEAF toolbox, production LEAF tool is dedicated for efficiently generating tile vegetation parameter maps.
-
-To execute this production tool, just open GeeLeafTool-SL2P.ipynd file with Jupyter Notebook and follow the instructions in the document.
-![test](/wiki_images/leaf_tool_code.png)
+For the information on how to set up an environment for running LEAF production tool on Windows platform, please refer to [User Guide](/docs/user_manual.md). To improve or update this tool, please review [code architecture](/docs/code_architecture.md).  
