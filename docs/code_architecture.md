@@ -37,7 +37,7 @@ Specifically, the dictionary includes NINE “key:value” pairs, which are desc
 
 Of the NINE items of an input parameter dictionary, six (with 'sensor', 'year', 'spatial_scale', 'location', 'bucket' and 'out_folder' as keys) require a single value, while the other three (with 'months', 'prod_name' and 'tile_names' as keys) need a list. Obviously, with the different combinations between the lists, various production scenarios can be carried out. For instance, to generate monthly (e.g., July and August) biophysical parameter maps for multiple tiles (e.g., 'tile41', 'tile42' and 'tile43'), two lists, [7, 8] and ['tile41', 'tile42', 'tile43'], should be specified for 'months' and 'tile_names' keys.
 
-## 2. Function Call Graph Of LEAF Production Tool
+## 2. Function Call Graph Of The LEAF Production Tool
 
 The LEAF production tool mainly consists of 12 functions. The names and call graph of these functions are shown as follows:
 ![](/wiki_images/LEAF_function_call_graph.png)
