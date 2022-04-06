@@ -3,7 +3,7 @@
 There are three major data structures used in LEAF production tool and all of them are python dictionary objects. Of the three, two are defined as global variables and have been named “COLL_OPTIONS” and “PROD_OPTIONS”, respectively. The third object can be named in any way user want, but must be passed to the main function (“LEAF_tool_main”) of LEAF production tool. The following sections provide detailed descriptions on the objects.
     
 ### 1.1 Image Collection Options
-This is a python dictionary currently containing two key:value pairs for storing the options associated with Sentinel-2 and Landsat-8 dataset, respectively. The two keys are “COPERNICUS/S2_SR” and “LANDSAT/LC08/C01/T1_SR”, which are the catalog names used by Google Earth Engine for the two datasets. The values paired with the two keys are also python dictionary objects including 18 key:value pairs. 
+This python dictionary currently contains two key:value pairs for storing the options associated with Sentinel-2 and Landsat-8 dataset, respectively. The two keys are “COPERNICUS/S2_SR” and “LANDSAT/LC08/C02/T1_SR”, which are the catalog names used by GEE for the two datasets. The values corresponding to the two keys are also python dictionary objects including 18 key:value pairs. 
  
 ### 1.2 Product Options
 This is a python dictionary object with 8 key:value pairs. Each key:value pair contains the option information related to one biophysical parameter product. Currently, the four major products that can be generated with the LEAF production tool are LAI, fCOVER, fAPAR and Albedo. 
