@@ -1,0 +1,7 @@
+## LEAF_tool_main(exe_param_dict)
+### Description
+This is the main function that must be called from the Jupyter Notebook. To invoke this function, users have to provide a Python dictionary object that contains all required parameters. The structure of the parameter dictionary will be described in “definition of execution parameters”. With the combinations between the values of different parameters, various production scenarios can be carried out.  
+### Arguments:
+(1) exe_param_dict (dictionary): the python dictionary containing nine execution parameters. The detailed information on the parameter dictionary can be found in the “definition of execution parameters” section.
+### Returns:
+This function returns a list of all exporting tasks that have been automatically put into a queue to be handled by the servers of Google Earth Engine. Depending on the type of user’s Google account, the status (pending, running, succeeded or failed) of the exporting tasks can be monitored in different ways. For a regular Google account, the status of all exporting tasks are displayed in the “Tasks” window of earth engine code editor. For the users who can use Service Account, the status of the tasks can be viewed by calling ee.data.listOperation. The LEAF production tool provides a utility function (manage_tasks) that can be used to check the status of a number of selected exporting tasks.   
