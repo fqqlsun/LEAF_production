@@ -11,7 +11,7 @@ This python dictionary object includes eight key:value pairs. Each key:value pai
 
 
 ### 1.3 Parameter Dictionary for Running LEAF Production Tool
-The execution of the LEAF production tool requires a number of parameters. To facilitate the transfer of the parameters, a python dictionary structure is utilized as a container. An example of the parameter dictionary is displayed below:
+To execute the LEAF production tool, a number of parameters are required to be provided. To facilitate the transfer of the parameters, a python dictionary is utilized as a container. An example of the parameter dictionary is displayed below:
 
 ![](/wiki_images/LEAF_param_dict.png)
 
