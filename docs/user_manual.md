@@ -9,7 +9,7 @@ The prerequisites of running the LEAF production tool on a local/client computer
 ### 1.1 Create a Google Cloud Account and Obtain an Authentication Credential
 See [link](https://cloud.google.com/apigee/docs/hybrid/v1.1/precog-gcpaccount) for the steps to create a Google Cloud account.
 
-To enable your accessment to GEE servers, you have to obtain an authentication credential from Google. Within your activated conda viryual environment (will be explained in next section), run `earthengine authenticate` command and follow the instructions. A URL will be provided that generates an authorization code upon agreement. Copy the authorization code and enter it as the input of the command line.
+To enable your accessment to GEE servers, you have to obtain an authentication credential from Google. Within your activated conda virtual environment (will be explained in next section), run `earthengine authenticate` command and follow the instructions. A URL will be provided that generates an authorization code upon agreement. Copy the authorization code and enter it as the input of the command line.
 
 ### 1.2 Install Anaconda and EE python API
 The installation of Anaconda on a local computer is a straightforward process. Just go to the [website](https://www.anaconda.com/) of Anaconda and follow the given instructions. After the installation, open a Windows terminal or **Anaconda Prompt**, so that some conda commands can be issued from there. 
