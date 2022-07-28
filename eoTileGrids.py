@@ -1,5 +1,4 @@
 import ee 
-ee.Initialize()
 
 
 geoTile13 = ee.Geometry.Polygon([[-147.465,  81.4841], [-86.4478,  84.4004], [-91.1246,  76.6016], [-123.879,  74.9631]])
@@ -51,14 +50,14 @@ fullTile_list = ee.List([
 'tile21', 'tile22', 'tile23', 'tile24', 'tile25',
 'tile31', 'tile32', 'tile33', 'tile34', 'tile35', 'tile36',
 'tile41', 'tile42', 'tile43', 'tile44', 'tile45', 'tile46', 'tile47',
-          'tile52', 'tile53', 'tile54', 'tile55', 'tile56'])
+          'tile52', 'tile53', 'tile54', 'tile55', 'tile56', 'tile65'])
 
 fullTile_polygons = ee.List([
                       geoTile13, geoTile14,
 geoTile21, geoTile22, geoTile23, geoTile24, geoTile25,
 geoTile31, geoTile32, geoTile33, geoTile34, geoTile35, geoTile36,
 geoTile41, geoTile42, geoTile43, geoTile44, geoTile45, geoTile46, geoTile47,
-           geoTile52, geoTile53, geoTile54, geoTile55, geoTile56])
+           geoTile52, geoTile53, geoTile54, geoTile55, geoTile56, geoTile65])
 
 
 validTile_list     = ee.List(['tile51', 'tile61', 'tile62', 'tile63', 'tile64', 'tile65', 'tile66'])
@@ -72,7 +71,7 @@ tile_name_list = ee.List([
 'tile21', 'tile22', 'tile23', 'tile24', 'tile25',
 'tile31', 'tile32', 'tile33', 'tile34', 'tile35', 'tile36',
 'tile41', 'tile42', 'tile43', 'tile44', 'tile45', 'tile46', 'tile47',
-'tile52', 'tile53', 'tile54', 'tile55', 'tile56', 'tile57',
+'tile52', 'tile53', 'tile54', 'tile55', 'tile56', 'tile57', 'tile65', 
 'tile13_411', 'tile13_412', 'tile13_421', 'tile13_422',
 'tile14_411', 'tile14_412', 'tile14_421', 'tile14_422',
 'tile21_411', 'tile21_412', 'tile21_421', 'tile21_422',
@@ -156,6 +155,7 @@ polygon_list = ee.List([
   ee.Geometry.Polygon([[-80.5932, 50.8149],[-68.7488, 48.2563],[-72.8716, 40.8803],[-83.0040, 42.9647]]),
   ee.Geometry.Polygon([[-68.7488, 48.2563],[-58.5508, 44.4557],[-63.7815, 37.7264],[-72.8716, 40.8803]]),
   ee.Geometry.Polygon([[-58.5508, 44.4557],[-50.0910, 39.7627],[-55.8899, 33.7511],[-63.7815, 37.7264]]),
+  ee.Geometry.Polygon([[-83.0040, 42.9647],[-72.8716, 40.8803],[-75.9096, 33.6475],[-84.7296, 35.3660]]),
  ee.Geometry.Polygon([[-147.4652,  81.4841],[-123.1257,  83.7989],[-113.2055,  80.1748],[-132.6652,  78.4676]]),
  ee.Geometry.Polygon([[-123.1257,  83.7989],[ -86.4478,  84.4004],[ -89.6641,  80.5790],[-113.2055,  80.1748]]),
  ee.Geometry.Polygon([[-132.6652,  78.4676],[-113.2055,  80.1748],[-108.3798,  76.2970],[-123.8787,  74.9631]]),
@@ -576,3 +576,37 @@ def change_coord(in_point):
    lat   = point.get(1)
 
    return point
+
+
+def isFullTileName(tile_name):
+  #for t in fullTile_list:
+  #  if tile_name.find(t) > -1:
+  return fullTile_list.contains(tile_name).getInfo()
+
+
+#############################################################################################################
+# Description: This function returns the number of subtiles according to a given tile name.
+#############################################################################################################
+def get_nSubtiles(tile_name):
+  TileName = ee.String(tile_name)
+  
+  if TileName.index('_4').getInfo() > 0:
+    return 4
+  elif TileName.index('_9').getInfo() > 0: 
+    return 9
+  else:
+    return 1
+
+
+
+def get_9subTiles(tile_name):
+  if get_nSubtiles(tile_name) == 1:
+    sub_tile_names = ee.List([tile_name+'_911', tile_name+'_912', tile_name+'_913', 
+                              tile_name+'_921', tile_name+'_922', tile_name+'_923', 
+                              tile_name+'_931', tile_name+'_932', tile_name+'_933'])
+    
+    def tile_geometry(tile_name):
+      return PolygonDict.get(tile_name)
+
+    return sub_tile_names.map(lambda name: tile_geometry(name))
+   
