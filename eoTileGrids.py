@@ -532,8 +532,7 @@ def is_valid_tile_name(tile_name):
 
 
 ##############################################################################################################
-# Description: This function expands a given polygon a little bit so that the polygon can be used as the
-#              boundary of outputing a mosaic image.
+# Description: This function expands a square region by a bit so that it can fully cover a ROI
 #
 # Note:        The orders of the points for defining a tile are changed for some unknown reasons. Specifically,
 #              The point order in "ee.Geometry.Polygon" definitions are as follows:
@@ -548,11 +547,11 @@ def is_valid_tile_name(tile_name):
 #                   2------->3
 #
 ##############################################################################################################
-def expandMosaicPolygon(in_polygon, inDelta):
-  coord_list = ee.List(ee.Geometry(in_polygon).coordinates().get(0))
-  #print("<expandMosaicPolygon> coord list:", coord_list)
+def expandSquare(Region, Delta):
+  coord_list = ee.List(ee.Geometry(Region).coordinates().get(0))
+  #print("<expandSquare> coord list:", coord_list)
 
-  delta  = ee.Number(inDelta)
+  delta  = ee.Number(Delta)
   point1 = ee.List(coord_list.get(0))
   point2 = ee.List(coord_list.get(1))
   point3 = ee.List(coord_list.get(2))
@@ -563,9 +562,7 @@ def expandMosaicPolygon(in_polygon, inDelta):
   point3 = [ee.Number(point3.get(0)).add(delta),      ee.Number(point3.get(1)).subtract(delta)]
   point4 = [ee.Number(point4.get(0)).add(delta),      ee.Number(point4.get(1)).add(delta)]
 
-  expanded_polygon = ee.Geometry.Polygon([point1, point2, point3, point4])
-
-  return expanded_polygon
+  return ee.Geometry.Polygon([point1, point2, point3, point4])
 
 
 
@@ -609,4 +606,4 @@ def get_9subTiles(tile_name):
       return PolygonDict.get(tile_name)
 
     return sub_tile_names.map(lambda name: tile_geometry(name))
-   
+
