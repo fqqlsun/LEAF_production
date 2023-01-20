@@ -1,13 +1,13 @@
 import ee
-from matplotlib.animation import ImageMagickBase
 
-import eoImage as eoImg
-import eoImgMask as eoIM
+
+import Image as Img
+import ImgMask as IM
 import eoTileGrids as eoTG
 import eoParams
-import eoMosaic
+import Mosaic
 import eoAuxData as eoAD
-
+import LEAF_LS as LFLS
 
 
 #############################################################################################################
@@ -154,7 +154,7 @@ def l8_createFeatureCollection_legend():
 VERSION_NB = 1
 
 COLL_OPTIONS = {
-    'COPERNICUS/S2_SR_HARMONIZED': {
+    'S2_SR': {
       "name": 'S2',
       "description": 'Sentinel 2A',      
       "Watercover": 'WATER_PERCENTAGE',
@@ -167,7 +167,7 @@ COLL_OPTIONS = {
       "numVariables": 7,
       "inputBands":   ['cosVZA','cosSZA','cosRAA','B3','B4', 'B5', 'B6', 'B7', 'B8A','B11','B12'],
     },
-    'LANDSAT/LC08/C02/T1_L2': {
+    'L8_SR': {
       "name": 'L8',
       "description": 'LANDSAT 8',      
       "Watercover": 'CLOUD_COVER',      
@@ -197,8 +197,9 @@ PROD_OPTIONS = {
         "description": 'Black sky albedo',
         "variable": 6,           
         "outmin": 0,  #(ee.Image(ee.Array([[0]]))),
-        "outmax": 1  #(ee.Image(ee.Array([[1]])))
-    },
+        "outmax": 1,  #(ee.Image(ee.Array([[1]])))
+        "scale_factor": 200,
+        "compact_factor": 1},
     'fAPAR': {
         "Name":      'fAPAR',
         "errorName": 'errorfAPAR',
@@ -206,8 +207,9 @@ PROD_OPTIONS = {
         "description": 'Fraction of absorbed photosynthetically active radiation',
         "variable": 2,
         "outmin": 0 ,  #(ee.Image(ee.Array([[0]]))),
-        "outmax": 1  #(ee.Image(ee.Array([[1]])))
-    },
+        "outmax": 1,  #(ee.Image(ee.Array([[1]])))
+        "scale_factor": 200,
+        "compact_factor": 256},
     'fCOVER': {
         "Name": 'fCOVER',
         "errorName": 'errorfCOVER',
@@ -215,8 +217,9 @@ PROD_OPTIONS = {
         "description": 'Fraction of canopy cover',
         "variable": 3,
         "outmin": 0,  #(ee.Image(ee.Array([[0]]))),
-        "outmax": 1  #(ee.Image(ee.Array([[1]])))
-    },
+        "outmax": 1,  #(ee.Image(ee.Array([[1]])))
+        "scale_factor": 200,
+        "compact_factor": 65536},
     'LAI': {
         "Name":        'LAI',
         "errorName":   'errorLAI',
@@ -224,8 +227,9 @@ PROD_OPTIONS = {
         "description": 'Leaf area index',
         "variable": 1,
         "outmin": 0,  #(ee.Image(ee.Array([[0]]))),
-        "outmax": 15  #(ee.Image(ee.Array([[1]])))
-    },
+        "outmax": 15,  #(ee.Image(ee.Array([[1]])))
+        "scale_factor": 20,
+        "compact_factor": 16777216},
     'CCC': {
         "Name": 'CCC',
         "errorName": 'errorCCC',
@@ -270,6 +274,7 @@ PROD_OPTIONS = {
 def makeIndexLayer(partition, numb_classes, legend, network_IDs):
     '''Returns a single band image named "networkID" to map teh networks to be applied according to
        a land cover map. 
+
        Args: 
          inPartition(ee.image): a land cover classification map;
          nbClsNets(ee.Number): the number of networks corresponding to one biophysical parameter;
@@ -318,6 +323,7 @@ def makeIndexLayer(partition, numb_classes, legend, network_IDs):
 #############################################################################################################
 def getCoefs(netData, index) :
   '''Extract a coefficient from "netData" based on the "index" value.
+
      Args:
      netData(ee.Feature): a ee.Feature object containing all coefficients;
      index(int): the index of an identified coefficient in "netData". '''
@@ -339,6 +345,7 @@ def getCoefs(netData, index) :
 def FNet_to_DNet(feature_list, class_ID):
     '''Convert a LEAF network from a ee.Feature object to a ee.Dictionary object with eight keys
        (“inpSlope”, “inpOffset”, “h1wt”, “h1bi”, “h2wt”, “h2bi”, “outSlope”, “outBias”).
+
        Args:
          feature_list(ee.List): A list of network features (ee.Features) for one vegetation parameter;
          class_ID(ee.Number): A land cover class number/ID. '''
@@ -414,6 +421,7 @@ def FNet_to_DNet(feature_list, class_ID):
 def make_DNet_arr(all_nets, numClasses, ParamID):
     '''Returns a array of LEAF networks (with ee.Dictionary objects as elements) corresponding to one 
        biophysical parameter and multiple land cover types.
+
        Args:
          all_nets(ee.FeatureCollection): a collection of LEAF networks (with ee.Feature as elements) for
                                          different biophysical parameters and land covers; 
@@ -451,6 +459,7 @@ def make_DNet_arr(all_nets, numClasses, ParamID):
 #############################################################################################################
 def applyNet(inImage, net_list, band_names, net_indx, output_name):
     '''Applies a specified (defined by 'inNetIndex') two-layer neural network to a subset of land covers.
+
        Args: 
          inImage(ee.Image): a ee.Image object with network index band (named 'networkID') attached;
          inNetList():       a list of networks for one parameter and various land cover types;
@@ -524,8 +533,9 @@ def applyNet(inImage, net_list, band_names, net_indx, output_name):
 #############################################################################################################
 def wrapperNNets(networks, partition, prod_options, coll_options, suffix_name, inImage) :
     '''Applies a set of shallow networks to an image based on a given land cover map.
+
        Args: 
-         network(ee.List): a 2d matrix of networks (ee.Dictionary objects);
+         networks(ee.List): a 2d matrix of networks (ee.Dictionary objects);
          partition(ee.Image): a partition/classification map;
          prod_options(ee.Dictionary): a dictionary containing the info related to a selected parameter type;
          coll_options(ee.Dictionary): a dictionary containing the info related to a selected satellite type;
@@ -574,183 +584,19 @@ def wrapperNNets(networks, partition, prod_options, coll_options, suffix_name, i
 
 
 #############################################################################################################
-# Description: Determine if inputs fall in domain of algorithm. Need to be updated to allow for the domain
-#              to vary with partition
+# Description: This function exports one 64-Bits image that contains FOUR biophysical parameter maps and one 
+#              QC map to either Google Drive or Google Cloud Storage
 #
-# Note: (1) The reflectance value range of the given mosaic image must be within 0 and 1.
-#       (2) The reflectance value ranges for snow detection and QC_img are different 
-#  
-# Revision history:  2021-Oct-18  Copied from Richard's Python notebook (In [161])
+# Revision history:  2022-Nov-14  Lixin Sun  Initial creation 
 #
 #############################################################################################################
-def invalidInput(sl2pDomain, bandList, Mosaic, SensorCode, DataUnit) :
-  '''Determine if inputs fall in the domain of the algorithm.
-     Args: 
-       sl2pDomain(ee.FeatureCollection): a feature collection storing value domains;
-       bandList(ee.List): the band list (imaging angles and spectral bands) to be used in LEAF production;
-       mosaic(ee.Image): a given mosaic image with gain and offset applied;
-       SensorCode(int): an integer indicating the sensor type (LS5, 7, 8, 9 or S2);
-       DataUnit(int): an integer indicating data type (TOA or surface reflectance).'''
-  ssr_code   = int(SensorCode)
-  data_unit  = int(DataUnit) 
-  sl2pDomain = ee.FeatureCollection(sl2pDomain).aggregate_array("DomainCode").sort()
-  bandList   = ee.List(bandList)  # ['cosVZA','cosSZA','cosRAA', other spectral band names]
-  image      = ee.Image(Mosaic)   #Note: the pixel values of this mosaic must be within 0 and 1 
-  
-  #==========================================================================================================
-  # Create a snow mask and later on add it into QC band
-  # Note: The value range required for snow detection is from 0 to 100 and the value range of the given
-  #       mosaic image is from 0 to 1. 
-  #==========================================================================================================
-  STD_img   = eoImg.get_STD_image(image, ssr_code, data_unit).multiply(ee.Image(100.0))
-  snow_mask = eoIM.STD_Img_SnowMask(STD_img).uint8()
+def export_compact_params(fun_Param_dict, region, compactImg, task_list):
+  '''Exports a 64-Bits image that contains FOUR biophysical parameter maps and one QC map to either GD or GCS.
 
-  #==========================================================================================================
-  # Code image bands into a single band and compare to valid codes to make QC band
-  # Note: (1) the value range required by QC image creation is from 0 to 1;
-  #       (2) the imaging angle bands are not involved in the generation of QC image.
-  #==========================================================================================================  
-  LEAF_image = image.select(bandList.slice(3))  #Only select required spectral bands without imaging angle bands
-  nBands     = bandList.slice(3).length()       
-
-  QC_img = LEAF_image.multiply(ee.Image.constant(ee.Number(10))).ceil().mod(ee.Number(10))\
-                     .multiply(ee.Image.constant(ee.List.sequence(0, nBands.subtract(1)).map(lambda value: ee.Number(10).pow(ee.Number(value))))) \
-                     .reduce("sum").remap(sl2pDomain, ee.List.repeat(0, sl2pDomain.length()), 1).uint8()
-  
-  QC_img = QC_img.multiply(ee.Image(2)).bitwiseOr(snow_mask)
-
-  return image.addBands(QC_img.rename("QC"))
-
-
-
-
-
-#############################################################################################################
-# Description: This function creates a QC band image for a LEAF product.
-#
-# Revision history:  2022-Jun-24  Lixin Sun  Initial creation
-#
-#############################################################################################################
-def LEAF_QCImage(Mosaic, Estimate, sl2pDomain, prod_dict, bandList, SensorCode, DataUnit):
-  '''This function creates a QC band image for a LEAF product.
-     
-    Args:
-      Mosaic(ee.Image): a given mosaic image with the value ranges of the spectral bands are all between 0 and 1;
-      Estimate(ee.Image): an estimated parameter image; 
-      sl2pDomain(ee.FeatureCollection): a feature collection storing value domains;
-      prod_dict({}): a dictionary corresponding to a particaluar product;
-      bandList(ee.List): the band list (imaging angles and spectral bands) to be used in LEAF production;
-      SensorCode(int): an integer indicating the sensor type (LS5, 7, 8, 9 or S2);
-      DataUnit(int): an integer indicating data type (TOA or surface reflectance).'''
-  #==========================================================================================================
-  # Cast input parameters into correct types
-  #==========================================================================================================  
-  ssr_code   = int(SensorCode)
-  data_unit  = int(DataUnit) 
-  sl2pDomain = ee.FeatureCollection(sl2pDomain).aggregate_array("DomainCode").sort()
-  bandList   = ee.List(bandList)  # ['cosVZA','cosSZA','cosRAA' and other spectral band names]
-  image      = ee.Image(Mosaic)  #Note: the pixel values of this mosaic must be within 0 and 1 
-
-  #==========================================================================================================
-  # Create a QC image and set the flag for input out of range in the first bit of the image 
-  # Note: (1) the value range required by QC image creation is from 0 to 1;
-  #       (2) the imaging angle bands are not involved in the generation of QC image.
-  #==========================================================================================================  
-  LEAF_image = image.select(bandList.slice(3))  #Only select required spectral bands
-  nBands     = bandList.slice(3).length()       
-
-  QC_img = LEAF_image.multiply(ee.Image.constant(ee.Number(10))).ceil().mod(ee.Number(10))\
-                     .multiply(ee.Image.constant(ee.List.sequence(0, nBands.subtract(1)).map(lambda value: ee.Number(10).pow(ee.Number(value))))) \
-                     .reduce("sum").remap(sl2pDomain, ee.List.repeat(0, sl2pDomain.length()), 1).uint8()
-
-  #==========================================================================================================
-  # Set flags/marks in the 2nd bit of QC_img for the pixels with out-of-range estimated values 
-  #==========================================================================================================
-  min_img = ee.Image(prod_dict.get('outmin'))
-  max_img = ee.Image(prod_dict.get('outmax'))
-  range_mask = Estimate.lt(min_img).Or(Estimate.gt(max_img)).multiply(ee.Image(2)).uint8()
-
-  QC_img  = QC_img.bitwiseOr(range_mask)
-
-  #==========================================================================================================
-  # Set flags/marks in the 3rd bit of QC_img for all invalid pixels (cloud, shadow, snow, ice, water,
-  # saturated or out of range) 
-  #==========================================================================================================
-  invalid_mask = LEAF_valid_mask(Mosaic, ssr_code, data_unit).multiply(ee.Image(4)).uint8()
-
-  QC_img = QC_img.bitwiseOr(invalid_mask)
-
-  #==========================================================================================================
-  # Set mosaic sensor code in the bits higher than 3 in the case of Landsat data has been used. 
-  #==========================================================================================================
-  if ssr_code < eoImg.MAX_LS_CODE:  # For Landsat imagery
-    ssr_code_band = Mosaic.select([eoImg.mosaic_ssr_code]).multiply(ee.Image(8)).uint8()    
-    #return ssr_code_band
-    return QC_img.bitwiseOr(ssr_code_band)
-  else:  # For Sentinel-2 imagery
-    ssr_code_band = Mosaic.select([0]).multiply(ee.Image(0)).add(ee.Image(eoImg.ST2A_sensor)).multiply(ee.Image(8)).uint8()
-    return QC_img.bitwiseOr(ssr_code_band)
-
-
-
-
-def LEAF_QCImage_test(Mosaic, bandList, SensorCode, DataUnit):
-  '''This function creates a QC band image for a LEAF product.
-     
-    Args:
-      Mosaic(ee.Image): a given mosaic image with the value ranges of the spectral bands are all between 0 and 1;
-      Estimate(ee.Image): an estimated parameter image; 
-      sl2pDomain(ee.FeatureCollection): a feature collection storing value domains;
-      prod_dict({}): a dictionary corresponding to a particaluar product;
-      bandList(ee.List): the band list (imaging angles and spectral bands) to be used in LEAF production;
-      SensorCode(int): an integer indicating the sensor type (LS5, 7, 8, 9 or S2);
-      DataUnit(int): an integer indicating data type (TOA or surface reflectance).'''
-  #==========================================================================================================
-  # Cast input parameters into correct types
-  #==========================================================================================================  
-  ssr_code   = int(SensorCode)
-  data_unit  = int(DataUnit) 
-  bandList   = ee.List(bandList)  # ['cosVZA','cosSZA','cosRAA' and other spectral band names]
-  image      = ee.Image(Mosaic).unmask()   #Note: the pixel values of this mosaic must be within 0 and 1 
-
-  #==========================================================================================================
-  # Set flags/marks in the 3rd bit of QC_img for all invalid pixels (cloud, shadow, snow, ice, water,
-  # saturated or out of range) 
-  #==========================================================================================================
-  QC_img = LEAF_valid_mask(image, ssr_code, data_unit).multiply(ee.Image(4)).uint8()
-  
-  print('\n\n<LEAF_QCImage_test> QC_img info = ',QC_img.getInfo())
-  #==========================================================================================================
-  # Set mosaic sensor code in the bits higher than 3 in the case of Landsat data has been used. 
-  #==========================================================================================================
-  if ssr_code < eoImg.MAX_LS_CODE:  # For Landsat imagery
-    ssr_code_band = Mosaic.select([eoImg.mosaic_ssr_code]).multiply(ee.Image(8)).uint8()    
-    return QC_img.bitwiseOr(ssr_code_band) 
-  else:  # For Sentinel-2 imagery
-    ssr_code_band = Mosaic.select([0]).multiply(ee.Image(0)).add(ee.Image(eoImg.ST2A_sensor)).multiply(ee.Image(8)).uint8()
-    return QC_img.bitwiseOr(ssr_code_band) 
-
-
-
-
-#############################################################################################################
-# Description: Exports two maps, a estimated biophysical parameter map and uncertainty map, to a specified
-#              location (Google Drive or Google Cloud Storage). The filenames of the exported images will be
-#              automatically generated based on tile name, image acquisition time, parameter type and spatial
-#              resolution of the product.
-#
-# Revision history:  2021-Oct-18  Lixin Sun  Initial creation 
-#                    2022-Oct-27  Lixin Sun  Revised so that 
-#############################################################################################################
-def export_products(fun_Param_dict, region, estimateImage, errorImage, QCImage, ExportCode, task_list):
-  '''Exports one set of LEAF products to either Google Drive or Google Cloud Storage
      Args:
-       fun_Param_dict(dictionary): a dictionary storing other required running parameters;
-       region(ee.Geometry): the spatial region of interest;
-       estimateImage(ee.Image): an estimated biophysical parameter map;
-       errorImage(ee.Image): the uncertainty map corresponding to the estimated biophysical parameter map; 
-       QCImage(ee.Image): The QC image to be exported;
-       ExportCode(int): An integer code indicating which image needs to be exported;
+       fun_Param_dict(dictionary): a dictionary storing required running parameters;
+       region(ee.Geometry): the spatial region of interest;       
+       compactImg(ee.Image): an 64-bits image containing FOUR biophysical parameter maps and one QC map;
        task_list([]): a list storing the links to exporting tasks. '''
   #==========================================================================================================
   # Create the names of exporting folder anf files 
@@ -760,220 +606,122 @@ def export_products(fun_Param_dict, region, estimateImage, errorImage, QCImage, 
   tile_str     = str(fun_Param_dict['tile_name'])
   scale_str    = str(fun_Param_dict['resolution'])
   given_folder = str(fun_Param_dict['folder'])
-  PROD_name    = str(fun_Param_dict['prod_name'])
+  
+  tile_name    = tile_str.split('_')[0]
+  form_folder  = tile_name + '_' + year_str
+  exportFolder = form_folder if len(given_folder) < 2 else given_folder
 
-  form_folder  = tile_str + '_' + year_str
-
-  exportFolder = form_folder if len(given_folder) < 2 else given_folder  
-  month_name   = eoImg.get_MonthName(month)
-
+  month_name   = Img.get_MonthName(month)
+  filename = tile_str + '_' + year_str
   if month < 1 or month > 12:
-    estimate_filePrefix  = form_folder + '_' + str(PROD_name) + '_' + scale_str + 'm'
-    uncertain_filePrefix = form_folder + '_error' + str(PROD_name) + '_' + scale_str + 'm'
-    QC_filePrefix        = form_folder + '_' + str(PROD_name) + '_QC_' + scale_str + 'm'
+    filename = filename + '_bioParams_QC_' + scale_str + 'm'
   else:
-    estimate_filePrefix  = form_folder + '_' + month_name + '_' + str(PROD_name) + '_' + scale_str + 'm'
-    uncertain_filePrefix = form_folder + '_' + month_name + '_error' + str(PROD_name) + '_' + scale_str + 'm'
-    QC_filePrefix        = form_folder + '_' + month_name + '_' + str(PROD_name) + '_QC_' + scale_str + 'm'
+    filename = filename + '_' + month_name + '_bioParams_QC_' + scale_str + 'm'
 
   #==========================================================================================================
   # Prepare initial export dictionary and output location 
   #==========================================================================================================
-  out_location = str(fun_Param_dict['location']).lower()
-  
-  export_dict = {'scale': int(fun_Param_dict['resolution']),
+  export_dict = {'image': compactImg,
+                 'description': filename,
+                 'fileNamePrefix': filename,
+                 'scale': int(fun_Param_dict['resolution']),
                  'crs': 'EPSG:3979',
                  'maxPixels': 1e11,
                  'region': region}
 
   #==========================================================================================================
-  # Export an estimated LEAF parameter map to either GD or GCS
+  # Export a 64-bits image containing FOUR biophysical parameter maps and one map to either GD or GCS
   #==========================================================================================================
-  if ExportCode == 0 or ExportCode == 1:
-    export_dict['image']          = estimateImage
-    export_dict['description']    = estimate_filePrefix
-    export_dict['fileNamePrefix'] = estimate_filePrefix
-  
-    if out_location.find('drive') > -1:
-      export_dict['folder'] = exportFolder
-      task_list.append(ee.batch.Export.image.toDrive(**export_dict).start())
-    elif out_location.find('storage') > -1:
-      export_dict['bucket'] = str(fun_Param_dict['bucket'])
-      export_dict['fileNamePrefix'] = exportFolder + '/' + estimate_filePrefix
-      task_list.append(ee.batch.Export.image.toCloudStorage(**export_dict).start())
+  out_location = str(fun_Param_dict['location']).lower()
 
-  #==========================================================================================================
-  # Export an uncertainty map to either GD or GCS
-  #==========================================================================================================
-  if ExportCode == 0 or ExportCode == 2:
-    export_dict['image']          = errorImage
-    export_dict['description']    = uncertain_filePrefix
-    export_dict['fileNamePrefix'] = uncertain_filePrefix
- 
-    if out_location.find('drive') > -1:
-      export_dict['folder'] = exportFolder
-      task_list.append(ee.batch.Export.image.toDrive(**export_dict).start())    
-    elif out_location.find('storage') > -1:
-      export_dict['bucket'] = str(fun_Param_dict['bucket'])
-      export_dict['fileNamePrefix'] = exportFolder + '/' + uncertain_filePrefix
-      task_list.append(ee.batch.Export.image.toCloudStorage(**export_dict).start())  
-
-  #==========================================================================================================
-  # Export an QC map to either GD or GCS
-  #==========================================================================================================
-  if ExportCode == 0 or ExportCode == 3:
-    export_dict['image']          = QCImage
-    export_dict['description']    = QC_filePrefix
-    export_dict['fileNamePrefix'] = QC_filePrefix
- 
-    if out_location.find('drive') > -1:
-      export_dict['folder'] = exportFolder
-      task_list.append(ee.batch.Export.image.toDrive(**export_dict).start())
-    elif out_location.find('storage') > -1:
-      export_dict['bucket'] = str(fun_Param_dict['bucket'])
-      export_dict['fileNamePrefix'] = exportFolder + '/' + QC_filePrefix
-      task_list.append(ee.batch.Export.image.toCloudStorage(**export_dict).start())
-
+  if out_location.find('drive') > -1:
+    export_dict['folder'] = exportFolder
+    task_list.append(ee.batch.Export.image.toDrive(**export_dict).start())
+  elif out_location.find('storage') > -1:
+    export_dict['bucket'] = str(fun_Param_dict['bucket'])
+    export_dict['fileNamePrefix'] = exportFolder + '/' + filename
+    task_list.append(ee.batch.Export.image.toCloudStorage(**export_dict).start())
 
 
 
 
 #############################################################################################################
-# Description: Exports three ancillary maps(QC, Date and partition) associated withfun_Param_dict one set of LEAF products
+# Description: This function exports one biophysical parameter map to either GD or GCS.
 #
-# Note: If month value is outside of range (1 to 12), then a peak season product will be created.
+# Revision history:  2022-Nov-14  Lixin Sun  Initial creation 
 #
-# Revision history:  2021-Oct-18  Lixin Sun  Initial creation 
-#                    2022-Jun-20  Lixin Sun  Added capability for exporting RGB bands. This is necessary for
-#                                            debugging purpose.  
 #############################################################################################################
-def export_partition(mosaic, fun_Param_dict, region, exportClass, exportDate, export_RGB, task_list):
-  '''Exports three ancillary maps associated with one set of LEAF products
-  Args:
-    mosaic(ee.Image): a given mosaic image, which includes "Date" and "QC" bands;
-    fun_Param_dict({}): a dictionary storing other required running parameters;
-    mapBounds(ee.Geometry): the spatial boundary used in LEAF production;
-    export_RGB(Boolean): a flag indicating if to export RGB mosaic images;
-    task_list([]): a list for storing the links to exporting tasks.'''
+def export_one_param(fun_Param_dict, Region, ParamMap, task_list):
+  '''Exports one biophysical parameter map to either GD or GCS.
+
+     Args:
+       fun_Param_dict(dictionary): a dictionary storing other required running parameters;
+       Region(ee.Geometry): the spatial region of interest;
+       ParamMap(ee.Image): the parameter map to be exported;
+       task_list([]): a list storing the links to exporting tasks. '''
   #==========================================================================================================
-  # Create the names of exporting folder and files 
+  # Create the names of exporting folder anf files 
   #==========================================================================================================
-  month        = int(fun_Param_dict['month']) 
-  year_str     = str(fun_Param_dict['year'])
+  month        = int(fun_Param_dict['month'])
+  year_str     = str(fun_Param_dict['year'])   
   tile_str     = str(fun_Param_dict['tile_name'])
   scale_str    = str(fun_Param_dict['resolution'])
   given_folder = str(fun_Param_dict['folder'])
+  prod_name    = str(fun_Param_dict['prod_name'])
 
-  form_folder  = tile_str + '_' + year_str
+  tile_name    = tile_str.split('_')[0]
+  form_folder  = tile_name + '_' + year_str
   exportFolder = form_folder if len(given_folder) < 2 else given_folder  
 
-  if month >= 1 or month <= 12:
-    filePrefix = form_folder + '_' + eoImg.get_MonthName(month)
+  month_name   = Img.get_MonthName(month)
+  filename  = tile_str + '_' + year_str
+  if month < 1 or month > 12:
+    filename = filename + '_' + prod_name + '_' + scale_str + 'm'
+  else:
+    filename = filename + '_' + month_name + '_' + prod_name + '_' + scale_str + 'm'
 
   #==========================================================================================================
-  # Generate partition map (The partition map for Sentinel-2 and Landsat imagery should be the same)
+  # Prepare initial export dictionary and output location 
   #==========================================================================================================
-  partition = eoAD.get_GlobLC(region, int(year_str))
-  #CollName  = eoImg.GEE_catalog_name(fun_Param_dict['sensor'], eoImg.sur_ref)  
-  #partition = (COLL_OPTIONS[CollName]["partition"]).filterBounds(region).mosaic().rename('partition')
+  export_dict = {'image': ParamMap,
+                 'description': filename,
+                 'fileNamePrefix': filename,
+                 'scale': int(fun_Param_dict['resolution']),
+                 'crs': 'EPSG:3979',
+                 'maxPixels': 1e11,
+                 'region': Region}
 
   #==========================================================================================================
-  # Export ancillary maps associated with LEAF products 
+  # Export a 64-bits image containing FOUR biophysical parameter maps and one map to either GD or GCS
   #==========================================================================================================
   out_location = str(fun_Param_dict['location']).lower()
 
-  export_dict = {'scale': fun_Param_dict['resolution'],
-                 'crs': 'EPSG:3979',
-                 'maxPixels': 1e11,
-                 'region': region}
-  
   if out_location.find('drive') > -1:
-    print('<export_ancillaries> Exporting to Google Drive......')  
-    # Export 'partitiion' map to Google Drive
-    export_dict['folder']         = exportFolder
-
-    export_dict['image']          = partition
-    export_dict['description']    = filePrefix + '_Partition_' + scale_str + 'm'
-    export_dict['fileNamePrefix'] = filePrefix + '_Partition_' + scale_str + 'm'   
-
+    export_dict['folder'] = exportFolder
     task_list.append(ee.batch.Export.image.toDrive(**export_dict).start())
-
   elif out_location.find('storage') > -1:
-    print('<export_ancillaries> Exporting to Google Cloud Storage......')  
-    export_dict['bucket']         = str(fun_Param_dict['bucket'])
-
-    # Export 'partition' map to Google Cloud Storage
-    export_dict['image']          = partition
-    export_dict['description']    = filePrefix + '_Partition_' + scale_str + 'm'
-    export_dict['fileNamePrefix'] = exportFolder + '/' + export_dict['description']
-
-    task_list.append(ee.batch.Export.image.toCloudStorage(**export_dict).start()) 
-   
-  if export_RGB == True:
-    print('<export_ancillaries> function param = ', fun_Param_dict)
-    RGB_names = eoImg.get_RGB_BandNames(int(fun_Param_dict['sensor']), eoImg.sur_ref)
-    
-    if out_location.find('drive') > -1:
-      export_dict['folder']         = exportFolder
-
-      scale_img = ee.Image(10000) 
-      export_dict['image']          = mosaic.select([RGB_names[0]]).multiply(scale_img).toUint16()
-      export_dict['description']    = filePrefix + '_blu_' + scale_str + 'm'
-      export_dict['fileNamePrefix'] = filePrefix + '_blu_' + scale_str + 'm'
-
-      task_list.append(ee.batch.Export.image.toDrive(**export_dict).start())
-
-      export_dict['image']          = mosaic.select([RGB_names[1]]).multiply(scale_img).toUint16()
-      export_dict['description']    = filePrefix + '_grn_' + scale_str + 'm'
-      export_dict['fileNamePrefix'] = filePrefix + '_grn_' + scale_str + 'm'
-      
-      task_list.append(ee.batch.Export.image.toDrive(**export_dict).start() )
-      
-      export_dict['image']          = mosaic.select([RGB_names[2]]).multiply(scale_img).toUint16()
-      export_dict['description']    = filePrefix + '_red_' + scale_str + 'm'
-      export_dict['fileNamePrefix'] = filePrefix + '_red_' + scale_str + 'm'
-      
-      task_list.append(ee.batch.Export.image.toDrive(**export_dict).start())
-
-    elif out_location.find('storage') > -1:
-      print('<export_ancillaries> Exporting to Google Cloud Storage......')  
-      export_dict['bucket'] = str(fun_Param_dict['bucket'])
-
-      # Export 'partition' map to Google Cloud Storage
-      export_dict['image']          = mosaic.select([RGB_names[0]]).multiply(scale_img).toUint16()
-      export_dict['description']    = filePrefix + '_blu_' + scale_str + 'm'
-      export_dict['fileNamePrefix'] = exportFolder + '/' + export_dict['description']
-      
-      task_list.append(ee.batch.Export.image.toCloudStorage(**export_dict).start())
-
-      export_dict['image']          = mosaic.select([RGB_names[1]]).multiply(scale_img).toUint16()
-      export_dict['description']    = filePrefix + '_grn_' + scale_str + 'm'
-      export_dict['fileNamePrefix'] = exportFolder + '/' + export_dict['description']
-      
-      task_list.append(ee.batch.Export.image.toCloudStorage(**export_dict).start())
-
-      export_dict['image']          = mosaic.select([RGB_names[2]]).multiply(scale_img).toUint16()
-      export_dict['description']    = filePrefix + '_red_' + scale_str + 'm'
-      export_dict['fileNamePrefix'] = exportFolder + '/' + export_dict['description']
-      
-      task_list.append(ee.batch.Export.image.toCloudStorage(**export_dict).start())
+    export_dict['bucket'] = str(fun_Param_dict['bucket'])
+    export_dict['fileNamePrefix'] = exportFolder + '/' + filename
+    task_list.append(ee.batch.Export.image.toCloudStorage(**export_dict).start())
 
 
 
 
 
 #############################################################################################################
-# Description: Exports partition image associated with one tile to either GD or GCS
+# Description: Exports a classification image associated with one tile to either GD or GCS.
 #
 # Revision history:  2021-Oct-18  Lixin Sun  Initial creation 
 #                    2022-Oct-27  Lixin Sun  This function was separated from "export_ancillaries", which
 #                                            does not exist anymore. 
 #############################################################################################################
-def export_ClassImg(fun_Param_dict, region, task_list):
-  '''Exports partition image to one of optional storages
+def export_ClassImg(ClassImg, fun_Param_dict, region, task_list):
+  '''Exports a classification map associated with a tile to either GD or GCS.
+
   Args:
+    ClassImg(ee.Image): The given class image;
     fun_Param_dict({}): a dictionary storing other required running parameters;
-    mapBounds(ee.Geometry): the spatial boundary used in LEAF production;
+    region(ee.Geometry): the spatial boundary used in LEAF production;
     task_list([]): a list for storing the links to exporting tasks.'''
   #==========================================================================================================
   # Create the names of exporting folder and files 
@@ -988,29 +736,25 @@ def export_ClassImg(fun_Param_dict, region, task_list):
   #==========================================================================================================
   form_folder  = tile_str + '_' + year_str
   exportFolder = form_folder if len(given_folder) < 2 else given_folder
-  out_location = str(fun_Param_dict['location']).lower()
+  out_location = str(fun_Param_dict['location']).lower()  
 
-  export_dict = {'scale': fun_Param_dict['resolution'],
+  export_dict = {'image': ClassImg,
+                 'scale': fun_Param_dict['resolution'],
                  'crs': 'EPSG:3979',
                  'maxPixels': 1e11,
-                 'region': region}
-  
-  partition = eoAD.get_GlobLC(region, int(year_str)).uint8()
-
+                 'region': region,
+                 'description': form_folder + '_Partition_' + scale_str + 'm'}
+    
   if out_location.find('drive') > -1:
     print('<export_ClassImg> Exporting pratition to Google Drive......')  
-    export_dict['folder']         = exportFolder
-    export_dict['image']          = partition
-    export_dict['description']    = form_folder + '_Partition_' + scale_str + 'm'
-    export_dict['fileNamePrefix'] = form_folder + '_Partition_' + scale_str + 'm'   
+    export_dict['folder']         = exportFolder    
+    export_dict['fileNamePrefix'] = export_dict['description']
 
     task_list.append(ee.batch.Export.image.toDrive(**export_dict).start())  
 
   elif out_location.find('storage') > -1:
     print('<export_ClassImg> Exporting partition to Google Cloud Storage......')    
     export_dict['bucket']         = str(fun_Param_dict['bucket'])
-    export_dict['image']          = partition
-    export_dict['description']    = form_folder + '_Partition_' + scale_str + 'm'
     export_dict['fileNamePrefix'] = exportFolder + '/' + export_dict['description']
 
     task_list.append(ee.batch.Export.image.toCloudStorage(**export_dict).start()) 
@@ -1019,7 +763,7 @@ def export_ClassImg(fun_Param_dict, region, task_list):
 
 
 #############################################################################################################
-# Description: Exports three ancillary maps(QC, Date and partition) associated withfun_Param_dict one set of LEAF products
+# Description: Exports Date image associated with one tile to either GD or GCS
 #
 # Note: If month value is outside of range (1 to 12), then a peak season product will be created.
 #
@@ -1029,6 +773,7 @@ def export_ClassImg(fun_Param_dict, region, task_list):
 #############################################################################################################
 def export_DateImg(mosaic, fun_Param_dict, region, task_list):
   '''Exports three ancillary maps associated with one set of LEAF products
+
   Args:
     mosaic(ee.Image): a given mosaic image, which includes "Date" and "QC" bands;
     fun_Param_dict({}): a dictionary storing other required running parameters;
@@ -1038,6 +783,7 @@ def export_DateImg(mosaic, fun_Param_dict, region, task_list):
   #==========================================================================================================
   # Create the names of exporting folder and files 
   #==========================================================================================================
+  print('<export_DateImg> function started......')  
   month        = int(fun_Param_dict['month']) 
   year_str     = str(fun_Param_dict['year'])
   tile_str     = str(fun_Param_dict['tile_name'])
@@ -1048,8 +794,8 @@ def export_DateImg(mosaic, fun_Param_dict, region, task_list):
   exportFolder = form_folder if len(given_folder) < 2 else given_folder  
 
   if month >= 1 or month <= 12:
-    filePrefix = form_folder + '_' + eoImg.get_MonthName(month)  
-
+    filePrefix = form_folder + '_' + Img.get_MonthName(month)  
+  
   #==========================================================================================================
   # Export ancillary maps associated with LEAF products 
   #==========================================================================================================
@@ -1063,7 +809,7 @@ def export_DateImg(mosaic, fun_Param_dict, region, task_list):
   if out_location.find('drive') > -1:
     print('<export_DateImg> Exporting date image to Google Drive......')  
     export_dict['folder']         = exportFolder
-    export_dict['image']          = mosaic.select([eoImg.pix_date])
+    export_dict['image']          = mosaic.select([Img.pix_date])
     export_dict['description']    = filePrefix + '_Date_' + scale_str + 'm'
     export_dict['fileNamePrefix'] = filePrefix + '_Date_' + scale_str + 'm'
 
@@ -1072,7 +818,7 @@ def export_DateImg(mosaic, fun_Param_dict, region, task_list):
   elif out_location.find('storage') > -1:
     print('<export_DateImg> Exporting date image to Google Cloud Storage......')    
     export_dict['bucket']         = str(fun_Param_dict['bucket'])    
-    export_dict['image']          = mosaic.select([eoImg.pix_date])
+    export_dict['image']          = mosaic.select([Img.pix_date])
     export_dict['description']    = filePrefix + '_Date_' + scale_str + 'm'
     export_dict['fileNamePrefix'] = exportFolder + '/' + export_dict['description']
 
@@ -1083,129 +829,41 @@ def export_DateImg(mosaic, fun_Param_dict, region, task_list):
 
 
 #############################################################################################################
-# Description: Exports three ancillary maps(QC, Date and partition) associated withfun_Param_dict one set of LEAF products
-#
-# Note: If month value is outside of range (1 to 12), then a peak season product will be created.
-#
-# Revision history:  2021-Oct-18  Lixin Sun  Initial creation 
-#                    2022-Jun-20  Lixin Sun  Added capability for exporting RGB bands. This is necessary for
-#                                            debugging purpose.  
-#############################################################################################################
-def export_RGBImg(mosaic, fun_Param_dict, region, task_list):
-  '''Exports three ancillary maps associated with one set of LEAF products
-  Args:
-    mosaic(ee.Image): a given mosaic image, which includes "Date" and "QC" bands;
-    fun_Param_dict({}): a dictionary storing other required running parameters;
-    mapBounds(ee.Geometry): the spatial boundary used in LEAF production;
-    task_list([]): a list for storing the links to exporting tasks.'''
-  #==========================================================================================================
-  # Create the names of exporting folder and files 
-  #==========================================================================================================
-  month        = int(fun_Param_dict['month']) 
-  year_str     = str(fun_Param_dict['year'])
-  tile_str     = str(fun_Param_dict['tile_name'])
-  scale_str    = str(fun_Param_dict['resolution'])
-  given_folder = str(fun_Param_dict['folder'])
-
-  form_folder  = tile_str + '_' + year_str
-  exportFolder = form_folder if len(given_folder) < 2 else given_folder  
-
-  if month >= 1 or month <= 12:
-    filePrefix = form_folder + '_' + eoImg.get_MonthName(month)  
-
-  #==========================================================================================================
-  # Export ancillary maps associated with LEAF products 
-  #==========================================================================================================
-  out_location = str(fun_Param_dict['location']).lower()
-
-  export_dict = {'scale': fun_Param_dict['resolution'],
-                 'crs': 'EPSG:3979',
-                 'maxPixels': 1e11,
-                 'region': region}
-  
-  #==========================================================================================================
-  # Export RGB images 
-  #==========================================================================================================
-  print('<export_ancillaries> function param = ', fun_Param_dict)
-  RGB_names = eoImg.get_RGB_BandNames(int(fun_Param_dict['sensor']), eoImg.sur_ref)
-    
-  if out_location.find('drive') > -1:
-    print('<export_RGBImg> Exporting RGB images to Google Cloud Storage......')  
-    export_dict['folder']         = exportFolder
-
-    scale_img = ee.Image(10000) 
-    export_dict['image']          = mosaic.select([RGB_names[0]]).multiply(scale_img).toUint16()
-    export_dict['description']    = filePrefix + '_blu_' + scale_str + 'm'
-    export_dict['fileNamePrefix'] = filePrefix + '_blu_' + scale_str + 'm'
-    task_list.append(ee.batch.Export.image.toDrive(**export_dict).start())
-
-    export_dict['image']          = mosaic.select([RGB_names[1]]).multiply(scale_img).toUint16()
-    export_dict['description']    = filePrefix + '_grn_' + scale_str + 'm'
-    export_dict['fileNamePrefix'] = filePrefix + '_grn_' + scale_str + 'm'      
-    task_list.append(ee.batch.Export.image.toDrive(**export_dict).start() )
-      
-    export_dict['image']          = mosaic.select([RGB_names[2]]).multiply(scale_img).toUint16()
-    export_dict['description']    = filePrefix + '_red_' + scale_str + 'm'
-    export_dict['fileNamePrefix'] = filePrefix + '_red_' + scale_str + 'm'      
-    task_list.append(ee.batch.Export.image.toDrive(**export_dict).start())
-
-  elif out_location.find('storage') > -1:
-    print('<export_RGBImg> Exporting RGB images to Google Cloud Storage......')  
-    export_dict['bucket'] = str(fun_Param_dict['bucket'])
-
-    export_dict['image']          = mosaic.select([RGB_names[0]]).multiply(scale_img).toUint16()
-    export_dict['description']    = filePrefix + '_blu_' + scale_str + 'm'
-    export_dict['fileNamePrefix'] = exportFolder + '/' + export_dict['description']      
-    task_list.append(ee.batch.Export.image.toCloudStorage(**export_dict).start())
-
-    export_dict['image']          = mosaic.select([RGB_names[1]]).multiply(scale_img).toUint16()
-    export_dict['description']    = filePrefix + '_grn_' + scale_str + 'm'
-    export_dict['fileNamePrefix'] = exportFolder + '/' + export_dict['description']      
-    task_list.append(ee.batch.Export.image.toCloudStorage(**export_dict).start())
-
-    export_dict['image']          = mosaic.select([RGB_names[2]]).multiply(scale_img).toUint16()
-    export_dict['description']    = filePrefix + '_red_' + scale_str + 'm'
-    export_dict['fileNamePrefix'] = exportFolder + '/' + export_dict['description']      
-    task_list.append(ee.batch.Export.image.toCloudStorage(**export_dict).start())
-
-
-
-
-
-#############################################################################################################
-# Description: This function creates a mask that masks out cloud/shadow, snow/ice and water. This mask will
-#              be used to set flag for the 3rd bit in the QC image of a LEAF product. 
+# Description: This function creates a pixel mask that masks out cloud/shadow, snow/ice and water. This mask
+#              will be used to set a flag at the 3rd bit in a QC image. 
 #
 # Revision history:  2022-Jun-22  Lixin Sun  Initial creation 
+#                    2022-Nov-16  Lixin Sun  Added water mask from a given classification map.
 #
 #############################################################################################################
-def LEAF_valid_mask(Image, SensorCode, DataUnit):
+def LEAF_valid_mask(Image, SsrData, MaxRef, ClassMap):
   '''Exports three ancillary maps associated with one set of LEAF products
+
   Args:
     Image(ee.Image): a given mosaic image;
-    SensorCode(int): an integer indicating a sensor type (LS 5,7,8,9 or S2);
-    DataUnit(int): an integer indicating a data type (TOA or surface reflectance);
-    max_ref(float or int): the maximum reflectance value in the given Image.'''
-  # Cast some input parameters
-  ssr_code  = int(SensorCode)
-  data_unit = int(DataUnit) 
+    SsrData(Dictionary): a Dictionary containing metadata associated with a sensor and data unit;
+    MaxRef(int): the maximum reflectance value in the given Image;
+    ClassMap(ee.Image): a given classification map.'''
 
   # Invoke the functions to generate various masks. 
   # Note the value range in "Image" is [0, 1] since it is used for LEAF calculation 
-  snow_mask  = eoIM.Img_SnowMask (Image, ssr_code, data_unit, 1)
-  water_mask = eoIM.Img_WaterMask(Image, ssr_code, data_unit, 1)
-  valid_mask = eoIM.Img_ValidMask(Image, ssr_code, data_unit, 1)  
-  
-  #return valid_mask
-  return snow_mask.gt(0).Or(water_mask.gt(0)).Or(valid_mask.gt(0))
+  snow_mask   = IM.Img_SnowMask (Image, SsrData, MaxRef)
+  #water_mask  = IM.Img_WaterMask(Image, SsrData, MaxRef)
+  valid_mask  = IM.Img_ValidMask(Image, SsrData, MaxRef)  
+  class_water = ClassMap.eq(0).Or(ClassMap.eq(18))  
+  #return snow_mask.Or(water_mask).Or(valid_mask).Or(class_water)
+  return snow_mask.Or(valid_mask).Or(class_water)
 
 
 
 
 #############################################################################################################
-# Description: Produces one vegetation parameter map for a specific region and time period
+# Description: This function applys ANN-based algorithm for Sentinel-2 data to generate a full set of LEAF
+#              products for a specific region and time period and export them in separate files.
 #
-# Note:        The reflectance value range of the given mosaic image must be within 0 and 1.
+# Note:        (1) The reflectance value range of the given mosaic image must be within 0 and 1.
+#              (2) The production time required by this function is higher than that required by
+#                  "compact_params" function.
 #
 # Revision history:  2021-May-20  Lixin Sun  Initial creation 
 #                    2021_Oct-11  Lixin Sun  Moved mosaic creation outside this function. This ensure the
@@ -1213,92 +871,274 @@ def LEAF_valid_mask(Image, SensorCode, DataUnit):
 #                    2021-Oct-15  Lixin Sun  Modified so that peak season ("month" argument is outside of 
 #                                            1 and 12) product can also be generated. 
 #############################################################################################################
-def one_LEAF_product(inMosaic, fun_Param_dict, region, output, task_list):
-  '''Produces one LEAF product for a specific region and time period
+def S2_separate_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, task_list):
+  '''Produces a full set of LEAF products for a specific region and time period and export them in separate files.
+
     Args:
-       mosaic(ee.Image): a given mosaic image from which products will be generated;       
-       fun_Param_dict({}): a dictionary storing most required parameters;
-       region(ee.Geometry): the spatial region of the production;
-       output (Bool): the flag indicating whether or not to export the results;
-       task_list([]): a list for storing the exporting tasks.'''  
+       fun_Param_dict(Dictionary):
+       inMosaic(ee.Image): a given mosaic image from which products will be generated;  
+       Region(ee.Geometry): a ROI;     
+       SsrData(Dictionary): a Dictionary containing metadata associated with a sensor and data unit;
+       ClassImg(ee.Image): A given classification image;
+       task_list([]): a list for storing the links to exporting tasks.'''
   #==========================================================================================================
   # Obtain the names of a GEE Data Catalog ('COPERNICUS/S2_SR_HARMONIZED' or 'LANDSAT/LC08/C01/T1_SR') and
-  # a biopgysical parameter (one of 'LAI', 'fCOVER', 'fAPAR' and 'Albedo').
+  # a biophysical parameter (one of 'LAI', 'fCOVER', 'fAPAR' and 'Albedo').
   #==========================================================================================================
-  ssr_code  = int(fun_Param_dict['sensor'])
-  coll_name = eoImg.GEE_catalog_name(ssr_code, eoImg.sur_ref)  
-  prod_name = fun_Param_dict['prod_name']
-  
-  #==========================================================================================================
-  # Determine the collection and production dictionaries based on above two names. 
-  #==========================================================================================================
+  coll_name = SsrData['NAME'] + "_SR"
   coll_dict = COLL_OPTIONS[coll_name] # ee.Dictionay object related to a selected collection type
-  prod_dict = PROD_OPTIONS[prod_name] # ee.Dictionay object related to a selected product type
-  
+ 
+  sl2pDomain = coll_dict["sl2pDomain"].aggregate_array("DomainCode").sort()
+  bandList   = ee.List(coll_dict["inputBands"])
+  LEAF_image = inMosaic.select(bandList.slice(3))  #Only select required spectral bands
+  nBands     = bandList.slice(3).length()
+
+  #==========================================================================================================
+  # Create a QC image to mark the pixels where spectral values are out of the input range for calculating
+  # biophysical parameters
+  #==========================================================================================================
+  QC_img = LEAF_image.multiply(ee.Image.constant(ee.Number(10))).ceil().mod(ee.Number(10))\
+                     .multiply(ee.Image.constant(ee.List.sequence(0, nBands.subtract(1)).map(lambda value: ee.Number(10).pow(ee.Number(value))))) \
+                     .reduce("sum").remap(sl2pDomain, ee.List.repeat(0, sl2pDomain.length()), 1).uint8()
+
+  #==========================================================================================================
+  # Mask out water bodies from the mosaic image
+  #==========================================================================================================  
+  water_mask  = ClassImg.neq(ee.Image(0)).And(ClassImg.neq(ee.Image(18)))
+  mosaic      = inMosaic.updateMask(water_mask)
+
   #==========================================================================================================
   # Determine the number of land cover classes based on the number of networks and parameter types.
-  #==========================================================================================================  
-  total_nets = coll_dict["Collection_SL2P"].size()      # the total number of networks (ee.Feature objects)  
+  #==========================================================================================================
+  coll_nets  = coll_dict["Collection_SL2P"]
+  total_nets = coll_nets.size()                         # the total number of networks (ee.Feature objects)  
   numbParams = int(coll_dict["numVariables"])           # the total number of biophysical parameters (normally 7)
   numClasses = total_nets.divide(ee.Number(numbParams)) # the number of land cover classes
 
+  estim_net = ee.List.sequence(1, numbParams).map(lambda netNumb: make_DNet_arr(coll_nets, numClasses, netNumb))
+
   #==========================================================================================================
-  # Create two network matrices, estim_net and error_net, with their rows and columns corresponding to 
-  # different biophysical parameters and land cover types.
-  # Note: each element in the network matrices is a ee.Directory object with 8 keys.
+  # Define a function that can estimate a biophysical parameter and its corresponding QC image
   #==========================================================================================================   
-  estim_net = ee.List.sequence(1, numbParams) \
-                .map(lambda netNumb: make_DNet_arr(coll_dict["Collection_SL2P"], numClasses, netNumb))
-    
-  error_net = ee.List.sequence(1, numbParams) \
-                .map(lambda netNumb: make_DNet_arr(coll_dict["Collection_SL2Perrors"], numClasses, netNumb))
+  def estimate_param_QC(fun_Param_dict, QC_img):
+    prod_dict = PROD_OPTIONS[fun_Param_dict['prod_name']]
+    estim_img = wrapperNNets(estim_net, ClassImg, prod_dict, coll_dict, "estimate", mosaic)
+
+    # Identify the pixels exceeding the output range 
+    out_min    = ee.Image(prod_dict['outmin'])
+    out_max    = ee.Image(prod_dict['outmax'])
+    range_mask = estim_img.lt(out_min).Or(estim_img.gt(out_max)).multiply(ee.Image(2))
+    QC_img     = QC_img.bitwiseOr(range_mask)
+
+    scaling_factor = ee.Image(prod_dict['scale_factor'])
+    estim_img      = estim_img.where(estim_img.lt(0), ee.Image(0)).multiply(scaling_factor)
+
+    return estim_img.uint8(), QC_img.uint8()
 
   #==========================================================================================================
-  # Produce biophysical parameter and its uncertainty maps
+  # Estimate FOUR biophysical parameter maps and QC map, and then export them separately
   #==========================================================================================================
-  year      = int(fun_Param_dict['year'])
-  partition = eoAD.get_GlobLC(region, year)  # A proper land cover map will be selected based on a given year
+  fun_Param_dict['prod_name'] = 'LAI'
+  param_map, QC_img = estimate_param_QC(fun_Param_dict, QC_img)  
+  #export_one_param(fun_Param_dict, Region, param_map, task_list)  
   
-  estim_img = wrapperNNets(estim_net, partition, prod_dict, coll_dict, "estimate", inMosaic)
-  error_img = wrapperNNets(error_net, partition, prod_dict, coll_dict, "error",    inMosaic)
-    
-  #==========================================================================================================
-  # Select the parameter and uncertainty maps
-  #==========================================================================================================
-  #estim_img = estim_cube.select([0])
-  #error_img = error_cube.select([0])  
-  #networkID = estim_cube.select(['networkID'])
+  fun_Param_dict['prod_name'] = 'fCOVER'  
+  param_map, QC_img = estimate_param_QC(fun_Param_dict, QC_img)
+  #export_one_param(fun_Param_dict, Region, param_map, task_list)
 
-  #==========================================================================================================
-  # Create a QC band image for a LEAF product
-  #==========================================================================================================
-  sl2pDomain = coll_dict["sl2pDomain"]
-  bandList   = coll_dict["inputBands"]
+  fun_Param_dict['prod_name'] = 'fAPAR'  
+  param_map, QC_img = estimate_param_QC(fun_Param_dict, QC_img)
+  #export_one_param(fun_Param_dict, Region, param_map, task_list)
+
+  fun_Param_dict['prod_name'] = 'Albedo'
+  param_map, QC_img = estimate_param_QC(fun_Param_dict, QC_img)
+  #export_one_param(fun_Param_dict, Region, param_map, task_list)  
   
-  QC_img = LEAF_QCImage(inMosaic, estim_img, sl2pDomain, prod_dict, bandList, ssr_code, eoImg.sur_ref)
+  #==========================================================================================================
+  # Set flags/marks in the 3rd bit of "QC_img" for all kinds of invalid pixels (cloud, shadow, snow, ice, 
+  # water, saturated or out of range) 
+  #==========================================================================================================  
+  fun_Param_dict['prod_name'] = 'QC'  
+  invalid_mask = LEAF_valid_mask(inMosaic, SsrData, 1, ClassImg).multiply(ee.Image(4)).uint8()
+  QC_img       = QC_img.unmask().bitwiseOr(invalid_mask)
+  export_one_param(fun_Param_dict, Region, QC_img, task_list)
 
-  #==========================================================================================================
-  # Rescale parameter and uncertainty maps so that they be export in 8-bits images 
-  #==========================================================================================================
-  if prod_name == 'Albedo' or prod_name == 'fAPAR' or prod_name == 'fCOVER':
-    scaling_factor = ee.Image(200);  # Could be 255, but 200 is easy to remember
-  elif prod_name == 'LAI':
-    scaling_factor = ee.Image(20);   # Modified on Jan. 28, 2021
+
+
+
+#############################################################################################################
+# Description: This function applys a RF-based LEAF algorithm for Landsat-8/9 data to generate biophysical 
+#              parameter maps for a specific region and time period and export them in separate files.
+#
+# Note:        (1) The reflectance value range of the given mosaic image must be within 0 and 1.
+#              (2) The production time required by this function is higher than that required by
+#                  "compact_params" function.
+#
+# Revision history:  2022-Dec-20  Lixin Sun  Initial creation 
+#                   
+#############################################################################################################
+def LS_separate_params(fun_Param_dict, inMosaic, Region, ClassImg, task_list):
+  '''Produces a full set of LEAF products for a specific region and time period and export them in separate files.
+
+    Args:
+       fun_Param_dict(Dictionary):
+       inMosaic(ee.Image): a given mosaic image from which products will be generated;  
+       Region(ee.Geometry): a ROI;     
+       SsrData(Dictionary): a Dictionary containing metadata associated with a sensor and data unit;
+       ClassImg(ee.Image): A given classification image;
+       task_list([]): a list for storing the links to exporting tasks.'''
   
-  estim_img = estim_img.where(estim_img.lt(ee.Image(0.0)), ee.Image(0.0))        
-  estim_img = estim_img.multiply(scaling_factor).uint8()
-  error_img = error_img.multiply(scaling_factor).uint8()
+  methodName    = "NAIVE"
+  treeDirectory = "users/rfernand387/modisLandsatTrees/"
 
-  #estim_img = estim_img.where(partition.eq(ee.Image(18)), ee.Image(0))
-  #error_img = error_img.where(partition.eq(ee.Image(18)), ee.Image(0))  
+  #================================================================================================
+  # Construct RF-based models from the feature collections stored in GEE assets
+  # A list of ee.FeatureColelction objects will be returned from "constructMethod" function
+  #================================================================================================
+  method = LFLS.constructMethod(methodName, treeDirectory)
+  print('\n\n<LS_separate_params> property names in used method = ', ee.FeatureCollection(method.get(0)).propertyNames().getInfo())
 
+  #================================================================================================
+  # Attach the biome map/image to the given mosaic image
+  # Note: For Landsat8/9 LEAF tool, biome map, instead of classification map, must be applied.
+  #================================================================================================
+  mosaic = inMosaic.addBands(ClassImg.rename(['LC_type3']))
+  #print('<LS_separate_params> bands in mosaic = ', mosaic.bandNames().getInfo())
+  
+  unique_biome_values = LFLS.uniqueValues(mosaic.select('LC_type3'), Region)
+  print('<LS_separate_params> unique biome values = ', unique_biome_values.getInfo())
+  #================================================================================================
+  # Apply the models to the given mosaic image
+  #================================================================================================
+  resultImage = LFLS.estimateResponse(method.get(0), mosaic, Region)
+  print('Finished estimating parameter\n')
+
+  return resultImage
+
+
+
+
+
+#############################################################################################################
+# Description: This is a switch function that selects a algorithm suitable for Sentinel-2 or Landsat-8 data.
+#              
+# Revision history:  2022-Dec-20  Lixin Sun  Initial creation 
+#                  
+#############################################################################################################
+def separate_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, task_list):
+  '''Produces a full set of LEAF products for a specific region and time period and export them in separate files.
+
+    Args:
+       fun_Param_dict(Dictionary):
+       inMosaic(ee.Image): a given mosaic image from which products will be generated;  
+       Region(ee.Geometry): a ROI;     
+       SsrData(Dictionary): a Dictionary containing metadata associated with a sensor and data unit;
+       ClassImg(ee.Image): A given classification image;
+       task_list([]): a list for storing the links to exporting tasks.'''
   #==========================================================================================================
-  # export the results as necessary
+  # Obtain the names of a GEE Data Catalog ('COPERNICUS/S2_SR_HARMONIZED' or 'LANDSAT/LC08/C01/T1_SR') and
+  # a biophysical parameter (one of 'LAI', 'fCOVER', 'fAPAR' and 'Albedo').
   #==========================================================================================================
-  if output == True:    
-    export_products(fun_Param_dict, region, estim_img, error_img, QC_img, 0, task_list)
+  ssr_code = SsrData['SSR_CODE']
+
+  if ssr_code > Img.MAX_LS_CODE:
+    S2_separate_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, task_list)
   else:
-    return estim_img, QC_img
+    LS_separate_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, task_list)
+
+
+
+
+
+#############################################################################################################
+# Description: This function produces and exports a 64-bits image that contains a full set of vegetation 
+#              parameter maps and one QC map for specified time period and region. 
+#
+# Note:        The reflectance value range of the given mosaic image must be within 0 and 1.
+#
+# Revision history:  2022-Nov-14  Lixin Sun  Created to increase the effiiciency of LEAF production. 
+#
+#############################################################################################################
+def compact_params(inMosaic, SsrData, ClassImg):
+  '''Produces and exports a 64-bits image that contains a full set of vegetation parameter maps 
+     and one QC map for specified time period and region.
+     
+    Args:
+       inMosaic(ee.Image): a given mosaic image to be used for biophysical parameter extraction;       
+       SsrData(Dictionary): a Dictionary containing metadata associated with a sensor and data unit;
+       ClassImg(ee.Image): a given classification image.'''
+  
+  #==========================================================================================================
+  # Create a QC image that identifies the pixels that are out of input range  
+  #========================================================================================================== 
+  coll_name  = SsrData['NAME']         # Obtain the metadata dictionary associated with a sensor
+  coll_dict  = COLL_OPTIONS[coll_name] # ee.Dictionay object related to a selected collection type  
+
+  sl2pDomain = coll_dict["sl2pDomain"].aggregate_array("DomainCode").sort()
+  bandList   = ee.List(coll_dict["inputBands"])
+  LEAF_image = inMosaic.select(bandList.slice(3))  #Only select required spectral bands
+  nBands     = bandList.slice(3).length()
+
+  QC_img = LEAF_image.multiply(ee.Image.constant(10)).ceil().mod(ee.Number(10))\
+                     .multiply(ee.Image.constant(ee.List.sequence(0, nBands.subtract(1)).map(lambda value: ee.Number(10).pow(ee.Number(value))))) \
+                     .reduce("sum").remap(sl2pDomain, ee.List.repeat(0, sl2pDomain.length()), 1).uint8()
+
+  #==========================================================================================================
+  # Mask out water bodies from the mosaic image
+  #==========================================================================================================  
+  water_mask = ClassImg.neq(ee.Image(0)).And(ClassImg.neq(ee.Image(18)))
+  mosaic     = inMosaic.updateMask(water_mask)
+
+  #==========================================================================================================
+  # Create a neural network for parameter estimation.
+  #==========================================================================================================  
+  coll_nets  = coll_dict["Collection_SL2P"]
+  total_nets = coll_nets.size()                         # the total number of networks (ee.Feature objects)  
+  numbParams = int(coll_dict["numVariables"])           # the total number of biophysical parameters (normally 7)
+  numClasses = total_nets.divide(ee.Number(numbParams)) # the number of land cover classes
+
+  estim_net = ee.List.sequence(1, numbParams).map(lambda netNumb: make_DNet_arr(coll_nets, numClasses, netNumb))
+
+  #==========================================================================================================
+  # Define a function that estimates a biophysical parameter map and its corresponding QC image
+  #==========================================================================================================   
+  def estimate_param_QC(paramName, compactImg, QCImg):
+    # Estimate a vegetation parameter defined by "paramName"
+    prod_dict = PROD_OPTIONS[paramName]       # get a production options corresponding to a parameter  
+    estim_img = wrapperNNets(estim_net, ClassImg, prod_dict, coll_dict, "estimate", mosaic)    
+    estim_img = estim_img.where(estim_img.lt(0), ee.Image(0))
+
+    # Identify the pixels exceeding the output range 
+    out_min    = ee.Image(prod_dict['outmin'])
+    out_max    = ee.Image(prod_dict['outmax'])
+    range_mask = estim_img.lt(out_min).Or(estim_img.gt(out_max)).multiply(ee.Image(2)).uint8()
+    QCImg      = QCImg.bitwiseOr(range_mask)
+    
+    # Rescale estimated parameter map so that it can be emdebed into a compact image  
+    combin_factor = ee.Image(prod_dict['scale_factor']*prod_dict['compact_factor']).toInt64()
+    compactImg    = compactImg.add(estim_img.multiply(combin_factor))
+
+    return compactImg, QC_img
+
+  #==========================================================================================================
+  # Estimate FOUR biophysical parameters
+  #==========================================================================================================
+  compact_img = inMosaic.select([0]).multiply(0).toInt64()
+
+  compact_img, QC_img = estimate_param_QC('LAI',    compact_img, QC_img)  
+  compact_img, QC_img = estimate_param_QC('fCOVER', compact_img, QC_img)
+  compact_img, QC_img = estimate_param_QC('fAPAR',  compact_img, QC_img)
+  compact_img, QC_img = estimate_param_QC('Albedo', compact_img, QC_img)
+
+  #==========================================================================================================
+  # Set flags/marks in the 3rd bit of QC_img for all invalid pixels (cloud, shadow, snow, ice, water,
+  # saturated or out of range) and then Embed QC image into the compact image and returns it
+  #==========================================================================================================
+  invalid_mask = LEAF_valid_mask(inMosaic, SsrData, 1, ClassImg).multiply(ee.Image(4)).uint8()
+
+  QC_img = QC_img.unmask().bitwiseOr(invalid_mask)  
+
+  return compact_img.add(QC_img.multiply(4294967296))
 
 
 
@@ -1314,6 +1154,7 @@ def one_LEAF_product(inMosaic, fun_Param_dict, region, output, task_list):
 #############################################################################################################
 def Is_export_required(InquireStr, ProductList):
   '''This function answers if a "InquireStr" is included in "ProductList" list.
+
      Args:
        InquireStr(string): A string that is inquired.
        ProductList(string): A list of strings that represent the prodcuts to be exported by LEAF production tool.'''  
@@ -1330,8 +1171,7 @@ def Is_export_required(InquireStr, ProductList):
 
 
 #############################################################################################################
-# Description: Produces monthly or annual vegetation parameter maps for a number of tiles using the images 
-#              acquired within several summer months or an entire peak season.
+# Description: Produces monthly biophysical parameter maps for a number of tiles and months.
 #
 # Note:        This function involves two parameter dictionaries, "exe_Param_dict" and "fun_Param_dict".
 #              Both of them are used for transfering parameters to 'LEAF_tool_main' and other functions. 
@@ -1341,7 +1181,7 @@ def Is_export_required(InquireStr, ProductList):
 #              corresponds to the three vectors in "exe_Param_dict" are 'month', 'prod_name' and 'tile_name'.
 #              An example of a 'exe_Param_dict' object is something looks like as follows:
 #     
-#              EXE_LEAF_PARAMS = {'sensor': 101,                   
+#              EXE_LEAF_PARAMS = {'sensor': 'S2_SR',                   
 #                                 'year': 2019,                    
 #                                 'months': [5,6,7,8,9,10],        
 #                                 'prod_names': ['LAI', 'fCOVER', 'Albedo', 'fAPAR', 'partition', 'date', 'rgb'],
@@ -1356,20 +1196,20 @@ def Is_export_required(InquireStr, ProductList):
 #              and 'tile42' using the Sentinel-2 images acquired in the monthes from May to October of
 #              2019. The product maps will be exported to Google Drive in 20m spatial resolution. 
 #
-# Revision history:  2021-May-20  Lixin Sun  Initial creation 
-#                    2022-Jan-14  Lixin Sun  Modified so that multiple tiles can be processed for one 
-#                                            one execution of LEAF production tool.
-#                    2022-Oct-27  Lixin Sun  Added three new optional name strings to 'prod_names'. This 
-#                                            makes exporting partition, date and RGB images is optional
-#                                            and is usefull in case some exporting processes were failed,
-#                                            then specific images need to reproduced and exported later on.
+# Revision history:  2022-Nov-20  Lixin Sun  Rewrote so that biopgysical parameter maps can be produced 
+#                                            efficiently. There are two different ways to export parameter 
+#                                            maps, all the maps are in one compact image or in separate
+#                                            images. The compact image exporting way is the most efficient,
+#                                            but needs a post-processing to separate the parameter maps out
+#                                            of the compact image. 
+#
 #############################################################################################################
 def LEAF_production(ExeParamDict):
-  '''Produces monthly or annual vegetation parameter maps for a number of tiles using the images acquired within 
-     several summer months or an entire peak season.
+  '''Produces monthly biophysical parameter maps for a number of tiles and months.
+
      Args:
-       exe_Param_dict({}): A Python dictionary storing parameters for one execution of LEAF Production Tool.
-       export_RGB(Boolean): A flag indicating if to export RGB mosaic image.'''  
+       exe_Param_dict({}): A Python dictionary storing parameters for one execution of LEAF Production Tool.'''
+
   # Standardize the given execution parameters
   exe_Param_dict = eoParams.get_LEAF_params(ExeParamDict)
 
@@ -1383,48 +1223,55 @@ def LEAF_production(ExeParamDict):
                     'resolution': exe_Param_dict['resolution'],
                     'location':   exe_Param_dict['location'],
                     'bucket':     exe_Param_dict['bucket'],
-                    'folder':     exe_Param_dict['folder']}
+                    'folder':     exe_Param_dict['folder'],
+                    'export_style': exe_Param_dict['export_style']}
     
   #==========================================================================================================
   # Three Loops through the combinations between the elements of the vectors with 'tile_names', 'months' and
   # 'prod_names' as keys in 'exe_Param_dict'.
   # Note that, for the same month, one mosaic can be reused for generating different products. 
   #==========================================================================================================
+  SsrData     = Img.SSR_META_DICT[exe_Param_dict['sensor']]
+  ssr_code    = SsrData['SSR_CODE']
+  year        = int(exe_Param_dict['year'])
   ProductList = exe_Param_dict['prod_names']
   task_list   = []
 
   # Produce porducts for eath tile specified in the list with 'tile_names' as key
   for tile in exe_Param_dict['tile_names']:  
-    fun_Param_dict['tile_name'] = tile   # Add an element with 'tile_name' as key to 'fun_Param_dict'
-    
-    if eoTG.is_valid_tile_name(tile) == True:
-      region = eoTG.PolygonDict.get(tile)      
-    else:
-      region = eoTG.custom_RegionDict.get(tile)
-    
-    region = eoTG.expandSquare(region, 0.02)
+    fun_Param_dict['tile_name'] = tile   # Add an element with 'tile_name' as key to 'fun_Param_dict'    
+
+    region     = eoTG.PolygonDict.get(tile) if eoTG.is_valid_tile_name(tile) == True else eoTG.custom_RegionDict.get(tile)
+    region     = eoTG.expandSquare(region, 0.02)
+    cloud_rate = eoTG.get_tile_cloud_rate(tile) if eoTG.is_valid_tile_name(tile) == True else -100
+
+    # Create a classification map image based on region and targeted year
+    IsBiome  = True if ssr_code < Img.MAX_LS_CODE else False
+    ClassImg = eoAD.get_GlobLC(region, year, IsBiome).uint8()
 
     # Export a classification for a tile only once. 
     if Is_export_required('parti', ProductList):
-      export_ClassImg(fun_Param_dict, region, task_list)
+      export_ClassImg(ClassImg, fun_Param_dict, region, task_list)
 
     # Produce monthly porducts with the images acquired within the months in the vector corresponding to 'months' key
     for month in exe_Param_dict['months']:
-      fun_Param_dict['month'] = month     # Add an element with 'month' as key to 'fun_Param_dict'
-      mosaic = eoMosaic.LEAF_Mosaic(fun_Param_dict, region)
+      # Add an element with 'month' as key to 'fun_Param_dict'  
+      fun_Param_dict['month'] = month     
 
-      # Export date image or/and RGB image for every month
+      # Generate a mosaic image for a month with either S2 or LS8/9 data 
+      mosaic = Mosaic.LEAF_Mosaic(fun_Param_dict, region, cloud_rate)
+
       if Is_export_required('date', ProductList):
         export_DateImg(mosaic, fun_Param_dict, region, task_list)
-      
-      if Is_export_required('rgb', ProductList):
-        export_RGBImg(mosaic, fun_Param_dict, region, task_list)
 
-      # Produce porducts specified in the vector corresponding to 'prod_names' key
-      for prod in exe_Param_dict['prod_names']:
-        prod_low = prod.lower()
-        if prod_low.find('lai') != -1 or prod_low.find('fcover') != -1 or prod_low.find('albedo') != -1 or prod_low.find('fapar') != -1:
-          fun_Param_dict['prod_name'] = prod   # Add a product to 'fun_Param_dict' with 'prod_name' as key
-          one_LEAF_product(mosaic, fun_Param_dict, region, True, task_list)
+      # Produce vegetation parameter maps and export them in a specified way (a compact image or separate images)      
+      out_style = str(fun_Param_dict['export_style']).lower()
+      if out_style.find('comp') > -1:
+        out_params = compact_params(mosaic, SsrData, ClassImg)
+
+        # Export the 64-bits image to either GD or GCS
+        export_compact_params(fun_Param_dict, region, out_params, task_list)
+      else: # Create separate parameter maps
+        separate_params(fun_Param_dict, mosaic, region, SsrData, ClassImg, task_list)
       
   return task_list
