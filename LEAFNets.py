@@ -977,43 +977,48 @@ def S2_separate_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, task
 # Revision history:  2022-Dec-20  Lixin Sun  Initial creation 
 #                   
 #############################################################################################################
-def LS_separate_params(fun_Param_dict, inMosaic, Region, ClassImg, task_list):
+def LS_separate_params(fun_Param_dict, inMosaic, Region, BiomeImg, task_list):
   '''Produces a full set of LEAF products for a specific region and time period and export them in separate files.
 
     Args:
        fun_Param_dict(Dictionary):
-       inMosaic(ee.Image): a given mosaic image from which products will be generated;  
+       inMosaic(ee.Image): a given image/mosaic from which a bioparameter map will be generated;  
        Region(ee.Geometry): a ROI;     
        SsrData(Dictionary): a Dictionary containing metadata associated with a sensor and data unit;
-       ClassImg(ee.Image): A given classification image;
+       BiomeImg(ee.Image): A given biome image;
        task_list([]): a list for storing the links to exporting tasks.'''
   
-  methodName    = "NAIVE"
-  treeDirectory = "users/rfernand387/modisLandsatTrees/"
-
   #================================================================================================
   # Construct RF-based models from the feature collections stored in GEE assets
   # A list of ee.FeatureColelction objects will be returned from "constructMethod" function
   #================================================================================================
+  methodName    = "NAIVE"
+  treeDirectory = "users/rfernand387/modisLandsatTrees/"
+
   method = LFLS.constructMethod(methodName, treeDirectory)
-  print('\n\n<LS_separate_params> property names in used method = ', ee.FeatureCollection(method.get(0)).propertyNames().getInfo())
+  print('\n\n<LS_separate_params> property names in used method = ', \
+        ee.FeatureCollection(method.get(0)).propertyNames().getInfo())
 
   #================================================================================================
   # Attach the biome map/image to the given mosaic image
   # Note: For Landsat8/9 LEAF tool, biome map, instead of classification map, must be applied.
   #================================================================================================
-  mosaic = inMosaic.addBands(ClassImg.rename(['LC_type3']))
+  mosaic = inMosaic.addBands(BiomeImg.rename(['biome']))
   #print('<LS_separate_params> bands in mosaic = ', mosaic.bandNames().getInfo())
   
-  unique_biome_values = LFLS.uniqueValues(mosaic.select('LC_type3'), Region)
-  print('<LS_separate_params> unique biome values = ', unique_biome_values.getInfo())
+  biome_values = LFLS.uniqueValues(mosaic.select('biome'), Region, 0.0)
+  print('<LS_separate_params> unique biome values = ', biome_values.getInfo())
+  biome_values = ee.List([1,2,3,5])  # This line is only for testing purpose 
+  
   #================================================================================================
   # Apply the models to the given mosaic image
   #================================================================================================
-  resultImage = LFLS.estimateResponse(method.get(0), mosaic, Region)
-  print('Finished estimating parameter\n')
+  biome_results = biome_values.map(lambda biomeID: LFLS.estimateResponse(method, biomeID, mosaic, Region))
+  biome_results = biome_results.map(lambda image: ee.Image(image).unmask())
 
-  return resultImage
+  final_result  = ee.ImageCollection(biome_results).max().clip(Region)
+
+  return final_result
 
 
 

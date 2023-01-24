@@ -25,14 +25,14 @@ def DictItem2Feature(inKey, inDict):
 #                    2023-Jan-19  Lixin Sun  Modified so that some child code corresponding small
 #                                            number of pixels will be filtered out.          
 ###################################################################################################
-def uniqueValues(Image, Region):
+def uniqueValues(Image, Region, Percent):
   '''
      Args:
         Image(ee.Image): A given image containing only one band named as 'childNames' 
-        Region(ee.Geometry): a goemetry region corresponding to the given image.'''
+        Region(ee.Geometry): A goemetry region corresponding to the given image;
+        Percent(float): '''
   image  = ee.Image(Image)
   region = ee.Geometry(Region)
-  percentage = 0.0001
 
   #================================================================================================
   # Create a histogram that counts the frequency for each child number 
@@ -50,7 +50,7 @@ def uniqueValues(Image, Region):
   # small number of pixels 
   #================================================================================================
   dict_values = ee.List(histogram.values()).map(lambda val: ee.Number(val).round())
-  thresh = ee.Number(dict_values.reduce(ee.Reducer.sum())).multiply(percentage)  
+  thresh = ee.Number(dict_values.reduce(ee.Reducer.sum())).multiply(Percent)  
 
   #================================================================================================
   # Convert the histogram dictionary to a feature collection
@@ -67,7 +67,7 @@ def uniqueValues(Image, Region):
   # Return the key values in the filtered feature collection
   #================================================================================================
   values = ee.FeatureCollection(short_FC).aggregate_array('keys').map(lambda key: ee.Number.parse(key)) 
-  print('\n\n<uniqueValues> final values = ', values.getInfo())
+  #print('\n\n<uniqueValues> final values = ', values.getInfo())
 
   return values
 
@@ -240,35 +240,54 @@ def constructMethod(MethodName, DirectoryName):
 
 
 ###################################################################################################
-# Description: This function applies RF models to an image 
+# Description: This function estimates a BioParameter map for a given image/mosaic by applying a 
+#              pre-created RF model.
+#
 ###################################################################################################
-def estimateResponse(Method, Image, Region):
-  '''
-  '''
-  method = ee.FeatureCollection(Method)
-  image  = ee.Image(Image)
+def estimateResponse(Method, BiomeID, Image, Region):
+  '''Estimates a BioParameter map for a given image/mosaic by applying a pre-created RF model.
+
+     Args:
+       Method(ee.List): A list of RF models;
+       BiomeID(ee.Number): An identified integer representing a biome ID;
+       Image(ee.Image): A given image/mosaic, based on which a bioparameter map will be estimated;
+       Region(ee.Geometry): A ee.Geometry object defining the region of the image/mosaic.'''
   
+  method  = ee.List(Method)
+  image   = ee.Image(Image)
+  biomeID = ee.Number(BiomeID)
+  region  = ee.Geometry(Region)
+
+  used_method = ee.FeatureCollection(method.get(biomeID))
   #================================================================================================
   # Attach a band indicating children Numbers based on the parent RF Tree to the given image/mosaic
   #================================================================================================
-  image = image.addBands(predictRF(image, method).multiply(1000).round().rename('childNames')) 
+  image = image.addBands(predictRF(image, used_method).multiply(1000).round().rename('childNames')) 
 
   #================================================================================================
   # Collect a list of unique values that represent different child decision trees
   #================================================================================================
-  unique_subtree_values = uniqueValues(image.select('childNames'), Region)  
+  unique_subtree_values = uniqueValues(image.select('childNames'), region, 0.0001)  
   #unique_subtree_values = ee.List([1149, 1282, 2056, 2818, 10298])
 
   #================================================================================================
   # Make images of response for each unique childnumbers
   #================================================================================================
-  child_FC_list = method.get('childFCList')  # Get a list of feature collections under a given "method"
-  #print('\n\n<estimateResponse> method child list: ', child_FC_list.getInfo())
+  child_FC_list = used_method.get('childFCList')  # Get a list of feature collections under a given "method"
+  #print('\n\n<estimateResponse> method child list:', child_FC_list.getInfo())
 
   estimated_imgs = unique_subtree_values.map(lambda chld_name: applyChildRF(image, child_FC_list, chld_name))
+  
+  #================================================================================================
+  # Merge all the estimated images into one 
+  #================================================================================================
+  # Remove mask from each estimated image
+  estimated_imgs = estimated_imgs.map(lambda image: ee.Image(image).unmask())
+  #print('\n\n<estimateResponse> numb of images:', estimated_imgs.size().getInfo())
 
-  # Remove mask from every image
-  estimated_imgs = estimated_imgs.map(lambda image: ee.Image(image).unmask().clip(Region))
-  print('\n\n<estimateResponse> numb of images:', estimated_imgs.size().getInfo())
+  out_img = ee.ImageCollection(estimated_imgs).max()
 
-  return ee.ImageCollection(estimated_imgs).max()
+  #================================================================================================
+  # Apply the mask of the identified biome and then return the resultant image
+  #================================================================================================
+  return out_img.updateMask(image.select('biome').eq(biomeID))   #.clip(region)
