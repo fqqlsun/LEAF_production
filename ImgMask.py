@@ -1,6 +1,9 @@
 import ee
 
 import Image as Img
+import eoAuxData as eoAD
+
+
 
 CLEAR_MASK = 1
 WATER_MASK = 2
@@ -81,7 +84,7 @@ def Img_ValueMask(Image, SsrData, MaxRef):
 
      Args:
        Image(ee.Image): a given ee.Image object;
-       SsrData(Dictionary): A Dictionary containing metadata associated with a sensor and data unit;
+       SsrData(Dictionary): A Dictionary with metadata for a sensor and data unit;
        MaxRef(int): a maximum reflectance value (1 or 100).'''
   #===========================================================================================================
   # Extract optical bands 
@@ -278,3 +281,38 @@ def Img_ValidMask(Image, SsrData, MaxRef):
 
   return clear_mask.Or(satur_mask).Or(value_mask).rename(['ValidMask'])
   #return clear_mask.Or(value_mask).rename(['ValidMask'])
+
+
+
+
+  
+
+#############################################################################################################
+# Description: This function creates a mask that mask out the land outside Canada and optionally water based
+#              on a land cover map.
+#
+# Revision history:  2023-Feb-16  Lixin Sun  Initial creation.
+#
+#############################################################################################################
+def Can_land_mask(Year, mask_water):
+  '''Creates a mask that mask out the land outside Canada and optionally water.
+
+     Args:      
+       Year(int or string): A target year;
+       mask_water(Boolean): Flag indicating if water bodies are masked out as well.'''
+  #==========================================================================================================
+  # Choose a proper land cover image collection based on a given "Year"
+  #==========================================================================================================
+  Can_LC = eoAD.get_CanLC(int(Year)).uint8()
+  
+  if mask_water == True:
+    Can_LC = Can_LC.where(Can_LC.gt(17), ee.Image(0))  #class ID = 18 and 19 represent water and snow/ice, respectively
+
+  #mask = ccrs_LC.selfMask()  # Mask ouit pixels with value equal to zero
+  mask = Can_LC.where(Can_LC.gt(0), ee.Image(1))
+
+  # Perform an erosion followed by a dilation
+  box = ee.Kernel.circle(radius = 1, units = 'pixels', normalize = True)
+  mask = mask.focalMin(kernel = box, iterations = 1).focalMax(kernel = box, iterations = 1)
+
+  return mask.unmask()

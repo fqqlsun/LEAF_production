@@ -72,17 +72,19 @@ def get_time_score(image, midDate, ssr_code):
 # Revision history:  2022-Mar-15  Lixin Sun  Initial creation
 #
 ######################################################################################################
-def IR_Blue_ratio(blu, ir, data_unit):
+def IR_Blue_ratio(blu, red, max_ir, data_unit):
   #==================================================================================================
   # Calculate main spectral score
   # data_unit = 1: a*data_unit + b = 0 (blu_offset)
   # data_unit = 2: a*data_unit + b = 5 (blu_offset)
+  # Note: There are two things that require attention. (1) a and b values. (2) max_ir - red.
   #==================================================================================================
-  a = ee.Number(5)
-  b = ee.Number(-5)
+  a = ee.Number(2)
+  b = ee.Number(-2)
   blu_offset = a.multiply(data_unit).add(b)
-
-  return ir.divide(blu.add(blu_offset))
+  
+  return max_ir.divide(blu.add(blu_offset))
+  #return max_ir.subtract(red).divide(blu.add(blu_offset))
 
 
 
@@ -97,35 +99,19 @@ def IR_Blue_ratio(blu, ir, data_unit):
 # Revision history:  2022-Mar-15  Lixin Sun  Initial creation
 #
 ######################################################################################################
-def get_veg_score(base_score, blu, grn, red, nir, sw2, data_unit):  
-  #==================================================================================================
-  # Calculate greeness score and incorporate it into spectral score
-  # Note: (1) greenness is useful for excluding the pixels with big NDVI, but is not green
-  #       (2) Greenness must be limited within a range, since some dark shadow pixels could have 
-  #           high greenness value due to their blue or red reflectance is suppressed very low. 
-  #
-  # green_score = ((green/blue)+(green/red))/2.0
-  #==================================================================================================
-  grn_score = grn.divide(blu).add(grn.divide(red)).divide(2)
-  grn_score = grn_score.where(grn_score.lt(1.1).Or(grn_score.gt(3)), ee.Image(0))
-  blu_diff  = grn.subtract(blu)
-  red_diff  = grn.subtract(red)
-
-  veg_score = base_score.where(blu_diff.gt(0.2).And(red_diff.gt(0.2)), base_score.add(grn_score))
-  veg_score = veg_score.where(blu_diff.lt(-1).Or(red_diff.lt(-1)),  veg_score.multiply(-1))
+def get_veg_score(base_score, blu, grn, red, nir, sw2, data_unit):   
 
   #==================================================================================================
   # Apply dark penalty
-  # This criteria can help to exclude SHADOW pixels
+  # This penalty excludes SHADOW pixels 
   #==================================================================================================
-  nir_refer        = ee.Image(20)
-  nir_dark_penalty = nir.subtract(nir_refer)
-  
-  veg_score        = veg_score.where(nir.lt(nir_refer), veg_score.add(nir_dark_penalty))
+  nir_refer = ee.Image(20)
+  penalty   = nir.subtract(nir_refer)    
+  veg_score = base_score.where(nir.lt(nir_refer), base_score.add(penalty))
 
   #==================================================================================================
-  # Calculate blue band penalty and incorporate it into spectral score
-  # This penalty is useful for excluding hazy/cloudy pixels
+  # Apply a penalty if BLUE value is bigger than a modeled value
+  # This penalty is useful for excluding hazy/cloudy vegetated pixels
   #
   # data_unit = 1: a*data_unit + b = 6.2 (model_offset)
   # data_unit = 2: a*data_unit + b = 1.2 (model_offset)
@@ -135,12 +121,76 @@ def get_veg_score(base_score, blu, grn, red, nir, sw2, data_unit):
   HOT_offset = a.multiply(data_unit).add(b)
   HOT_gain   = 0.17
 
-  model_blu    = sw2.multiply(HOT_gain).add(HOT_offset)   # estimate blue reference value using HOT transfer
-  blue_penalty = blu.subtract(model_blu).abs()
+  model_blu  = sw2.multiply(HOT_gain).add(HOT_offset)   # estimate blue reference value using HOT transfer
+  penalty    = blu.subtract(model_blu).abs()
   
-  return veg_score.where(blu.gt(model_blu), veg_score.subtract(blue_penalty))
+  veg_score  = veg_score.where(blu.gt(model_blu), veg_score.subtract(penalty))
+
+  #==================================================================================================
+  # Apply a penalty if BLUE value is extremely low
+  # This penalty is useful for excluding bad pixels caused by sensor artefact or atmospheric 
+  # correction
+  #==================================================================================================
+  min_blu   = red.divide(2.0)
+  penalty   = blu.subtract(min_blu).abs().multiply(10.0)
+  veg_score = veg_score.where(blu.lt(min_blu), veg_score.subtract(penalty))
+
+  return veg_score
 
 
+
+
+
+
+######################################################################################################
+# Description: This function creates a non-vegetated pixel score image
+#
+# Note:        (1) This function assumes the value range of the given image is between 0 and 100
+#              (2) The best region for testing the effectivity of non-vege score is northern Canada.
+#              (3) Generally, nonveg_score is consisted of two components: base score and two penalties.
+#   
+# Revision history:  2022-Mar-15  Lixin Sun  Initial creation
+#                    
+######################################################################################################
+def get_nonveg_score(base_score, blu, red, nir, sw1, median_blu):
+  #==================================================================================================
+  # This criteria can help to exclude some strange pixels
+  #==================================================================================================
+  score = base_score  #.where(sw1.lt(30), base_score.divide(blu.add(1)))
+
+  #==================================================================================================
+  # Apply a penalty if BLUE value is bigger than median blue
+  # This will exclude hazy/cloudy pixels
+  #==================================================================================================  
+  blue_model   = red.multiply(0.5)  
+  #blue_model   = sw1.multiply(0.174).subtract(0.082)
+  #blue_model   = blue_model.where(sw1.gt(35), median_blu)
+  #blue_model   = median_blu
+
+  blue_penalty = blu.subtract(blue_model).abs()
+  score = score.subtract(blue_penalty)
+
+  #==================================================================================================
+  # Apply dark penalty to exclude shadow pixels
+  # This penalty is for excluding shadow pixels from composite image
+  #==================================================================================================
+  sw1_thresh   = ee.Image.constant(25) 
+  dark_penalty = sw1.subtract(sw1_thresh).abs().divide(2)
+  score        = score.where(sw1.lt(sw1_thresh), score.subtract(dark_penalty)) 
+
+  #==================================================================================================
+  # Apply penalty if BLUE value is bigger than SWIR1 value
+  # This is due to that, for non-vegetated targets, blue value is normally smaller than SWIR1 value 
+  #==================================================================================================
+  score = score.where(sw1.lt(blu), score.subtract(blu.subtract(sw1)))   
+
+  #==================================================================================================
+  # Exclude saturated/bad pixels
+  #==================================================================================================
+  min_val = blu.lt(1.0).Or(nir.lt(2.0)).Or(sw1.lt(2.0))
+  score   = score.where(min_val, ee.Image.constant(-100.0)) 
+  
+  return score
 
 
 
@@ -157,110 +207,31 @@ def get_veg_score(base_score, blu, grn, red, nir, sw2, data_unit):
 #                    
 ######################################################################################################
 def get_water_score(blu, grn, nir, sw1, sw2):
-  #mNDWI       = mean_vis.subtract(mean_ir).divide(mean_vis.add(mean_ir))
-  #water_score = mNDWI.multiply(5).divide(mean_short) 
-  mean_vis = blu.add(grn).divide(2)
-  mean_ir  = nir.add(sw1).add(sw2).divide(3)
+  #===================================================================================================
+  #
+  #===================================================================================================
+  max_vis = blu.max(grn)
+  max_ir  = nir.max(sw1).max(sw2)
+  max_sw  = sw1.max(sw2)
 
-  score_ratio = mean_vis.divide(mean_ir.add(1)) 
-  water_score = score_ratio.add(ee.Image.constant(15).divide(mean_vis))
+  score_ratio = max_vis.divide(max_ir.add(0.01)) 
+  water_score = score_ratio.multiply(ee.Image.constant(15).divide(max_vis.max(max_ir)))
 
-  valid_ratio  = mean_vis.divide(mean_ir)
-  invalid_cond = mean_ir.gt(5).Or(mean_vis.gt(15)).Or(valid_ratio.lt(2))
+  #===================================================================================================
+  # Exclude invalid pixels
+  # Note: (1) "spec_min.lt(0.05)" condition is important for excluding the bad pixels caused by either
+  #       sensor artefact or atmospheric correction/image preprocessing.
+  #       (2) "valid_ratio.lt(1.1)" is useful for excluding heavy shadow and discriminating shadow 
+  #           from water
+  #===================================================================================================
+  valid_ratio  = max_vis.divide(max_ir)
+  spec_min     = blu.min(grn).min(nir).min(sw1).min(sw2)
+  #invalid_cond = max_ir.gt(5).Or(max_vis.gt(15)).Or(valid_ratio.lt(2)).Or(spec_min.lt(0.05))
+
+  invalid_cond = spec_min.lt(0.05).Or(water_score.lt(1.01)).Or(valid_ratio.lt(1.1)).Or(max_vis.gt(20))  
   water_score  = water_score.where(invalid_cond, ee.Image(-100))
   
   return water_score
-
-  
-
-
-
-
-
-######################################################################################################
-# Description: This function creates a non-vegetated pixel score image
-#
-# Note:        (1) This function assumes the value range of the given image is between 0 and 100
-#              (2) The best region for testing the effectivity of non-vege score is northern Canada.
-#              (3) Generally, nonveg_score is consisted of two components: base score and two penalties.
-#   
-# Revision history:  2022-Mar-15  Lixin Sun  Initial creation
-#                    
-######################################################################################################
-def get_nonveg_score(base_score, blu, nir, sw1, median_blu):  
-  #==================================================================================================
-  # Calculate main spectral score
-  #==================================================================================================
-  '''
-  min_vis = blu.min(grn).min(red)
-  max_vis = blu.max(grn).max(red)
-  
-  min_vis_sw1 = sw1.subtract(min_vis).divide(sw1.add(min_vis))
-  max_vis_sw1 = sw1.subtract(max_vis).divide(sw1.add(max_vis))
-  max_score   = ee.Image(1.1).subtract(max_vis_sw1.abs()).multiply(-1.0)
-  
-  score = min_vis_sw1.where(min_vis.lt(2), max_score)
-  '''
-  #==================================================================================================
-  # This criteria can help to exclude some strange pixels
-  #==================================================================================================
-  sw1_nir_diff = sw1.subtract(nir)  
-  #score = base_score.add(sw1_nir_diff)
-  score = base_score.where(sw1_nir_diff.lt(0), base_score.add(sw1_nir_diff))   # sw1 is bigger than nir for non-vegetated pixels
-
-  #==================================================================================================
-  # Apply blue band penalty to exclude hazy/cloudy pixels
-  #==================================================================================================
-  blue_model   = sw1.multiply(0.174).subtract(0.082)
-  blue_model   = blue_model.where(sw1.gt(35), median_blu)
-  blue_penalty = blu.subtract(blue_model).abs().divide(2)
-  
-  #condition = blu.gt(ee.Image(15.0)).And(median_blu.lt(ee.Image(30.0)))
-  score = score.where(blu.gt(blue_model), score.subtract(blue_penalty))
-  
-  #==================================================================================================
-  # Apply dark penalty to exclude shadow pixels
-  #==================================================================================================
-  min_sw1      = ee.Image(20)
-  dark_penalty = sw1.subtract(min_sw1).abs().divide(5)
-  
-  return score.where(sw1.lt(min_sw1), score.subtract(dark_penalty)) 
-
-
-
-'''
-def get_nonveg_score(base_score, blu, nir, sw1):  
-  #==================================================================================================
-  # Apply blue band penalty to exclude Hazy pixels 
-  #==================================================================================================  
-  model_blu = sw1.pow(2).multiply(0.0148).subtract(sw1.multiply(0.5007)).add(7.1127)
-  penalty   = blu.subtract(model_blu).abs().divide(3)
-
-  #score = base_score.where(blu.lt(30).And(blu.gt(model_blu)), base_score.subtract(penalty))   # for excluding hazy pixels
-  score = base_score.where(blu.gt(model_blu), base_score.subtract(penalty))   # for excluding hazy pixels
-
-  #score = score.where(blu.gt(30), blu.subtract(30).multiply(-1))   # for excluding hazy pixels
-
-  #==================================================================================================
-  # This criteria can help to exclude some strange pixels
-  #==================================================================================================
-  sw1_nir_diff = sw1.subtract(nir)  
-  score = score.where(sw1_nir_diff.lt(0), score.add(sw1_nir_diff))   # sw1 is bigger than nir for non-vegetated pixels
-  #score = score.where(blu.lt(model_blu.add(4)), score.add(sw1_nir_diff))   # sw1 is bigger than nir for non-vegetated pixels
-
-  #==================================================================================================
-  # Apply dark penalty to exclude SHADOW pixels
-  #==================================================================================================
-  sw1_bottm        = ee.Image(20)
-  sw1_dark_penalty = sw1.subtract(sw1_bottm).abs()
-  
-  return score.where(sw1.lt(sw1_bottm), score.subtract(sw1_dark_penalty))  # for excluding shadow pixels
-'''
-
-
-
-
-
 
 
 
@@ -291,6 +262,12 @@ def get_score_map(median_blu, inMidDate, SsrData, image):
   scaled_img = Img.apply_gain_offset(image, SsrData, max_ref, False)  
 
   #==================================================================================================
+  # Apply cloud/shadow mask to the image
+  #==================================================================================================
+  clear_mask = IM.Img_VenderMask(image, SsrData, IM.CLEAR_MASK)
+  
+  scaled_img = scaled_img.updateMask(clear_mask.Not())
+  #==================================================================================================
   # Create separate references for each of the SIX bands
   #==================================================================================================
   blu = scaled_img.select(SsrData['BLU'])
@@ -303,26 +280,33 @@ def get_score_map(median_blu, inMidDate, SsrData, image):
   #==================================================================================================
   # Calculate base score for both vagetated and non-vegetated targets
   #==================================================================================================  
+  NDVI_img  = nir.subtract(red).divide(nir.add(red))  
+
   data_unit  = SsrData['DATA_UNIT']
   max_ir     = nir.max(sw1)
-  base_score = IR_Blue_ratio(blu, max_ir, data_unit)
+  base_score = IR_Blue_ratio(blu, red, max_ir, data_unit)  #.add(NDVI_img)
 
   #==================================================================================================
   # Calculate vagetated and non-vegetated scores
   #==================================================================================================  
-  score_map = get_veg_score(base_score, blu, grn, red, nir, sw2, data_unit) 
+  veg_score = get_veg_score(base_score, blu, grn, red, nir, sw2, data_unit)   
 
-  NDVI_img  = nir.subtract(red).divide(nir.add(red))
-  score_map = score_map.add(NDVI_img)
-
-  score_map = score_map.where(NDVI_img.lt(0.3), get_nonveg_score(base_score, blu, nir, sw1, median_blu))    
+  land_score = veg_score.where(NDVI_img.lt(0.3), get_nonveg_score(base_score, blu, red, nir, sw1, median_blu))    
 
   #==================================================================================================
   # Calculate water score as necessary
   #==================================================================================================
   water_score = get_water_score(blu, grn, nir, sw1, sw2)
 
-  score_map = score_map.max(water_score)
+  #==================================================================================================
+  # Exclude pixels with extreme values
+  #==================================================================================================
+  spec_img = scaled_img.select(SsrData['OUT_BANDS'])
+  min_img  = spec_img.reduce(ee.Reducer.min())
+
+  land_score = land_score.where(min_img.lt(0.5), ee.Image(-100.0))
+
+  score = land_score.max(water_score)
   #score_map = score_map.where(grn.subtract(nir).gt(0.5), get_water_score(blu, grn, nir, sw1, sw2))
 
   #==================================================================================================
@@ -330,10 +314,11 @@ def get_score_map(median_blu, inMidDate, SsrData, image):
   #==================================================================================================
   ssr_code   = SsrData['SSR_CODE']
   time_score = get_time_score(image, inMidDate, ssr_code)
-  score_map  = score_map.multiply(time_score)
-  
-  return score_map  #.where(water_mask, water_score)
-  
+  score      = score.multiply(time_score) 
+ 
+  return score
+
+
 
 
 
@@ -368,7 +353,7 @@ def mosaic_score_map(mosaic, SsrData):
   #==================================================================================================  
   data_unit  = SsrData['DATA_UNIT']
   max_ir     = nir.max(sw1)
-  base_score = IR_Blue_ratio(blu, max_ir, data_unit)
+  base_score = IR_Blue_ratio(blu, red, max_ir, data_unit)
 
   #==================================================================================================
   # Calculate scores for vagetated targets only and set scores for pixels with NDVI < 0.3 to zero
@@ -516,7 +501,7 @@ def coll_mosaic(collection, SsrData, midDate, ExtraBandCode):
 #                                            is a single value.  
 #                    2022-May-25  Lixin Sun  Added different-sensor gap filling option for Landsat imagery.
 #############################################################################################################
-def LEAF_Mosaic(fun_param_dict, region, CloudRate = -100):
+def LEAF_Mosaic(fun_param_dict, region):
   '''Creates a mosaic image specially for vegetation parameter extraction with LEAF tool.
      
      Args:
@@ -528,7 +513,7 @@ def LEAF_Mosaic(fun_param_dict, region, CloudRate = -100):
   #==========================================================================================================
   year  = int(fun_param_dict['year'])
   month = int(fun_param_dict['month'])
-  start, stop = IS.month_range(year, month)
+  start, stop = IS.month_range(year, month) if month > 0 and month < 13 else IS.summer_range(year)
 
   #==========================================================================================================
   # Create a mosaic image including geometry angle images required by vegetation parameter extraction
@@ -602,52 +587,50 @@ def MergeMosaics(BaseMosaic, SecondMosaic, SsrData, ThreshFactor):
 #                                            merging two Landsat mosaics, but also for merging a
 #                                            Sentinel-2 mosaic with a Landsat mosaic.  
 ######################################################################################################
-def MergeMixMosaics(MosaicBase, Mosaic2nd, SensorBase, Sensor2nd, DataUnit):
+def MergeMixMosaics(MosaicBase, Mosaic2nd, SensorBase, Sensor2nd):
   '''Merge the mosaics created from the images acquired with different Landsat sensors.
 
   Args:
     MosaicBase(ee.Image): The mosaic that will be used as a base/main one;
     Mosaic2nd(ee.Image): The mosaic that will be used to fill the gaps in the base mosaic;
-    SensorBase(int): The sensor code integer of the base/main mosaic;
-    Sensor2nd(int): The sensor code integer of the 2nd mosaic to be used to fill the gaps in base mosaic;
-    DataUnit(int): The data unit integer.'''  
+    SensorBase(Dictionary): The sensor info dictionary of the base/main mosaic;
+    Sensor2nd(Dictionary): The sensor info dictionary of the 2nd mosaic to fill the gaps in base mosaic.'''  
+  
   #==================================================================================================
   # Determine max reflectance value (max_ref). If the base mosaic was created with Sentinel-2 data,
   # then max_ref must be 100, because the given both mosaics (MosaicBase and Mosaic2nd) are supposed
   # have been converted to range of [0, 100]. If the base mosaic was created from Landsat data, then
   # max_ref must be 1000, meaning all mosaic pixel are with their raw values.
   #==================================================================================================  
-  max_ref = 100 if SensorBase > Img.MAX_LS_CODE else 1000
+  ssr_main_code = SensorBase['SSR_CODE']
+  #ssr_2nd_code  = Sensor2nd['SSR_CODE']
+  max_ref = 100 if ssr_main_code > Img.MAX_LS_CODE else 1000
   
-  print('\n\n<MergeMixMosaics> Sensor code of base mosaic = ', SensorBase)
-  print('<MergeMixMosaics> Bands in 1st mosaic = ', MosaicBase.bandNames().getInfo())
+  print('\n\n<MergeMixMosaics> Bands in base mosaic = ', MosaicBase.bandNames().getInfo())
   print('<MergeMixMosaics> Bands in 2nd mosaic = ', Mosaic2nd.bandNames().getInfo())
   #==================================================================================================
   # Attach a sensor code band to each mosaic image
   # Note: pixel masks of both mosaic must be applied to their corresponding sensor code images 
   #==================================================================================================  
-  virtual_ssr = Sensor2nd if SensorBase > Img.MAX_LS_CODE else SensorBase
-  pix_mask1 = IM.Img_ValueMask(MosaicBase, virtual_ssr, DataUnit, max_ref).Not()
-  pix_mask2 = IM.Img_ValueMask(Mosaic2nd,  Sensor2nd,   DataUnit, max_ref).Not()
+  pix_mask1 = IM.Img_ValueMask(MosaicBase, SensorBase, max_ref).Not()
+  pix_mask2 = IM.Img_ValueMask(Mosaic2nd,  Sensor2nd,  max_ref).Not()
 
-  ssr_code_img1 = pix_mask1.multiply(SensorBase).rename([Img.mosaic_ssr_code])
-  ssr_code_img2 = pix_mask2.multiply(Sensor2nd ).rename([Img.mosaic_ssr_code])
+  ssr_code_base = pix_mask1.multiply(SensorBase['SSR_CODE']).rename([Img.mosaic_ssr_code])
+  ssr_code_2nd  = pix_mask2.multiply(Sensor2nd['SSR_CODE']).rename([Img.mosaic_ssr_code])
 
-  mosaic1 = MosaicBase.addBands(ssr_code_img1)
-  mosaic2 = Mosaic2nd.addBands(ssr_code_img2)
-  print('<MergeMixMosaics> Bands in 1st mosaic = ', mosaic1.bandNames().getInfo())
-  print('<MergeMixMosaics> Bands in 2nd mosaic = ', mosaic2.bandNames().getInfo())
+  MosaicBase = MosaicBase.addBands(ssr_code_base)
+  Mosaic2nd  = Mosaic2nd.addBands(ssr_code_2nd)
   #==================================================================================================
   # Fill the gaps in base mosaic with the valid pixels in the 2nd mosaic
   #==================================================================================================
-  mosaic1 = mosaic1.unmask(mosaic2)
+  MosaicBase = MosaicBase.unmask(Mosaic2nd)
 
-  diff_thresh = 1.2 if SensorBase > Img.MAX_LS_CODE else 0.7
-  score1 = mosaic1.select(Img.pix_score).add(diff_thresh)
-  score2 = mosaic2.select(Img.pix_score)  
+  diff_thresh = 1.2 if ssr_main_code > Img.MAX_LS_CODE else 0.7
+  score_main  = MosaicBase.select(Img.pix_score).add(diff_thresh)
+  score_2nd   = Mosaic2nd.select(Img.pix_score)  
   
-  mosaic = mosaic1.where(score2.gt(score1), mosaic2) 
-  return ee.Image(mosaic.selfMask())
+  out_mosaic = MosaicBase.where(score_2nd.gt(score_main), Mosaic2nd) 
+  return ee.Image(out_mosaic.selfMask())
 
 
 
@@ -681,7 +664,6 @@ def HomoPeriodMosaic(SsrData, Region, TargetYear, NbYears, StartDate, StopDate, 
   # Get a mosaic image corresponding to a given time window in a targeted year
   #==========================================================================================================
   coll_target    = IS.getCollection(SsrData, Region, start, stop)
-  #print("<HomoPeriodMosaic> numb of images in collection = ", coll_target.size().getInfo())
   midDate_target = IS.period_centre(start, stop)
   mosaic_target  = coll_mosaic(coll_target, SsrData, midDate_target, ExtraBandCode)
 
@@ -757,6 +739,65 @@ def HomoPeakMosaic(Ssrdata, Region, TargetYear, NbYears, ExtraBandCode):
 
 
 ###################################################################################################
+# Description: This function returns a primary or secondary landsat sensor code based on a given
+#              year.
+#
+# Note:        Landsat data for Canada north is not available before 2004.
+#  
+# Revision history:  2023-Mar-08  Lixin Sun  Initial creation
+#
+###################################################################################################
+def LS_code_from_year(Year, prim_2nd_code):
+  '''Returns a primary or secondary landsat sensor code based on a given year.
+     
+  Args:      
+      Year(int): A specified target year (must be a regular integer);
+      prim_2nd_code: An integer indicating the returned Landsat sensor code is for primary or secondary 
+                     1 => primary; 2 => secondary.'''
+
+  year = int(Year)
+  
+  if prim_2nd_code == 1:
+    return 8 if year > 2013 else (5 if year > 2003 and year < 2013 else 7)
+  else:
+    return 9 if year >= 2022 else (7 if year > 2003 and year < 2022 else 5)
+
+
+
+
+
+###################################################################################################
+# Description: This function returns a primary or secondary landsat sensor meta dictionary based on
+#              a given year.
+#
+# Revision history:  2023-Mar-08  Lixin Sun  Initial creation
+#
+###################################################################################################
+def LS_Dict_from_year(Year, Unit, prim_2nd_code):
+  '''Returns a primary or secondary landsat sensor code based on a given year.
+     
+  Args:      
+      Year(int): A specified target year (must be a regular integer);
+      Unit(int): An integer representing data unit (1 => TOA or 2 => surface reflectance);
+      prim_2nd_code: An integer indicating the returned Landsat sensor code is for primary or secondary 
+                     1 => primary; 2 => secondary.'''
+
+  year = int(Year)
+  unit = int(Unit)
+
+  ssr_code = LS_code_from_year(year, prim_2nd_code)
+
+  unit_str  = '_SR' if unit > 1 else '_TOA'
+  ssr_str   = 'L' + str(ssr_code) + unit_str 
+
+  return Img.SSR_META_DICT[ssr_str]  
+
+
+
+
+
+
+###################################################################################################
 # Description: This function creates a mosaic image for a specified region using all the LANDSAT
 #              images acquired during a period of time.
 #
@@ -777,55 +818,61 @@ def LSMix_PeriodMosaic(DataUnit, Region, Year, StartDate, StopDate, ExtraBandCod
   #================================================================================================
   # Determine two Landsat sensor codes based on a given targeted year
   #================================================================================================
-  year      = int(Year)
-
-  ssr_code1 = 8 if year > 2013 else (5 if year > 2004 and year < 2013 else 7)
-  ssr_code2 = 9 if year >= 2022 else (7 if year > 2004 and year < 2022 else 5)
-  print('<LSMix_PeriodMosaic> sensor code1 and code2 = ', ssr_code1, ssr_code2)
+  year = int(Year)
+  unit = int(DataUnit)
 
   #================================================================================================
-  # Determine a proper time period based on a given targeted year and an initial period 
+  # Determine a proper time period based on a given target year and an initial period 
   #================================================================================================
-  data_unit = int(DataUnit)
-  start     = ee.Date(StartDate).update(Year)
-  stop      = ee.Date(StopDate).update(Year)
-  midDate   = IS.period_centre(start, stop)
+  start   = ee.Date(StartDate).update(Year)
+  stop    = ee.Date(StopDate).update(Year)
+  midDate = IS.period_centre(start, stop)
 
   #================================================================================================
   # Create two Landsat mosaics
   #================================================================================================
-  img_coll1 = IS.getCollection(ssr_code1, data_unit, Region, start, stop)
-  mosaic1   = coll_mosaic(img_coll1, ssr_code1, data_unit, midDate, ExtraBandCode)  
+  ssr_main      = LS_Dict_from_year(Year, unit, 1)
+  img_coll_main = IS.getCollection(ssr_main, Region, start, stop)
+  mosaic_main   = coll_mosaic(img_coll_main, ssr_main, midDate, ExtraBandCode)  
+  print('\n\n<LSMix_PeriodMosaic> bands in main mosaic = ', mosaic_main.bandNames().getInfo())
 
-  img_coll2 = IS.getCollection(ssr_code2, data_unit, Region, start, stop)
-  mosaic2   = coll_mosaic(img_coll2, ssr_code2, data_unit, midDate, ExtraBandCode)  
+  ssr_2nd       = LS_Dict_from_year(Year, unit, 2)
+  print('<LSMix_PeriodMosaic> sensor info of the 2nd sensor = ', ssr_2nd)
+
+  img_coll_2nd  = IS.getCollection(ssr_2nd, Region, start, stop)
+  mosaic_2nd    = coll_mosaic(img_coll_2nd, ssr_2nd, midDate, ExtraBandCode)  
+  print('<LSMix_PeriodMosaic> bands in 2nd mosaic = ', mosaic_2nd.bandNames().getInfo())
 
   #================================================================================================
   # Deal with the case when Landsat 7 needs to be merged with Landsat 8 data 
   #================================================================================================
-  if ssr_code1 == Img.LS8_sensor and ssr_code2 == Img.LS7_sensor:
-    temp_ls7_mosaic = mosaic2.select(['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B7']) \
+  ssr_main_code = LS_code_from_year(year, 1)
+  ssr_2nd_code  = LS_code_from_year(year, 2)
+  print('\n\n<LSMix_PeriodMosaic> sensor code1 and code2 = ', ssr_main_code, ssr_2nd_code)
+
+  if ssr_main_code == Img.LS8_sensor and ssr_2nd_code == Img.LS7_sensor:
+    temp_ls7_mosaic = mosaic_2nd.select(['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B7']) \
                              .rename(['SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7'])
 
-    ls7_mosaic = mosaic2.select(['SR_B1']).addBands(temp_ls7_mosaic)
+    ls7_mosaic = mosaic_2nd.select(['SR_B1']).addBands(temp_ls7_mosaic)
 
     # Add rest other bands
     if ExtraBandCode == EXTRA_ANGLE:
-      mosaic1 = mosaic1.select(['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7', 'cosVZA', 'cosSZA', 'cosRAA', Img.pix_score, Img.pix_date])
+      mosaic_main = mosaic_main.select(['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7', 'cosVZA', 'cosSZA', 'cosRAA', Img.pix_score, Img.pix_date])
       rest_bands = ['cosVZA', 'cosSZA', 'cosRAA', Img.pix_score, Img.pix_date]
     elif ExtraBandCode == EXTRA_NDVI:
-      mosaic1 = mosaic1.select(['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7', Img.pix_date, Img.PARAM_NDVI, Img.pix_score])
+      mosaic_main = mosaic_main.select(['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7', Img.pix_date, Img.PARAM_NDVI, Img.pix_score])
       rest_bands = [Img.pix_date, Img.PARAM_NDVI, Img.pix_score]
     else:
-      mosaic1 = mosaic1.select(['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7', Img.pix_date, Img.pix_score])
+      mosaic_main = mosaic_main.select(['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7', Img.pix_date, Img.pix_score])
       rest_bands = [Img.pix_date, Img.pix_score]
 
-    ls7_mosaic = ls7_mosaic.addBands(mosaic2.select(rest_bands))
+    ls7_mosaic = ls7_mosaic.addBands(mosaic_2nd.select(rest_bands))
 
     test_ls7_mosaic = ls7_mosaic.focal_mean(1, 'circle', 'pixels', 10)
-    mosaic2         = ls7_mosaic.unmask(test_ls7_mosaic)
+    mosaic_2nd      = ls7_mosaic.unmask(test_ls7_mosaic)
 
-  return MergeMixMosaics(mosaic1, mosaic2, ssr_code1, ssr_code2, data_unit)
+  return MergeMixMosaics(mosaic_main, mosaic_2nd, ssr_main, ssr_2nd)
 
 
 
@@ -848,12 +895,13 @@ def attach_LSAngleBands(LS_sr_img, LS_toa_img_coll):
       LS_toa_img_coll(ee.ImageCollection): A collection of Landsat TOA reflectance images.'''
   sr_system_indx = LS_sr_img.get('system:index')
 
+  #================================================================================================
   # Extract angle bands from a corresponding TOA reflectance image
+  # Note: The angle values in VZA, VAA,SZA and SAA bands are degrees scaled up with 100
+  #================================================================================================
   rad = ee.Number(math.pi/180.0)  
-  angle_imgs = LS_toa_img_coll.filterMetadata('system:index','equals', sr_system_indx) \
-                              .first() \
-                              .select(['VZA','VAA','SZA','SAA']) \
-                              .multiply(rad)
+  angle_imgs = LS_toa_img_coll.filterMetadata('system:index','equals', sr_system_indx).first() \
+                              .select(['VZA','VAA','SZA','SAA']).divide(100.0).multiply(rad)
   
   # Calculate cosin of scattering angle
   def cosScatteringAngle(image):

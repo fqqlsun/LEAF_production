@@ -25,12 +25,12 @@ def DictItem2Feature(inKey, inDict):
 #                    2023-Jan-19  Lixin Sun  Modified so that some child code corresponding small
 #                                            number of pixels will be filtered out.          
 ###################################################################################################
-def uniqueValues(Image, Region, Percent):
+def uniqueValues(Image, Region, Thresh):
   '''
      Args:
         Image(ee.Image): A given image containing only one band named as 'childNames' 
         Region(ee.Geometry): A goemetry region corresponding to the given image;
-        Percent(float): '''
+        Percent(float): A threshold on the number of pixels corresponding to a child code.'''
   image  = ee.Image(Image)
   region = ee.Geometry(Region)
 
@@ -43,14 +43,7 @@ def uniqueValues(Image, Region, Percent):
                                  scale = 30,    
                                  tileScale = 4) 
 
-  histogram   = ee.Dictionary(reduction.get(reduction.keys().get(0)))
-
-  #================================================================================================
-  # Determine a threshold that will be used to filter out the child numbers corresponding to a 
-  # small number of pixels 
-  #================================================================================================
-  dict_values = ee.List(histogram.values()).map(lambda val: ee.Number(val).round())
-  thresh = ee.Number(dict_values.reduce(ee.Reducer.sum())).multiply(Percent)  
+  histogram = ee.Dictionary(reduction.get(reduction.keys().get(0)))
 
   #================================================================================================
   # Convert the histogram dictionary to a feature collection
@@ -61,7 +54,7 @@ def uniqueValues(Image, Region, Percent):
   #================================================================================================
   # Filter the feature collection
   #================================================================================================
-  short_FC = histogram_FC.filter(ee.Filter.gt('value', thresh))
+  short_FC = histogram_FC.filter(ee.Filter.gt('value', Thresh))
 
   #================================================================================================
   # Return the key values in the filtered feature collection
@@ -81,7 +74,7 @@ def uniqueValues(Image, Region, Percent):
 # Note:        This function will be called by "constructMethod" function 
 #   
 ###################################################################################################
-def fc_to_classifier(fc):
+def fc_to_classifier(FC):
   """Takes a feature collection resulting from `export_trees_to_fc` and 
      creates a ee.Classifier that can be used with ee objects
 
@@ -91,7 +84,7 @@ def fc_to_classifier(fc):
   returns:
      classifier (ee.Classifier): ee classifier object representing an ensemble decision tree"""
   # expects that '#' is ecoded to be a 'return/enter'
-  tree_strings = fc.aggregate_array("tree").map(lambda str: ee.String(str).replace("#", "\n", "g"))
+  tree_strings = FC.aggregate_array("tree").map(lambda str: ee.String(str).replace("#", "\n", "g"))
 
   # pass list of ee.Strings to an ensemble decision tree classifier (i.e. RandomForest)
   return ee.Classifier.decisionTreeEnsemble(tree_strings)
@@ -128,27 +121,22 @@ def predictRF(Image, MethodFC):
        image(ee.Image): A given ee.Image object. Subregions have been defined by caller;
        methodFC(ee.FeatureCollection): A single feature collection containing RF models.'''
 
-  image    = ee.Image(Image)                # Note that subregions have been defined
+  image    = ee.Image(Image)         # Note that subregions have been defined
   methodFC = ee.FeatureCollection(MethodFC) 
 
   #================================================================================================
   # select inputs scale the image and rename to RF regressors
   #================================================================================================
   params = methodFC.first()  # Get the first feature in the given feature collection
-  #print('\n\n<predictRF> regressorsGENames:', ee.String(params.get('regressorsGENames')).split(',').getInfo())
-  #print('<predictRF> regressorsGEScaling:', ee.String(params.get('regressorsGEScaling')).split(',').getInfo())
-  #print('<predictRF> regressorsGEOffset:', ee.String(params.get('regressorsGEOffset')).split(',').getInfo())
-  #print('<predictRF> regressors:', ee.String(params.get('regressors')).split(',').getInfo())
 
   out_img = image.select(ee.String(params.get('regressorsGENames')).split(',')) \
                         .multiply(stringListtoImage(ee.String(params.get('regressorsGEScaling')).split(','))) \
                         .add(stringListtoImage(ee.String(params.get('regressorsGEOffset')).split(','))) \
-                        .multiply(stringListtoImage(ee.String('10000,10000,1,1,1').split(','))) \
+                        .multiply(stringListtoImage(ee.String('10000,10000,10000,10000,10000').split(','))) \
                         .rename(ee.String(params.get('regressors')).split(',')) \
                         .round() \
                         .classify(methodFC.get('RF'))  # Conduct RF-based classification 
 
-  #print('<predictRF> bands in out image = ', out_img.bandNames().getInfo())
   return out_img
 
 
@@ -169,13 +157,13 @@ def applyChildRF(Image, MethodFC, ChildName):
   methodFC  = ee.List(MethodFC)
   childName = ee.Number(ChildName)
   
-  #Apply a mask t othe given image/mosaic
+  #Apply a mask to the given image/mosaic
   maskedImg = image.updateMask(image.select('childNames').eq(childName))  
 
   #Select a feature collection model 
   uesd_RF   = methodFC.filter(ee.Filter.stringContains('system:id', childName.format("%d"))).get(0)
-
-  return predictRF(maskedImg, uesd_RF).multiply(1000).toInt16().rename('estimate')
+  
+  return predictRF(maskedImg, uesd_RF).multiply(2).toUint8().rename('estimate') #scaling factor = 20
 
 
 
@@ -198,7 +186,7 @@ def constructMethod(MethodName, DirectoryName):
   directoryName  = str(DirectoryName)
 
   raw_asset_list = ee.data.listAssets({'parent': directoryName})['assets']
-
+  #print('<constructMethod> numb of keys = ',raw_asset_list)
   #================================================================================================
   # Create a list of ee.FeatureCollection objects from a GEE assets list of directories
   #================================================================================================
@@ -207,77 +195,90 @@ def constructMethod(MethodName, DirectoryName):
     client_asset_list.append(ee.FeatureCollection(asset['name']))
 
   assetList = ee.List(client_asset_list)
-  #print('All assets:', assetList)
+  #print('<constructMethod> one asset :', ee.FeatureCollection(assetList.get(100)).get('system:id'))
   
   #================================================================================================
-  # Define two subroutines 
+  # Create a LIST of all PARENT FeatureCollection objects 
   #================================================================================================
   def set_RF(parentFC):
-    return ee.FeatureCollection(parentFC).set('RF', fc_to_classifier(ee.FeatureCollection(parentFC)))
+    return ee.FeatureCollection(parentFC).set('RF', fc_to_classifier(ee.FeatureCollection(parentFC)))  
 
-  def childRF(parentFC):    
-    return ee.FeatureCollection(parentFC).set('childFCList', assetList.filter(ee.Filter.stringContains('system:id',ee.String(ee.FeatureCollection(parentFC).get('system:id')).slice(0,-8))) \
-                                                                      .filter(ee.Filter.stringContains('system:id','child')) \
-                                                                      .map(lambda childFC: set_RF(childFC)))
-
-  #================================================================================================
-  # Create a LIST of PARENT FeatureCollection objects 
-  #================================================================================================
   parentList = assetList.filter(ee.Filter.stringContains('system:id', methodName)) \
                         .filter(ee.Filter.stringContains('system:id','parent')) \
                         .map(lambda parentFC: set_RF(parentFC))
-  #print('\n\n<constructMethod> All parents:', parentList.getInfo())
-
+  #print('\n\n\n<constructMethod> All parent trees:', ee.List(parentList).get(0).getInfo())
+  
   #================================================================================================
   # Attache sub-trees to each PARENT FeatureCollection object
   #================================================================================================
-  methodList = parentList.map(lambda parentFC: childRF(parentFC))
-  #print('All parents and children:', methodList.get(5).getInfo())
+  def AddChildRF(parentFC):   
+    '''Attach all child trees to a parent FC''' 
+    parent_id    = ee.String(ee.FeatureCollection(parentFC).get('system:id')).slice(0,-8)
 
-  return methodList
+    all_children = assetList.filter(ee.Filter.stringContains('system:id', parent_id)) \
+                            .filter(ee.Filter.stringContains('system:id','child')) \
+                            .map(lambda childFC: set_RF(childFC))
+
+    return ee.FeatureCollection(parentFC).set('childFCList', all_children)
+
+  AllMethodList = parentList.map(lambda parentFC: AddChildRF(parentFC))
+  #print('\n\n<constructMethod> All parents and children trees:', AllMethodList.get(0).getInfo())
+  
+  # CL - add property "biomeNumber" to each element in "AllMethodList" by parsing the ID
+  AllMethodList = AllMethodList.map(lambda method: ee.FeatureCollection(method).set('biomeNumber', \
+                          ee.Number.parse(ee.String(ee.FeatureCollection(method).get('system:id')).slice(-9,-8))))
+
+  return AllMethodList
+
 
 
 
 
 ###################################################################################################
-# Description: This function estimates a BioParameter map for a given image/mosaic by applying a 
-#              pre-created RF model.
+# Description: This function divides a given List into a number of sublists and return them as the
+#              elements of an exterior list. This function was dveloped to deal with the issue
+#              related to too many unique subtree values.
+#
+# Revision history:  2023-Feb-24  Lixin Sun  Initial creation
 #
 ###################################################################################################
-def estimateResponse(Method, BiomeID, Image, Region):
-  '''Estimates a BioParameter map for a given image/mosaic by applying a pre-created RF model.
+def divide_unique_values(unique_subtree_values, Interval):
+  '''Divides a given List into a number of sublists and return them as the elements of an exterior list.
 
      Args:
-       Method(ee.List): A list of RF models;
-       BiomeID(ee.Number): An identified integer representing a biome ID;
-       Image(ee.Image): A given image/mosaic, based on which a bioparameter map will be estimated;
-       Region(ee.Geometry): A ee.Geometry object defining the region of the image/mosaic.'''
-  
-  method  = ee.List(Method)
+       unique_subtree_values(ee.List): A list of subtree values;
+       Interval(Int or ee.Number): A interval of the division.'''
+
+  inList        = ee.List(unique_subtree_values)
+  ListSize      = inList.size()
+  start_indices = ee.List.sequence(0, ListSize, Interval)
+
+  return start_indices.map(lambda start: inList.slice(start, ee.Number(start).add(Interval)))
+
+
+
+###################################################################################################
+# Description: This function creates estimations for a number of subtree values that is normally
+#              less than 30 
+#
+# Revision history:  2023-Feb-24  Lixin Sun  Initial creation
+#
+###################################################################################################
+def estimateSubResponse(subList, child_FC_list, BiomeID, Image):
+  '''Divides a given List into a number of sublists and return them as the elements of an exterior list.
+
+     Args:
+       subList(ee.List): A list of integers;
+       child_FC_list():
+       BiomeID(Integer, ee.Number): A specified biome ID
+       Image(ee.Image): A given image/mosaic.'''
+
   image   = ee.Image(Image)
   biomeID = ee.Number(BiomeID)
-  region  = ee.Geometry(Region)
 
-  used_method = ee.FeatureCollection(method.get(biomeID))
-  #================================================================================================
-  # Attach a band indicating children Numbers based on the parent RF Tree to the given image/mosaic
-  #================================================================================================
-  image = image.addBands(predictRF(image, used_method).multiply(1000).round().rename('childNames')) 
+  estimated_imgs = ee.List(subList).map(lambda chld_name: applyChildRF(image, child_FC_list, chld_name))
+  #print('\n\n<estimateResponse> number of estimated layers :', ee.ImageCollection(estimated_imgs).size().getInfo())
 
-  #================================================================================================
-  # Collect a list of unique values that represent different child decision trees
-  #================================================================================================
-  unique_subtree_values = uniqueValues(image.select('childNames'), region, 0.0001)  
-  #unique_subtree_values = ee.List([1149, 1282, 2056, 2818, 10298])
-
-  #================================================================================================
-  # Make images of response for each unique childnumbers
-  #================================================================================================
-  child_FC_list = used_method.get('childFCList')  # Get a list of feature collections under a given "method"
-  #print('\n\n<estimateResponse> method child list:', child_FC_list.getInfo())
-
-  estimated_imgs = unique_subtree_values.map(lambda chld_name: applyChildRF(image, child_FC_list, chld_name))
-  
   #================================================================================================
   # Merge all the estimated images into one 
   #================================================================================================
@@ -287,7 +288,103 @@ def estimateResponse(Method, BiomeID, Image, Region):
 
   out_img = ee.ImageCollection(estimated_imgs).max()
 
+  return out_img
   #================================================================================================
   # Apply the mask of the identified biome and then return the resultant image
   #================================================================================================
-  return out_img.updateMask(image.select('biome').eq(biomeID))   #.clip(region)
+  #return out_img.updateMask(image.select('biome').eq(biomeID))   #.clip(region)
+
+
+
+
+###################################################################################################
+# Description: This function filters out the child names that do not have corresponding RF trees
+#
+# Revision history:  2023-Feb-24  Lixin Sun  Initial creation
+#
+###################################################################################################
+def filter_childNames(MethodFC, childNames):
+  '''
+    MethodFC(ee.List): all feature collection corresponding to one biome
+    childName(integer): The ID of a child
+  '''
+  methodFC    = ee.List(MethodFC)
+  child_names = ee.List(childNames)
+    
+  def check_one_child(methodFC, oneName):
+    name    = ee.Number(oneName)
+    uesd_RF = ee.List(methodFC.filter(ee.Filter.stringContains('system:id', name.format("%d"))))
+    
+    return ee.Algorithms.If(uesd_RF.size().gt(0), name, -1)
+    
+  valid_names = child_names.map(lambda aName: check_one_child(methodFC, aName))
+    
+  return valid_names.filter(ee.Filter.gt('item', 0))
+
+
+
+
+
+###################################################################################################
+# Description: This function estimates a BioParameter map for ONE biome type based on an 
+#              image/mosaic by applying a pre-created RF model.
+#
+###################################################################################################
+def BiomeEstimate(Method, BiomeID, Image, Region):
+  '''Estimates a BioParameter map for a given image/mosaic by applying a pre-created RF model.
+
+     Args:
+       Method(ee.List): A list of RF models;
+       BiomeID(ee.Number): An integer representing a specified biome ID;
+       Image(ee.Image): A given image/mosaic, based on which a bioparameter map will be estimated;
+       Region(ee.Geometry): A ee.Geometry object defining the region of the image/mosaic.'''
+  
+  method  = ee.List(Method)
+  image   = ee.Image(Image)
+  biomeID = ee.Number(BiomeID)
+  region  = ee.Geometry(Region)
+
+  #================================================================================================
+  # Cassidy Li - match biomeID to method property "biomeNumber"
+  # Select a RF model based on a given "BiomeID", which can also be regarded as a parent ID
+  #================================================================================================
+  biome_method = ee.FeatureCollection(method.filter(ee.Filter.eq('biomeNumber', biomeID)).get(0))
+  #print('\n\n\n<estimateResponse> number of used_methods = ', used_method.size().getInfo())
+
+  #================================================================================================
+  # Extract all child RF models associated with a specified biome
+  #================================================================================================
+  child_FC_list = biome_method.get('childFCList')
+
+  #================================================================================================
+  # Attach a child name band to the given image/mosaic based on the predictions of a parent RF 
+  #================================================================================================
+  image = image.addBands(predictRF(image, biome_method).multiply(1000).round().rename('childNames')) 
+
+  #return image.select('childNames').updateMask(image.select('biome').eq(biomeID))
+  #================================================================================================
+  # Determine a set of unique values representing different child RF models
+  #================================================================================================
+  unique_subtree_values = uniqueValues(image.select('childNames'), region, 0)  
+  #print('unique_subtree values = ', unique_subtree_values.getInfo())
+
+  # Filter out the child numbers that do not have corresponding child RF
+  valid_child_values = filter_childNames(child_FC_list, unique_subtree_values)  
+
+  #================================================================================================
+  # Estimate a set of images by applying the child RFs corresponding to all unique child values 
+  #================================================================================================  
+  estimated_imgs = valid_child_values.map(lambda oneName: applyChildRF(image, child_FC_list, oneName))
+
+  #================================================================================================
+  # Merge the estimated images into one image 
+  #================================================================================================
+  # Remove mask from each estimated image
+  estimated_imgs = estimated_imgs.map(lambda image: ee.Image(image).unmask())
+  out_img = ee.ImageCollection(estimated_imgs).max()
+
+  #================================================================================================
+  # Apply the mask of the identified biome and then return the resultant image
+  #================================================================================================
+  return out_img.updateMask(image.select('biome').eq(biomeID))
+

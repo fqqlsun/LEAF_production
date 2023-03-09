@@ -11,7 +11,8 @@ TILE_CLOUD_RATES = {'tile13': 30, 'tile14': 30,
                     'tile21': 60, 'tile22': 50, 'tile23': 50, 'tile24': 50, 'tile25': 50,
                     'tile31': 80, 'tile32': 70, 'tile33': 70, 'tile34': 70, 'tile35': 80, 'tile36': 80,
                     'tile41': 90, 'tile42': 80, 'tile43': 80, 'tile44': 80, 'tile45': 90, 'tile46': 90, 'tile47': 80,
-                    'tile52': 80, 'tile53': 70, 'tile54': 70, 'tile55': 70, 'tile56': 80, 'tile65': 80}
+                    'tile52': 80, 'tile53': 70, 'tile54': 70, 'tile55': 70, 'tile56': 80, 'tile65': 80,
+                    'canada': 50}
 
 
 geoTile13 = ee.Geometry.Polygon([[-147.465,  81.4841], [-86.4478,  84.4004], [-91.1246,  76.6016], [-123.879,  74.9631]])

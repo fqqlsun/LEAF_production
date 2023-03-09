@@ -126,16 +126,37 @@ def getCollection(SsrData, Region, StartDate, StopDate, CloudRate = -100):
   start  = ee.Date(StartDate)
   stop   = ee.Date(StopDate)
 
+  #===================================================================================================
   # Determine a cloud coverage percentage/rate 
   # Note: there are two ways to determine a cloud coverage percebtage/rate
   # (1) based on sensor type and the centre of the given spatial region
   # (2) a given cloud coverage percentage/rate (CloudRate) 
+  #===================================================================================================
   cloud_rate = Img.get_cloud_rate(SsrData, region) if CloudRate < 0 or CloudRate > 99.99 else CloudRate 
 
-  #Filtering the image collection with spatial region, time period and cloud coverage
+  #===================================================================================================
+  # "filterMetadata" Has been deprecated. But tried to use "ee.Filter.gte(property, value)", did 
+  # not work neither.
+  #===================================================================================================
+  #cloud_up = 70
+  #cloud_dn = 30
   CollName = SsrData['GEE_NAME']  
   #print('<getCollection> data catalog name = ', CollName)
 
+  coll = ee.ImageCollection(CollName).filterBounds(region).filterDate(start, stop) \
+               .filterMetadata(SsrData['CLOUD'], 'less_than', cloud_rate) \
+               .filterMetadata(SsrData['VZA'], 'greater_than', 0.0) \
+               .filterMetadata(SsrData['SZA'], 'greater_than', 0.0) \
+               .filterMetadata(SsrData['VAA'], 'greater_than', 0.0) \
+               .filterMetadata(SsrData['SAA'], 'greater_than', 0.0) 
+               #.limit(10000)
+               #.filterMetadata(SsrData['CLOUD'], 'less_than', cloud_up) \
+               #.filterMetadata(SsrData['CLOUD'], 'greater_than', cloud_dn) \
+  print('\n\n<getCollection> The name of data catalog = ', CollName)             
+  print('<getCollection> The number of images in selected image collection = ', coll.size().getInfo())
+
+  return coll 
+  
   '''
   coll = ee.ImageCollection(CollName) \
                .filterBounds(polygon) \
@@ -148,25 +169,21 @@ def getCollection(SsrData, Region, StartDate, StopDate, CloudRate = -100):
                .limit(5000)
   '''
 
-  #==============================================================================================
-  # "filterMetadata" Has been deprecated. But tried to use "ee.Filter.gte(property, value)", did 
-  # not work neither.
-  #==============================================================================================
-  cloud_up = 70
-  cloud_dn = 30
 
-  coll = ee.ImageCollection(CollName).filterBounds(region).filterDate(start, stop) \
-               .filterMetadata(SsrData['CLOUD'], 'less_than', cloud_rate) \
-               .filterMetadata(SsrData['VZA'], 'greater_than', 0.0) \
-               .filterMetadata(SsrData['SZA'], 'greater_than', 0.0) \
-               .filterMetadata(SsrData['VAA'], 'greater_than', 0.0) \
-               .filterMetadata(SsrData['SAA'], 'greater_than', 0.0) \
-               .limit(5000)
-               #.filterMetadata(SsrData['CLOUD'], 'less_than', cloud_up) \
-               #.filterMetadata(SsrData['CLOUD'], 'greater_than', cloud_dn) \
 
-  return coll 
-  
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ######################################################################################################

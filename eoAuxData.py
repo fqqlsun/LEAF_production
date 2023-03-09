@@ -88,6 +88,39 @@ def get_roadDensity(region):
 
 
 
+
+#############################################################################################################
+# Description: This function creates a LC map for entire Canada, optionally water bodies can be masked out.
+#
+# Revision history:  2023-Feb-17  Lixin Sun  Initial creation.
+#
+#############################################################################################################
+def get_CanLC(Year):
+  '''Creates a mask that mask out the land outside Canada and optionally water.
+
+     Args:      
+       Year(int or string): A target year;
+       mask_water(Boolean): Flag indicating if water bodies are masked out as well.'''
+  #==========================================================================================================
+  # Choose a proper land cover image collection based on a given "Year"
+  #==========================================================================================================
+  year = int(Year)  
+  ccrs_LC_assets  = 'projects/ccmeo-ag-000007/assets/CanadaLC2020_30m' 
+
+  if year > 2017:
+    #ccrs_LC_assets = 'projects/ccmeo-ag-000007/assets/CanLC2020'
+    ccrs_LC_assets  = 'projects/ccmeo-ag-000007/assets/CanadaLC2020_30m' 
+
+  #==========================================================================================================
+  # Create a CCRS land cover image
+  #==========================================================================================================
+  return ee.Image(ccrs_LC_assets).rename('partirion')
+  
+
+
+
+
+
 #############################################################################################################
 # Description: This function returns a proper land cover mosaic based on a given region and year.
 # 
@@ -112,9 +145,9 @@ def get_GlobLC(Region, Year, IsBiome):
   if year > 2017:
     ccrs_LC_assets = 'projects/ccmeo-ag-000007/assets/CanLC2020'
     ccrs_urban_map = ee.ImageCollection('projects/ccmeo-ag-000007/assets/Urban_Map_2020').mosaic()
-    #ccrs_LC_assets = 'users/lsunott/CanLC2020'
-    #ccrs_urban_map = ee.ImageCollection('users/lsunott/Urban2020').mosaic()
-
+    #ccrs_LC_assets = 'projects/ee-lsunott/assets/CanLC2020'
+    #ccrs_urban_map = ee.ImageCollection('projects/ee-lsunott/assets/Urban2020').mosaic()
+ 
   print('\n<get_LC_map> Used LC map is: ', ccrs_LC_assets) 
   #==========================================================================================================
   # Create a CCRS land cover mosaic image
@@ -153,8 +186,9 @@ def get_GlobLC(Region, Year, IsBiome):
   out_map = ccrs_LC.unmask(global_LC).clip(region)   # merge two land cover maps together and then clip it
   
   if IsBiome == True:
-    out_map = out_map.remap([0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19], [0,7,7,5,6,6,7,2,2,1,1,2,1,9,2,3,9,10,0,0])
-  
+    #out_map = out_map.remap([0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19], [0,7,7,5,6,6,7,2,2,1,1,2,1,9,2,3,9,10,0,0])
+    out_map = out_map.remap([0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19], [0,7,7,5,6,6,7,2,2,1,1,2,1,1,2,3,1,1,0,0])
+
   return out_map
 
 
