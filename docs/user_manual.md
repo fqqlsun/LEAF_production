@@ -4,7 +4,7 @@ To run the LEAF production tool on a local computer with the Windows Operating S
 
 *  A registered Google Cloud Account and valid authentication. These are mandentory requirments to access GEE API.
 *  Installation of [Anaconda](https://www.anaconda.com/) and [GEE Python API](https://developers.google.com/earth-engine/tutorials/community/intro-to-python-api-guiattard) on the user's local computer. Anaconda is a widely-used Python distribution suitable for most data science applcations.
-* Clone or download the LEAF production tool from GitHub and save it it in a dedicated directory on the local computer. 
+* Clone or download the LEAF production tool from GitHub and save it in a dedicated directory on the local computer. 
 
 ### 1.1 Create a Google Cloud Account and Obtain an Authentication Credential
 See [link](https://cloud.google.com/apigee/docs/hybrid/v1.1/precog-gcpaccount) for the steps to create a Google Cloud account.
