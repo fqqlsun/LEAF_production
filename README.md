@@ -2,7 +2,7 @@ This is Landscape Evolution And Forecasting (LEAF) production tool developed usi
 
 The standard outputs of this tool are organized into tiles, which cover an area of 900km x 900km as per the CCRS' tile grid system. In total, there are 26 tiles that encompass the Canadian landmass. However, users also have the option to define a customized polygon to specify a desired spatial area for production. 
 
-This tool currently supports the generation of four types of biophysical products: LAI, fCOVER, fAPAR and Albedo. Each product is associated with a corresponding GeoTiff image in outputs. Additionally, for each tile, there is a QC (Quality Control) map and an acquisition date map. The pixel values in the biophysical maps are represented as 8-bits unsigned integers, with specific rescaling factors applied. For LAI, the rescaling factor is 20, while for the remaining three biophyscal maps, it is 200.
+This tool currently supports the generation of four types of biophysical products: LAI, fCOVER, fAPAR and Albedo. Each product is associated with a corresponding GeoTiff image in outputs. Additionally, for each tile, there is a QC (Quality Control) map and an acquisition date map. The pixel values of the biophysical maps are stored as 8-bits unsigned integers, with specific rescaling factors applied. For LAI, the rescaling factor is 20, while for the remaining three biophyscal maps, it is 200.
 
 The 8-bits bitmask for the QC map is structured as follows:
    * bit 0: 1 indicates the input is out of range
