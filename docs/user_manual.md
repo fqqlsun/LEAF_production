@@ -11,7 +11,7 @@ See [link](https://cloud.google.com/apigee/docs/hybrid/v1.1/precog-gcpaccount) f
 
 To enable your accessment to GEE servers, you have to obtain an authentication credential from Google. Within your activated conda virtual environment (will be explained in next section), run `earthengine authenticate` command and follow the instructions. A URL will be provided that generates an authorization code upon agreement. Copy the authorization code and enter it as the input of the command line.
 
-### 1.2 Install Anaconda and EE python API
+### 1.2 Install Anaconda and GEE Python API
 The installation of Anaconda on a local computer is a straightforward process. Just go to the [website](https://www.anaconda.com/) of Anaconda and follow the given instructions. After the installation, open a Windows terminal or **Anaconda Prompt**, so that some conda commands can be issued from there. 
 
 It is highly recommended to create a dedicated conda virtual environment for installing EE Python API and executing the LEAF production tool. The following command line can be used to create a dedicated conda vitual environment ('leaf_prod' is used here to name the environment, but you can use any other name you like):
@@ -24,7 +24,7 @@ The following two command lines can be used to activate the environment and inst
 
 `conda install -c conda-forge earthengine-api`
 
-### 1.3 Obtain a copy of the LEAF production tool from GitHub
+### 1.3 Make a copy of the LEAF production tool from GitHub
 There are two ways in which you can obtain the source code hosted on Github.
 
 1. Download the source code from the option you can see when you land on github source code.
