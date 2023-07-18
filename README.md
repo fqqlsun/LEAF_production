@@ -7,8 +7,8 @@ This tool currently supports the generation of four types of biophysical product
 The 8-bits bitmask for the QC map is structured as follows:
    * bit 0: 1 indicates the input is out of range
    * bit 1: 1 represents the output is out of range
-   * bit 2, invalid pixel due to one of the reasons such as cloud, shadow, snow, ice, water or saturation
-   * bit 3-7: sensor type code. For Landsat 5, 7, 8, 9 and Sentinel-2, their sensor type codes are 40, 56, 64, 72 and 168, respectively
+   * bit 2, 1 indicates an invalid pixel due to various reasons such as cloud, shadow, snow, ice, water, or saturation.
+   * bit 3-7: Correspond to the sensor type code. For Landsat 5, 7, 8, 9, and Sentinel-2, their respective sensor type codes are 40, 56, 64, 72, and 168.
 
 The following figure shows the flowchart of LEAF production tool.
 ![](/wiki_images/flowchart.png)
