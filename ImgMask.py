@@ -14,35 +14,125 @@ SATU_MASK  = 4   #Radiometric satuation
 
 
 #############################################################################################################
+# Description: This function creates a clear-sky pixel mask for a given image (Image) based on the comparison
+#              with a MODIS mosaic image (MODIS_mosaic).
+#
+# Revision history:  2023-Apr-14  Lixin Sun  Initial creation
+#                    2023-May-25  Lixin Sun  Treat high spatial resolution vegetated and non-vegetated 
+#                                            pixels differently.
+#############################################################################################################
+def mask_from_MODIS(Image, SsrData, MODIS_mosaic): 
+  '''This function creates a clear-sky pixel mask for a given image (Image) based on the comparison with a
+     MODIS mosaic image (MODIS_mosaic)
+
+     Args:
+       Image(ee.Image): a given Sentinel-2 or Landsat image;
+       SsrData(Dictionary): an sensor data dictionary;
+       MODIS_mosaic(ee.Image): an compariable MODIS mosaic image.'''    
+  #==========================================================================================================
+  # Apply gain and offset to both MODIS and S2/LS images
+  #==========================================================================================================
+  modis_ssrData = Img.SSR_META_DICT['MOD_SR']
+  modis = Img.apply_gain_offset(MODIS_mosaic, modis_ssrData, 100.0, False)
+  image = Img.apply_gain_offset(Image, SsrData, 100.0, False)
+
+  #==========================================================================================================
+  # Obtain related bands in high-resolution image and then calculate NDVI map
+  #==========================================================================================================
+  s2ls_blu  = image.select(SsrData['BLU'])
+  s2ls_red  = image.select(SsrData['BLU'])
+  s2ls_nir  = image.select(SsrData['NIR'])
+  ndvi      = s2ls_nir.subtract(s2ls_red).divide(s2ls_nir.add(s2ls_red))
+
+  #==========================================================================================================
+  # Create two adjustment maps for BLUE and NIR bands, respectively 
+  # For a high-resolution vegetated pixel, its blu <= MODIS_blue
+  # For a high-resolution non-vegetated pixel, its blu >= MODIS_blue
+  # For a high-resolution vegetated pixel, its NIR >= MODIS_NIR
+  # For a high-resolution non-vegetated pixel, its NIR <= MODIS_NIR
+  #==========================================================================================================
+  blu_adjust = s2ls_blu.multiply(0).add(2)
+  blu_adjust = blu_adjust.where(ndvi.lt(0.4), blu_adjust.add(3)) 
+  
+  nir_adjust = s2ls_nir.multiply(0).add(5)
+  nir_adjust = nir_adjust.where(ndvi.lt(0.4), blu_adjust.subtract(3))
+
+  #==========================================================================================================
+  # Apply blue and NIR adjustment images to MODIS blue and NIR bands, respectively
+  #==========================================================================================================
+  modis_blu = modis.select(modis_ssrData['BLU']).add(blu_adjust)
+  modis_nir = modis.select(modis_ssrData['NIR']).subtract(nir_adjust)
+
+  #==========================================================================================================
+  # Create a pixel mask
+  #==========================================================================================================
+  mask = s2ls_blu.multiply(0)
+  
+  cond = s2ls_blu.gt(modis_blu).Or(s2ls_nir.lt(modis_nir))
+  mask = mask.where(cond, ee.Image(1))
+
+  return cond
+
+
+
+
+
+#############################################################################################################
 # Description: This function extracts a type of mask from the specific bands in a given image. The masks were
 #              created by the image provider.
 #
-# Revision history:  2022-Jun-22  Lixin Sun  Initial creation
+# Note:        the returned mask is a 0/1 image with 1 represening specified targets (e.g., cloud, cirrus,
+#              shadow, water or snow/ice)  
 #
+# Revision history:  2022-Jun-22  Lixin Sun  Initial creation
+#                    2023-Jan-11  Lixin Sun  Added MODIS sensor code option and MODIS mosaic image.
+#  
 #############################################################################################################
-def Img_VenderMask(Image, SsrData, MaskType):
+def Img_VenderMask(Image, SsrData, MaskType, MODIS_mosaic = None):
   '''This function extracts a specified mask from the intrinsic QA band of a given Landsat image.
 
      Args:
        Image(ee.Image): a given image with the bands of a specified sensor;
-       SensorCode(int): an integer representing a sensor (LS 5, 7, 8, 9 and S2);
-       DataUnit(int): an integer representing a data unit (TOA or surface reflectance);
-       MaskType(int): the mask type code (CLEAR_MASK, WATER_MASK, SNOW_MASK and SATU_MASK) .'''         
+       SsrData(Dictionary): a dictionary containing some info on a sensor  (LS 5/7/8/9 and S2);       
+       MaskType(int): the mask type code (CLEAR_MASK, WATER_MASK, SNOW_MASK and SATU_MASK);
+       MODIS_mosaic(ee.Image): An optional MODIS mosaic image.'''         
+ 
   ssr_code  = SsrData['SSR_CODE']
   data_unit = SsrData['DATA_UNIT']
   mask_type = int(MaskType)  
 
-  if ssr_code > Img.MAX_LS_CODE:  # For Sentinel-2 image
+  if ssr_code == Img.MOD_sensor:  # For MODIS image
+    cloudShadow = ee.Image.constant(1 << 2)
+    cirrus1     = ee.Image.constant(1 << 8)
+    cirrus2     = ee.Image.constant(1 << 9)
+    cloud       = ee.Image.constant(1 << 10)
+    snow        = ee.Image.constant(1 << 12)
+    cloud2      = ee.Image.constant(1 << 13)
+    snow2       = ee.Image.constant(1 << 15)
+
+    qa = Image.select('StateQA')
+    # Both flags should be set to zero, indicating clear conditions.
+    mask = qa.bitwiseAnd(cloudShadow).Or(qa.bitwiseAnd(cirrus1)).Or(qa.bitwiseAnd(cirrus2)) \
+          .Or(qa.bitwiseAnd(cloud)).Or(qa.bitwiseAnd(snow)).Or(qa.bitwiseAnd(cloud2)).Or(qa.bitwiseAnd(snow2))
+    
+    return mask
+  elif ssr_code > Img.MAX_LS_CODE:  # For Sentinel-2 image
     # For Sentinel-2, only two bands, 'QA60' and 'SCL', include mask information  
     qa  = Image.select(['QA60']).uint16()
     scl = Image.select(['SCL']) if data_unit == 2 else qa.multiply(0)
   
     if mask_type == CLEAR_MASK:
-      cloud_mask  = ee.Image.constant(1 << 10)
-      cirrus_mask = ee.Image.constant(1 << 11)
+      cloud  = ee.Image.constant(1 << 10)   # Opaque clouds
+      cirrus = ee.Image.constant(1 << 11)   # Cirrus clouds
 
-      mask = qa.bitwiseAnd(cloud_mask).Or(qa.bitwiseAnd(cirrus_mask))
-      return mask.Or(scl.eq(3)).Or(scl.eq(8)).Or(scl.eq(9)).Or(scl.eq(10))
+      mask = qa.bitwiseAnd(cloud).Or(qa.bitwiseAnd(cirrus))
+      mask = mask.Or(scl.eq(3)).Or(scl.eq(8)).Or(scl.eq(9)).Or(scl.eq(10))
+
+      if MODIS_mosaic != None:        
+        modis_mask = mask_from_MODIS(Image, SsrData, MODIS_mosaic)
+        mask = mask.And(modis_mask)
+      
+      return mask
     elif mask_type == WATER_MASK:
       return scl.eq(6)
     elif mask_type == SNOW_MASK:
@@ -51,16 +141,51 @@ def Img_VenderMask(Image, SsrData, MaskType):
       return scl.eq(1)
     else:
       return qa.multiply(ee.Image(0))
-  else:   # For Landsat image
+  else:   # For both BOA and TOA reflectance data of Landsat 5/7/8/9
     # For Landsat, only one band, 'QA_PIXEL', includes mask information
+    '''
+      =================================================
+       TOA reflectance of LS 5/7/8/9
+      =================================================
+      Bit 1: Dilated Cloud
+        0: Cloud is not dilated or no cloud
+        1: cloud dilation
+      Bit 2: Unused
+      Bit 3: Cloud
+        0: Cloud confidence is not high
+        1: High confidence cloud
+      Bit 4: Cloud Shadow
+        0: Cloud Shadow Confidence is not high
+        1: High confidence cloud shadow
+
+      =================================================
+       BOA reflectance of LS 5/7/8/9
+      =================================================
+      Bit 1: Dilated Cloud
+      Bit 2: Cirrus (high confidence)
+      Bit 3: Cloud
+      Bit 4: Cloud Shadow
+    '''
     qa = Image.select(['QA_PIXEL']).uint16()
+    dilated = ee.Image.constant(1 << 1)
+    cirrus  = ee.Image.constant(1 << 2)
+    cloud   = ee.Image.constant(1 << 3)
+    shadow  = ee.Image.constant(1 << 4)
+    snow    = ee.Image.constant(1 << 5)
+    water   = ee.Image.constant(1 << 7)
 
     if mask_type == CLEAR_MASK:
-      return qa.bitwiseAnd(30)   # extract bit info from 1,2,3,4 bit
+      mask = qa.bitwiseAnd(dilated).Or(qa.bitwiseAnd(cirrus)).Or(qa.bitwiseAnd(cloud)).Or(qa.bitwiseAnd(shadow))
+      
+      if MODIS_mosaic != None:        
+        modis_mask = mask_from_MODIS(Image, SsrData, MODIS_mosaic)
+        mask = mask.And(modis_mask)
+
+      return mask
     elif mask_type == WATER_MASK:
-      return qa.bitwiseAnd(256)
+      return qa.bitwiseAnd(water)   # Bit 7: Water
     elif mask_type == SNOW_MASK:
-      return qa.bitwiseAnd(64)
+      return qa.bitwiseAnd(snow)    # Bit 5: Snow
     #elif mask_type == SATU_MASK:
       #sa = Image.select(['QA_RADSAT']).uint8()
       #return sa.bitwiseAnd(127)

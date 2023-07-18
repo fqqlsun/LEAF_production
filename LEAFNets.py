@@ -7,7 +7,7 @@ import eoTileGrids as eoTG
 import eoParams
 import Mosaic
 import eoAuxData as eoAD
-import LEAF_LS as LFLS
+import LEAF_LSv1 as LFLS
 
 
 #############################################################################################################
@@ -17,10 +17,12 @@ import LEAF_LS as LFLS
 #                    2022-Jan-17  Lixin Sun  Added more feature collections for diverse land covers. 
 #############################################################################################################
 def s2_createFeatureCollection_estimates(version_nb):
+    print("\n<s2_createFeatureCollection_estimates> function is called......")
     if version_nb == 0:
       return ee.FeatureCollection ('users/rfernand387/COPERNICUS_S2_SR/s2_sl2p_weiss_or_prosail_NNT3_Single_0_1')  
       #return ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/s2_sl2p_ROF_sobol_prosail_dbf_big_NNT1_Single_0_1') 
     else:
+      print("\n<s2_createFeatureCollection_estimates> SL2P version1 is being used......")
       return  ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/s2_sl2p_weiss_or_prosail_NNT3_Single_0_1') \
        .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/s2_sl2p_weiss_or_prosail_NNT3_Single_0_1')) \
        .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/s2_sl2p_ROF_sobol_prosail_dbf_big_clumped_NNT1_Single_0_1_v2')) \
@@ -652,7 +654,7 @@ def export_compact_params(fun_Param_dict, region, compactImg, task_list):
 #
 #############################################################################################################
 def export_one_param(fun_Param_dict, Region, ParamMap, task_list):
-  '''Exports one biophysical parameter map to either GD or GCS.
+  '''Exports one biophysical parameter map to one of three places: GD, GCS or GEE assets.
 
      Args:
        fun_Param_dict(dictionary): a dictionary storing other required running parameters;
@@ -684,25 +686,34 @@ def export_one_param(fun_Param_dict, Region, ParamMap, task_list):
   # Prepare initial export dictionary and output location 
   #==========================================================================================================
   export_dict = {'image': ParamMap,
-                 'description': filename,
-                 'fileNamePrefix': filename,
+                 'description': filename,                 
                  'scale': int(fun_Param_dict['resolution']),
                  'crs': 'EPSG:3979',
                  'maxPixels': 1e11,
                  'region': ee.Geometry(Region)}  
 
   #==========================================================================================================
-  # Export a 64-bits image containing FOUR biophysical parameter maps and one map to either GD or GCS
+  # Export a biophysical parameter map to one of three places: GD, GCS or GEE Assets
   #==========================================================================================================  
   out_location = str(fun_Param_dict['location']).lower()
 
   if out_location.find('drive') > -1:
+    print('<export_one_param> Exporting biophysical map to Google Drive......')
     export_dict['folder'] = exportFolder
+    export_dict['fileNamePrefix'] = filename
     task_list.append(ee.batch.Export.image.toDrive(**export_dict).start())
+
   elif out_location.find('storage') > -1:
+    print('<export_one_param> Exporting biophysical map to Google Cloud Storage......')
     export_dict['bucket'] = str(fun_Param_dict['bucket'])
     export_dict['fileNamePrefix'] = exportFolder + '/' + filename
     task_list.append(ee.batch.Export.image.toCloudStorage(**export_dict).start())
+
+  elif out_location.find('asset') > -1:
+    print('<export_one_param> Exporting biophysical map to GEE Assets......')
+    asset_root = 'projects/ee-lsunott/assets/'
+    export_dict['assetId'] = asset_root + exportFolder + '/' + filename
+    task_list.append(ee.batch.Export.image.toAsset(**export_dict).start())
 
 
 
@@ -758,7 +769,15 @@ def export_ClassImg(ClassImg, fun_Param_dict, region, task_list):
     export_dict['fileNamePrefix'] = exportFolder + '/' + export_dict['description']
 
     task_list.append(ee.batch.Export.image.toCloudStorage(**export_dict).start()) 
-    
+
+  elif out_location.find('asset') > -1:
+    print('<export_ClassImg> Exporting partition to GEE Assets......')    
+    asset_root = 'projects/ee-lsunott/assets/'
+    export_dict['assetId'] = asset_root + exportFolder + '/' + export_dict['description']
+
+    task_list.append(ee.batch.Export.image.toAsset(**export_dict).start())   
+
+
 
 
 
@@ -832,6 +851,9 @@ def export_DateImg(mosaic, fun_Param_dict, region, task_list):
 # Description: This function creates a pixel mask that masks out cloud/shadow, snow/ice and water. This mask
 #              will be used to set a flag at the 3rd bit in a QC image. 
 #
+# The value mapping from a classification map to biome map is as follows:
+# [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19], [0,7,7,5,6,6,7,2,2,1,1,2,1,1,2,3,1,1,0,0]
+#
 # Revision history:  2022-Jun-22  Lixin Sun  Initial creation 
 #                    2022-Nov-16  Lixin Sun  Added water mask from a given classification map.
 #
@@ -845,8 +867,10 @@ def LEAF_valid_mask(Image, SsrData, MaxRef, ClassMap):
     MaxRef(int): the maximum reflectance value in the given Image;
     ClassMap(ee.Image): a given classification map.'''
 
+  #==========================================================================================================
   # Invoke the functions to generate various masks. 
   # Note the value range in "Image" is [0, 1] since it is used for LEAF calculation 
+  #==========================================================================================================
   snow_mask   = IM.Img_SnowMask (Image, SsrData, MaxRef)
   #water_mask  = IM.Img_WaterMask(Image, SsrData, MaxRef)
   valid_mask  = IM.Img_ValidMask(Image, SsrData, MaxRef)  
@@ -885,8 +909,7 @@ def S2_separate_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, task
   # Obtain the names of a GEE Data Catalog ('COPERNICUS/S2_SR_HARMONIZED' or 'LANDSAT/LC08/C01/T1_SR') and
   # a biophysical parameter (one of 'LAI', 'fCOVER', 'fAPAR' and 'Albedo').
   #==========================================================================================================
-  coll_name = SsrData['NAME'] + "_SR"
-  coll_dict = COLL_OPTIONS[coll_name] # ee.Dictionay object related to a selected collection type
+  coll_dict = COLL_OPTIONS[SsrData['NAME']] # ee.Dictionay object related to a selected collection type
  
   sl2pDomain = coll_dict["sl2pDomain"].aggregate_array("DomainCode").sort()
   bandList   = ee.List(coll_dict["inputBands"])
@@ -911,6 +934,8 @@ def S2_separate_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, task
   # Determine the number of land cover classes based on the number of networks and parameter types.
   #==========================================================================================================
   coll_nets  = coll_dict["Collection_SL2P"]
+  #print("\n<S2_separate_params>", coll_nets.getInfo())
+
   total_nets = coll_nets.size()                         # the total number of networks (ee.Feature objects)  
   numbParams = int(coll_dict["numVariables"])           # the total number of biophysical parameters (normally 7)
   numClasses = total_nets.divide(ee.Number(numbParams)) # the number of land cover classes
@@ -937,22 +962,26 @@ def S2_separate_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, task
 
   #==========================================================================================================
   # Estimate FOUR biophysical parameter maps and QC map, and then export them separately
-  #==========================================================================================================
+  #==========================================================================================================  
   fun_Param_dict['prod_name'] = 'LAI'
-  param_map, QC_img = estimate_param_QC(fun_Param_dict, QC_img)  
-  #export_one_param(fun_Param_dict, Region, param_map, task_list)  
-  
+  LAI_map, QC_img = estimate_param_QC(fun_Param_dict, QC_img)
+  if task_list != None:
+    Img.export_one_map(fun_Param_dict, Region, LAI_map, task_list)  
+
   fun_Param_dict['prod_name'] = 'fCOVER'  
-  param_map, QC_img = estimate_param_QC(fun_Param_dict, QC_img)
-  export_one_param(fun_Param_dict, Region, param_map, task_list)
+  fCOVER_map, QC_img = estimate_param_QC(fun_Param_dict, QC_img)
+  if task_list != None:
+    Img.export_one_map(fun_Param_dict, Region, fCOVER_map, task_list)
 
   fun_Param_dict['prod_name'] = 'fAPAR'  
-  param_map, QC_img = estimate_param_QC(fun_Param_dict, QC_img)
-  #export_one_param(fun_Param_dict, Region, param_map, task_list)
+  fAPAR_map, QC_img = estimate_param_QC(fun_Param_dict, QC_img)
+  if task_list != None:
+    Img.export_one_map(fun_Param_dict, Region, fAPAR_map, task_list)
 
   fun_Param_dict['prod_name'] = 'Albedo'
-  param_map, QC_img = estimate_param_QC(fun_Param_dict, QC_img)
-  #export_one_param(fun_Param_dict, Region, param_map, task_list)  
+  Albedo_map, QC_img = estimate_param_QC(fun_Param_dict, QC_img)
+  if task_list != None:
+    Img.export_one_map(fun_Param_dict, Region, Albedo_map, task_list)  
   
   #==========================================================================================================
   # Set flags/marks in the 3rd bit of "QC_img" for all kinds of invalid pixels (cloud, shadow, snow, ice, 
@@ -960,10 +989,11 @@ def S2_separate_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, task
   #==========================================================================================================  
   fun_Param_dict['prod_name'] = 'QC'  
   invalid_mask = LEAF_valid_mask(inMosaic, SsrData, 1, ClassImg).multiply(ee.Image(4)).uint8()
-  QC_img       = QC_img.unmask().bitwiseOr(invalid_mask)
-  export_one_param(fun_Param_dict, Region, QC_img, task_list)
+  QC_map       = QC_img.unmask().bitwiseOr(invalid_mask)
+  if task_list != None:
+    Img.export_one_map(fun_Param_dict, Region, QC_map, task_list)
 
-
+  return LAI_map, fCOVER_map, fAPAR_map, Albedo_map, QC_map
 
 
 
@@ -991,7 +1021,7 @@ def S2_region_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, task_l
   # Obtain the names of a GEE Data Catalog ('COPERNICUS/S2_SR_HARMONIZED' or 'LANDSAT/LC08/C01/T1_SR') and
   # a biophysical parameter (one of 'LAI', 'fCOVER', 'fAPAR' and 'Albedo').
   #==========================================================================================================
-  coll_name = SsrData['NAME'] + "_SR"
+  coll_name = SsrData['NAME']
   coll_dict = COLL_OPTIONS[coll_name] # ee.Dictionay object related to a selected collection type
  
   sl2pDomain = coll_dict["sl2pDomain"].aggregate_array("DomainCode").sort()
@@ -1011,7 +1041,7 @@ def S2_region_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, task_l
   # Mask out water bodies from the mosaic image
   #==========================================================================================================  
   water_mask = ClassImg.neq(ee.Image(0)).And(ClassImg.neq(ee.Image(18)))
-  mosaic     = inMosaic.updateMask(water_mask)
+  mosaic     = inMosaic.updateMask(water_mask).clip(Region)
 
   #==========================================================================================================
   # Determine the number of land cover classes based on the number of networks and parameter types.
@@ -1044,39 +1074,39 @@ def S2_region_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, task_l
   #==========================================================================================================
   # Estimate FOUR biophysical parameter maps and QC map, and then export them separately
   #==========================================================================================================
-  land_mask = IM.Can_land_mask(2020, True)
+  land_mask    = IM.Can_land_mask(2020, True)
+  invalid_mask = LEAF_valid_mask(inMosaic, SsrData, 1, ClassImg).multiply(ee.Image(4)).uint8()  
+  QC_img       = QC_img.bitwiseOr(invalid_mask).clip(Region)
+  tempQC       = QC_img
 
   fun_Param_dict['prod_name'] = 'LAI'  
-  param_map, QC_img = estimate_param_QC(fun_Param_dict, QC_img)  
-  param_map = param_map.multiply(land_mask).unmask().clip(Region)   
-  export_one_param(fun_Param_dict, Region, param_map, task_list)  
+  LAI_map, tempQC = estimate_param_QC(fun_Param_dict, tempQC)    
+  LAI_map = LAI_map.where(QC_img.gt(3), ee.Image(2))
+  LAI_map = LAI_map.where(land_mask.gt(0).And(LAI_map.lt(2)), ee.Image(2)).unmask()
+  #LAI_map = LAI_map.multiply(land_mask).unmask()
+  Img.export_one_map(fun_Param_dict, Region, LAI_map, task_list)  
   
+  '''
   fun_Param_dict['prod_name'] = 'fCOVER'  
-  param_map, QC_img = estimate_param_QC(fun_Param_dict, QC_img)
-  param_map = param_map.multiply(land_mask).unmask().clip(Region)
-  export_one_param(fun_Param_dict, Region, param_map, task_list)
+  fCOVER_map, tempQC = estimate_param_QC(fun_Param_dict, tempQC)
+  fCOVER_map = fCOVER_map.where(QC_img.gt(3), ee.Image(2))
+  fCOVER_map = fCOVER_map.where(land_mask.gt(0).And(fCOVER_map.lt(2)), ee.Image(2)).unmask()
+  export_one_param(fun_Param_dict, Region, fCOVER_map, task_list)
 
   fun_Param_dict['prod_name'] = 'fAPAR'  
-  param_map, QC_img = estimate_param_QC(fun_Param_dict, QC_img)
-  param_map = param_map.multiply(land_mask).unmask().clip(Region)
-  export_one_param(fun_Param_dict, Region, param_map, task_list)
+  fAPAR_map, tempQC = estimate_param_QC(fun_Param_dict, tempQC)
+  fAPAR_map = fAPAR_map.where(QC_img.gt(3), ee.Image(2))
+  fAPAR_map = fAPAR_map.where(land_mask.gt(0).And(fAPAR_map.lt(2)), ee.Image(2)).unmask()
+  export_one_param(fun_Param_dict, Region, fAPAR_map, task_list)
 
   fun_Param_dict['prod_name'] = 'Albedo'
-  param_map, QC_img = estimate_param_QC(fun_Param_dict, QC_img)
-  param_map = param_map.multiply(land_mask).unmask().clip(Region)
-  #export_one_param(fun_Param_dict, Region, param_map, task_list)    
+  Albedo_map, tempQC = estimate_param_QC(fun_Param_dict, tempQC)
+  Albedo_map = Albedo_map.where(QC_img.gt(3), ee.Image(2))
+  Albedo_map = Albedo_map.where(land_mask.gt(0).And(Albedo_map.lt(2)), ee.Image(2)).unmask()
+  export_one_param(fun_Param_dict, Region, Albedo_map, task_list)
+  '''
+  return LAI_map
   
-  #==========================================================================================================
-  # Set flags/marks in the 3rd bit of "QC_img" for all kinds of invalid pixels (cloud, shadow, snow, ice, 
-  # water, saturated or out of range) 
-  #==========================================================================================================  
-  '''
-  fun_Param_dict['prod_name'] = 'QC'  
-  invalid_mask = LEAF_valid_mask(inMosaic, SsrData, 1, ClassImg).multiply(ee.Image(4)).uint8()
-  QC_img       = QC_img.unmask().bitwiseOr(invalid_mask)
-  QC_img       = QC_img.multiply(land_mask).clip(Region)
-  export_one_param(fun_Param_dict, Region, QC_img, task_list)
-  '''
 
 
 
@@ -1092,7 +1122,7 @@ def S2_region_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, task_l
 # Revision history:  2022-Dec-20  Lixin Sun  Initial creation 
 #                   
 #############################################################################################################
-def LS_separate_params(fun_Param_dict, inMosaic, Region, BiomeImg, task_list):
+def LS_separate_params(fun_Param_dict, inMosaic, Region, SsrData, BiomeImg, task_list):
   '''Produces a full set of LEAF products for a specific region and time period and export them in separate files.
 
     Args:
@@ -1102,51 +1132,72 @@ def LS_separate_params(fun_Param_dict, inMosaic, Region, BiomeImg, task_list):
        SsrData(Dictionary): a Dictionary containing metadata associated with a sensor and data unit;
        BiomeImg(ee.Image): A given biome image;
        task_list([]): a list for storing the links to exporting tasks.'''
-  
-  
-  #fun_Param_dict['prod_name'] = 'biome'
-  #export_one_param(fun_Param_dict, Region, BiomeImg, task_list)
-
-  #================================================================================================
-  # Construct RF-based models from the feature collections stored in GEE assets
-  # A list of ee.FeatureColelction objects will be returned from "constructMethod" function
-  #================================================================================================
-  #methodName    = "NAIVE" 
-  #treeDirectory = "users/rfernand387/modisLandsatTrees/"
-  methodName    ="FTL"
-  #treeDirectory = "users/ccrs11fy2022li/FTL_trees_LAI"
-  treeDirectory = "users/ccrs11fy2022li/FTL_LAI_trees"
-
-  method = LFLS.constructMethod(methodName, treeDirectory)
-  print('\n\n<LS_separate_params> property names in used method = ', \
-        ee.FeatureCollection(method.get(0)).propertyNames().getInfo())
-
+  print('<LS_separate_params> The given parameters = ', fun_Param_dict)
   #================================================================================================
   # Attach the biome map/image to the given mosaic image
   # Note: For Landsat8/9 LEAF tool, biome map, instead of classification map, must be applied.
   #================================================================================================
-  mosaic = inMosaic.addBands(BiomeImg.rename(['biome']))
-  #print('<LS_separate_params> bands in mosaic = ', mosaic.bandNames().getInfo())
-  
-  biome_values = LFLS.uniqueValues(mosaic.select('biome'), Region, 0) 
+  mosaic   = inMosaic.addBands(BiomeImg.rename(['biome']))  
+  biomeIDs = LFLS.uniqueValues(mosaic.select('biome'), Region, 0) 
   
   # CL - remove 0 from biome_values (no method for it)
-  biome_values = biome_values.filter(ee.Filter.notEquals('item', 0))
-  #biome_values = ee.List([1,2,3,5,6,7])  # This line is only for testing purpose 
-  print('<LS_separate_params> unique biome values = ', biome_values.getInfo())
+  biomeIDs = biomeIDs.filter(ee.Filter.inList('item', [1,2,3,5,6,7]))
+  print('<LS_separate_params> unique biome values = ', biomeIDs.getInfo())
+  
+  #final_map = LFLS.BiomeEstimate(all_methods, 7, mosaic, Region)
+  #for biome in biomeIDs:
+  #  LFLS.BiomeEstimate(all_methods, biome, mosaic, Region)
 
-  #one_biome_map = LFLS.BiomeEstimate(method, 6, mosaic, Region)
   #================================================================================================
-  # Apply the models to the given mosaic image
+  # Construct RF-based models from the feature collections stored in GEE assets
+  # A list of ee.FeatureColelction objects will be returned from "constructMethod" function
   #================================================================================================  
-  biome_results = biome_values.map(lambda biomeID: LFLS.BiomeEstimate(method, biomeID, mosaic, Region))
-  biome_results = biome_results.map(lambda image: ee.Image(image).unmask())
-  final_result  = ee.ImageCollection(biome_results).max().clip(Region)
+  methodName      = "FTL"
+  LAI_asset_Dir   = "projects/ee-lsunott/assets/Can_1for2_LAI_5000PNs_25Dp_50Ts_10CLSs"
+  #LAI_asset_Dir   = "projects/ee-lsunott/assets/Can_2for2_LAI_40PNs_25Dp_50Ts_10CLSs"
+  LAI_all_methods = LFLS.constructMethod(methodName, LAI_asset_Dir)
+  print('\n\n<LS_separate_params> RF model was constructed!')
 
-  fun_Param_dict['prod_name'] = 'LAI'
-  export_one_param(fun_Param_dict, Region, final_result, task_list) 
+  #print('\n\n<LS_separate_params> property names in used method = ', \
+  #      ee.FeatureCollection(method.get(0)).propertyNames().getInfo())
 
-  return final_result  
+  #================================================================================================
+  # Apply RF models for LAI to the given mosaic image and then export the resulant map
+  #================================================================================================  
+  LAI_biome_imgs = biomeIDs.map(lambda biomeID: LFLS.BiomeEstimate(LAI_all_methods, biomeID, mosaic, Region))
+  LAI_biome_imgs = LAI_biome_imgs.map(lambda image: ee.Image(image).unmask())
+  final_LAI_map  = ee.ImageCollection(LAI_biome_imgs).max().clip(Region)  
+
+  #================================================================================================
+  # Apply RF models for fAPAR to the given mosaic image and then export the resulant map
+  #================================================================================================  
+  fAPAR_asset_Dir   = "projects/ee-lsunott/assets/Can_1for2_FAPAR_5000PLS_25Dp_50Ts_10CLS"
+  fAPAR_all_methods = LFLS.constructMethod(methodName, fAPAR_asset_Dir)
+
+  fAPAR_biome_imgs = biomeIDs.map(lambda biomeID: LFLS.BiomeEstimate(fAPAR_all_methods, biomeID, mosaic, Region))
+  fAPAR_biome_imgs = fAPAR_biome_imgs.map(lambda image: ee.Image(image).unmask())
+  final_fAPAR_map  = ee.ImageCollection(fAPAR_biome_imgs).max().clip(Region)  
+
+  #==========================================================================================================
+  # Set flags/marks in the 3rd bit of "QC_img" for all kinds of invalid pixels (cloud, shadow, snow, ice, 
+  # water, saturated or out of range) 
+  #==========================================================================================================  
+  mosaic = Img.apply_gain_offset(mosaic, SsrData, 100, False)
+  QC_map = LEAF_valid_mask(mosaic, SsrData, 100, BiomeImg).multiply(ee.Image(4)).uint8()
+
+  if task_list != None:
+    fun_Param_dict['prod_name'] = 'LAI'
+    Img.export_one_map(fun_Param_dict, Region, final_LAI_map, task_list)   
+
+    fun_Param_dict['prod_name'] = 'fAPAR'
+    Img.export_one_map(fun_Param_dict, Region, final_fAPAR_map, task_list) 
+
+    fun_Param_dict['prod_name'] = 'QC'
+    Img.export_one_map(fun_Param_dict, Region, QC_map, task_list)
+    print('<export_LS_BioMaps> All biophysical maps have been exported!')
+
+  return final_LAI_map, final_fAPAR_map, QC_map
+
 
 
 
@@ -1175,9 +1226,10 @@ def separate_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, task_li
   ssr_code = SsrData['SSR_CODE']
 
   if ssr_code > Img.MAX_LS_CODE:
-    S2_separate_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, task_list)
+    return S2_separate_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, task_list)
   else:
-    LS_separate_params(fun_Param_dict, inMosaic, Region, ClassImg, task_list)
+    LAI_map, fAPAR_map, QC_map = LS_separate_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, task_list)
+    return export_LS_BioMaps(fun_Param_dict, Region, LAI_map, fAPAR_map, QC_map, task_list)
 
 
 
@@ -1294,7 +1346,9 @@ def Is_export_required(InquireStr, ProductList):
 
   for prod in ProductList:
     prod_low = prod.lower()
+    print("<Is_export_required>inquired str and prod_low:", InquireStr, prod_low)
     if prod_low.find(InquireStr) != -1:
+      print("<Is_export_required> found:", InquireStr, prod_low)
       return True
 
   return False
@@ -1351,12 +1405,12 @@ def LEAF_production(ExeParamDict):
   # dictionary. During the process of passing "fun_Param_dict" to 'LEAF_Mosaic', 'one_LEAF_Product' and
   # 'export_ancillaries' functions, missing elements will be added later on.
   #==========================================================================================================
-  fun_Param_dict = {'sensor':     exe_Param_dict['sensor'],
-                    'year':       exe_Param_dict['year'],
-                    'resolution': exe_Param_dict['resolution'],
-                    'location':   exe_Param_dict['location'],
-                    'bucket':     exe_Param_dict['bucket'],
-                    'folder':     exe_Param_dict['folder'],
+  fun_Param_dict = {'sensor':       exe_Param_dict['sensor'],
+                    'year':         exe_Param_dict['year'],
+                    'resolution':   exe_Param_dict['resolution'],
+                    'location':     exe_Param_dict['location'],
+                    'bucket':       exe_Param_dict['bucket'],
+                    'folder':       exe_Param_dict['folder'],
                     'export_style': exe_Param_dict['export_style']}
     
   #==========================================================================================================
@@ -1379,6 +1433,7 @@ def LEAF_production(ExeParamDict):
     cloud_rate = eoTG.get_tile_cloud_rate(tile) if eoTG.is_valid_tile_name(tile) == True else -100
 
     # Create a classification map image based on region and targeted year
+    print('\n<LEAF_production> generate a global LC map.......')
     IsBiome  = True if ssr_code < Img.MAX_LS_CODE else False
     ClassImg = eoAD.get_GlobLC(region, year, IsBiome).uint8()
 
@@ -1392,6 +1447,7 @@ def LEAF_production(ExeParamDict):
       fun_Param_dict['month'] = month     
 
       # Generate a mosaic image for a month with either S2 or LS8/9 data 
+      print('\n<LEAF_production> generate a mosaic for month', month)
       mosaic = Mosaic.LEAF_Mosaic(fun_Param_dict, region)
       #return mosaic
     
@@ -1401,14 +1457,16 @@ def LEAF_production(ExeParamDict):
       # Produce vegetation parameter maps and export them in a specified way (a compact image or separate images)      
       out_style = str(fun_Param_dict['export_style']).lower()
       if out_style.find('comp') > -1:
+        print('\n<LEAF_production> Call compact_params function .......')
         out_params = compact_params(mosaic, SsrData, ClassImg)
 
         # Export the 64-bits image to either GD or GCS
-        export_compact_params(fun_Param_dict, region, out_params, task_list)
+        return export_compact_params(fun_Param_dict, region, out_params, task_list)
       else: # Create separate parameter maps
-        separate_params(fun_Param_dict, mosaic, region, SsrData, ClassImg, task_list)
+        print('\n<LEAF_production> Call separate_params function .......')
+        return separate_params(fun_Param_dict, mosaic, region, SsrData, ClassImg, task_list)
       
-  return task_list
+  #return task_list
 
 
 
@@ -1465,4 +1523,10 @@ def National_LEAF_production(ExeParamDict):
   mosaic = Mosaic.LEAF_Mosaic(fun_Param_dict, region)
 
   # Produce vegetation parameter maps and export them in a specified way (a compact image or separate images)
-  S2_region_params(fun_Param_dict, mosaic, region, SsrData, ClassImg, task_list)   
+  return S2_region_params(fun_Param_dict, mosaic, region, SsrData, ClassImg, task_list)   
+
+
+
+###########################################################################
+# This is a test to see the synchronization between VS Code and databricks
+###########################################################################

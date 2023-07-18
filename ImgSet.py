@@ -110,6 +110,8 @@ def period_centre(StartDate, StopDate):
 #                                            coverage percentage.
 #                    2022-Nov-10  Lixin Sun  Added a default input parameter called "CloudRate", which 
 #                                            is an optional cloud coverage percentage/rate.  
+#                    2023-Apr-14  Lixin Sun  Added a case for "MODIS/061/MOD09A1", which does have any
+#                                            image property
 ######################################################################################################
 def getCollection(SsrData, Region, StartDate, StopDate, CloudRate = -100):  
   '''Returns a image collection acquired by a sensor over a geographical region during a period of time  
@@ -141,18 +143,27 @@ def getCollection(SsrData, Region, StartDate, StopDate, CloudRate = -100):
   #cloud_up = 70
   #cloud_dn = 30
   CollName = SsrData['GEE_NAME']  
-  #print('<getCollection> data catalog name = ', CollName)
-
-  coll = ee.ImageCollection(CollName).filterBounds(region).filterDate(start, stop) \
+  ssr_code = SsrData['SSR_CODE']
+  
+  if ssr_code == Img.MOD_sensor: # for MODIS data
+    coll = ee.ImageCollection(CollName).filterBounds(region).filterDate(start, stop) 
+  elif ssr_code > Img.MAX_LS_CODE: # for Sentinel-2 data   
+    coll = ee.ImageCollection(CollName).filterBounds(region).filterDate(start, stop) \
                .filterMetadata(SsrData['CLOUD'], 'less_than', cloud_rate) \
+               .filterMetadata(SsrData['VAA'], 'greater_than', 0.0) \
+               .filterMetadata(SsrData['SAA'], 'greater_than', 0.0) \
                .filterMetadata(SsrData['VZA'], 'greater_than', 0.0) \
                .filterMetadata(SsrData['SZA'], 'greater_than', 0.0) \
-               .filterMetadata(SsrData['VAA'], 'greater_than', 0.0) \
-               .filterMetadata(SsrData['SAA'], 'greater_than', 0.0) 
                #.limit(10000)
                #.filterMetadata(SsrData['CLOUD'], 'less_than', cloud_up) \
                #.filterMetadata(SsrData['CLOUD'], 'greater_than', cloud_dn) \
-  print('\n\n<getCollection> The name of data catalog = ', CollName)             
+  else: # for Landsat data
+    coll = ee.ImageCollection(CollName).filterBounds(region).filterDate(start, stop) #\
+                #.filterMetadata(SsrData['CLOUD'], 'less_than', cloud_rate) \
+                #.filterMetadata(SsrData['VAA'], 'greater_than', 0.0) \
+                #.filterMetadata(SsrData['SAA'], 'greater_than', 0.0)                   
+
+  print('\n<getCollection> The name of data catalog = ', CollName)             
   print('<getCollection> The number of images in selected image collection = ', coll.size().getInfo())
 
   return coll 
@@ -168,20 +179,6 @@ def getCollection(SsrData, Region, StartDate, StopDate, CloudRate = -100):
                .filter(ee.Filter.gte(SSR_Property['saa'], -0.01)) \
                .limit(5000)
   '''
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -204,6 +201,29 @@ def peak_collection(SsrData, Year, Region, CloudRate):
   start, stop = summer_range(Year)
 
   return ee.ImageCollection(getCollection(SsrData, region, start, stop, CloudRate))
+
+
+
+
+######################################################################################################
+# Description: This function return median blue mosaic band of a peak season
+#
+# Revision history:  2022-Jan-22  Lixin Sun  Initial creation
+#                    2023-Mar-14  Lixin Sun  It was found that even peak season median blue does not
+#                                            work well. 
+######################################################################################################
+def peak_median_blue(SsrData, Year, Region, CloudRate):
+  peak_coll = peak_collection(SsrData, Year, Region, CloudRate)
+  
+  blue_name = SsrData['BLU'] 
+
+  def get_blue(img) :
+    #valid_mask = eoImgMsk.ValidMask(img, ssr_code, data_unit).Not() 
+    return img.select([blue_name])  #.updateMask(valid_mask) # Applying mask is important here
+  
+  blue_coll = peak_coll.map(lambda image: get_blue(image))
+  return blue_coll.median()
+
 
 
 

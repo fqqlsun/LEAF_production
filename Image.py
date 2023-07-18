@@ -14,6 +14,8 @@ MAX_LS_CODE    = 20
 S2A_sensor     = 21
 S2B_sensor     = 22
 
+MOD_sensor     = 50
+
 TOA_ref        = 1
 sur_ref        = 2
 
@@ -163,7 +165,7 @@ SSR_META_DICT = {
             'OUT_BANDS': ['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B7'], 
             'SIX_BANDS': ['SR_B1', 'SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B7'],
             'NoA_BANDS': ['SR_B3', 'SR_B4', 'SR_B5', 'SR_B7'],
-            'GEE_NAME': 'LANDSAT/LT05/C02/T1_L2',
+            'GEE_NAME': 'LANDSAT/LT05/C02/T1_L2', 
             "CLOUD": 'CLOUD_COVER',
             "SZA": 'SUN_ELEVATION',
             "SAA": 'SUN_AZIMUTH', 
@@ -218,7 +220,50 @@ SSR_META_DICT = {
              'RED': 'B4',
              'NIR': 'B5',
              'SW1': 'B6',
-             'SW2': 'B7'}
+             'SW2': 'B7'},
+  'L7_TOA': {'NAME': 'L7_TOA',
+            'SSR_CODE': LS7_sensor,
+            'DATA_UNIT': TOA_ref,
+            'GAIN': ee.Number(1),
+            'OFFSET': ee.Number(0),
+            'ALL_BANDS': ['B1', 'B2', 'B3', 'B4', 'B5', 'B7'],
+            'OUT_BANDS': ['B1', 'B2', 'B3', 'B4', 'B5', 'B7'], 
+            'SIX_BANDS': ['B1', 'B2', 'B3', 'B4', 'B5', 'B7'],
+            'NoA_BANDS': ['B3', 'B4', 'B5', 'B7'],
+            'GEE_NAME': 'LANDSAT/LE07/C02/T1_TOA',
+            "CLOUD": 'CLOUD_COVER',
+            "SZA": 'SUN_ELEVATION',
+            "SAA": 'SUN_AZIMUTH', 
+            "VZA": 'SUN_ELEVATION',            
+            "VAA": 'SUN_AZIMUTH',
+            'BLU': 'B1',
+            'GRN': 'B2',
+            'RED': 'B3',
+            'NIR': 'B4',
+            'SW1': 'B5',
+            'SW2': 'B7'},
+           
+  'MOD_SR': {'NAME': 'MOD09_SR',
+             'SSR_CODE': MOD_sensor,
+             'DATA_UNIT': sur_ref,
+             'GAIN': ee.Number(0.0001),
+             'OFFSET': ee.Number(0),
+             'ALL_BANDS': ['sur_refl_b03', 'sur_refl_b04', 'sur_refl_b01', 'sur_refl_b02', 'sur_refl_b05', 'sur_refl_b06', 'sur_refl_b07'],
+             'OUT_BANDS': ['sur_refl_b03', 'sur_refl_b04', 'sur_refl_b01', 'sur_refl_b02', 'sur_refl_b05', 'sur_refl_b06', 'sur_refl_b07'], 
+             'SIX_BANDS': ['sur_refl_b03', 'sur_refl_b04', 'sur_refl_b01', 'sur_refl_b02', 'sur_refl_b06', 'sur_refl_b07'],
+             'NoA_BANDS': ['sur_refl_b01', 'sur_refl_b02', 'sur_refl_b06', 'sur_refl_b07'],
+             'GEE_NAME': 'MODIS/061/MOD09A1', #Terra Surface Refklectance 8-day Global 500m
+             "CLOUD": 'CLOUD_COVER',
+             "SZA": 'SolarZenith',
+             "SAA": 'SolarAzimuth', 
+             "VZA": 'SensorZenith',             
+             "VAA": 'SensorAzimuth',
+             'BLU': 'sur_refl_b03',
+             'GRN': 'sur_refl_b04',
+             'RED': 'sur_refl_b01',
+             'NIR': 'sur_refl_b02',
+             'SW1': 'sur_refl_b06',
+             'SW2': 'sur_refl_b07'}
 }
 
 
@@ -226,6 +271,11 @@ DATA_TYPE   = ee.List(['S2_SR', 'LS8_SR', 'LS9_SR', 'LS7_SR', 'LS5_SR', 'S2_TOA'
 STD_6_BANDS = ['blue', 'green', 'red', 'nir', 'swir1', 'swir2']
 MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
+
+
+
+def parse_ImgID(ImgID_str):
+  ID_str = ee.String(ImgID_str)
 
 
 
@@ -255,17 +305,17 @@ def get_SsrData_key(SsrCode, DataUnit):
       return 'S2_TOA'
   else:
     print('<get_SsrData> Wrong sensor code or data unit provided!')
-    return -1
+    return ''
 
 
 
 
 #############################################################################################################
-# Description: This function returns a visulization parameter dictionary based on given SensorCode, DataUnit,
-#              ImgType and MaxRef.
+# Description: This function returns a visulization parameter dictionary based on given Sensor Metadata
+#              "SsrData", ImgType and MaxRef.
 #             
 # Revision history:  2021-May-20  Lixin Sun  Initial creation
-#
+#                    2023-Apr-14  Lixin Sun  Added a case for MODIS data
 #############################################################################################################
 def mosaic_Vis(SsrData, ImgType, MaxRef):
   '''Returns a visulization parameter dictionary based on given SensorCode, DataUnit, ImgType and MaxRef.
@@ -282,37 +332,27 @@ def mosaic_Vis(SsrData, ImgType, MaxRef):
   core_dict_100 = {'min': 0, 'max': 60, 'gamma': 1.8}
 
   if img_type == Img_Standard: # For a standard image
-    if max_ref < 10:
-      core_dict_1['bands'] = ['nir', 'red', 'green']
-      return core_dict_1
-    else:
-      core_dict_100['bands'] = ['nir', 'red', 'green']
-      return core_dict_100
-  
-  if img_type == Img_Fraction: # For a fraction image
-    if max_ref < 10:
-      core_dict_1['bands'] = ['band_0', 'band_1', 'band_2']
-      return core_dict_1
-    else:
-      core_dict_100['bands'] = ['band_0', 'band_1', 'band_2']
-      return core_dict_100
-  
+    core_dict_1['bands']   = ['nir', 'red', 'green']
+    core_dict_100['bands'] = ['nir', 'red', 'green']
+    return core_dict_1 if max_ref < 10 else core_dict_100
 
-  if ssr_code > MAX_LS_CODE or (ssr_code < MAX_LS_CODE and data_unit == 1):  # For Senstinel-2 or Landsat TOA reflectance image
-    if max_ref < 10:
-      core_dict_1['bands'] = ['B4', 'B3', 'B2']
-      return core_dict_1
-    else:
-      core_dict_100['bands'] = ['B4', 'B3', 'B2']
-      return core_dict_100
+  if img_type == Img_Fraction: # For a fraction image
+    core_dict_1['bands']   = ['band_0', 'band_1', 'band_2']
+    core_dict_100['bands'] = ['band_0', 'band_1', 'band_2']
+    return core_dict_1 if max_ref < 10 else core_dict_100 
   
+  
+  if ssr_code == MOD_sensor:  # For MODIS surface reflectance image
+    core_dict_1['bands']   = ['sur_refl_b01', 'sur_refl_b04', 'sur_refl_b03']
+    core_dict_100['bands'] = ['sur_refl_b01', 'sur_refl_b04', 'sur_refl_b03']
+  elif ssr_code > MAX_LS_CODE or (ssr_code < MAX_LS_CODE and data_unit == 1):  # For Senstinel-2 or Landsat TOA reflectance image
+    core_dict_1['bands']   = ['B4', 'B3', 'B2']
+    core_dict_100['bands'] = ['B4', 'B3', 'B2']  
   elif ssr_code < MAX_LS_CODE and data_unit == 2:   # For a Landsat surface reflectance image
-    if max_ref < 10:
-      core_dict_1['bands'] = ['SR_B4', 'SR_B3', 'SR_B2']
-      return core_dict_1
-    else:
-      core_dict_100['bands'] = ['SR_B4', 'SR_B3', 'SR_B2']
-      return core_dict_100
+    core_dict_1['bands']   = ['SR_B4', 'SR_B3', 'SR_B2']
+    core_dict_100['bands'] = ['SR_B4', 'SR_B3', 'SR_B2']
+
+  return core_dict_1 if max_ref < 10 else core_dict_100
 
 
 
@@ -335,11 +375,11 @@ def get_cloud_rate(SsrData, Region):
   
   # Determine the centre point of the given geographical region
   centre   = region.centroid()
-  latitude = float(ee.Number(centre.coordinates().get(1)).getInfo())
+  latitude = ee.Number(centre.coordinates().get(1))
   
   # Determine cloud coverage percentage based on sensor type and location
-  ST2_rate = 90 if latitude < 50 else 80 if latitude < 60 else 60
-  LS_rate  = ee.Algorithms.If(ssr_code.gt(4).And(ssr_code.lt(MAX_LS_CODE)), 90, 50)
+  ST2_rate = ee.Algorithms.If(latitude.lt(55), 85, 70)
+  LS_rate  = 90
 
   return ee.Algorithms.If(ssr_code.gt(MAX_LS_CODE), ST2_rate, LS_rate)
 
@@ -462,7 +502,7 @@ def attach_Date(image):
   Args:
     image(ee.Image): A given ee.Image object.
   '''
-  date     = ee.Date(image.date()).millis().divide(31536000)
+  date     = ee.Date(image.date()).millis().divide(86400000)  #86,400,000 is the milliseconds of one day
   date_img = ee.Image.constant(date).rename(pix_date).toUint16()
   return image.addBands(date_img)
 
@@ -491,12 +531,11 @@ def attach_S2AngleBands(Image, SsrData):
 
   raa     = Image.getNumber(SsrData['SAA']).subtract(Image.getNumber(SsrData['VAA']))
   raa_rad = ee.Image.constant(raa.multiply(rad))
-
+  
   return (Image.addBands(vza_rad.cos().rename(['cosVZA'])) \
                .addBands(sza_rad.cos().rename(['cosSZA'])) \
-               .addBands(raa_rad.cos().rename(['cosRAA'])))
-
-
+               .addBands(raa_rad.cos().rename(['cosRAA'])))               
+  
 
 
 ###################################################################################################
@@ -623,7 +662,79 @@ def superpixel_img(inImage):
 
 
 
-  
+
+
+#############################################################################################################
+# Description: This function exports one biophysical parameter map to either GD or GCS.
+#
+# Revision history:  2022-Nov-14  Lixin Sun  Initial creation 
+#
+#############################################################################################################
+def export_one_map(fun_Param_dict, Region, inMap, task_list):
+  '''Exports one biophysical parameter map to one of three places: GD, GCS or GEE assets.
+
+     Args:
+       fun_Param_dict(dictionary): a dictionary storing other required running parameters;
+       Region(ee.Geometry): the spatial region of interest;
+       ParamMap(ee.Image): the parameter map to be exported;
+       task_list([]): a list storing the links to exporting tasks. '''
+  #==========================================================================================================
+  # Create the names of exporting folder anf files 
+  #==========================================================================================================
+  month        = int(fun_Param_dict['month'])
+  year_str     = str(fun_Param_dict['year'])   
+  tile_str     = str(fun_Param_dict['tile_name'])
+  scale_str    = str(fun_Param_dict['resolution'])
+  given_folder = str(fun_Param_dict['folder'])
+  prod_name    = str(fun_Param_dict['prod_name'])
+
+  tile_name    = tile_str.split('_')[0]
+  form_folder  = tile_name + '_' + year_str
+  exportFolder = form_folder if len(given_folder) < 2 else given_folder  
+
+  month_name   = get_MonthName(month)
+  filename  = tile_str + '_' + year_str
+  if month < 1 or month > 12:
+    filename = filename + '_' + prod_name + '_' + scale_str + 'm'
+  else:
+    filename = filename + '_' + month_name + '_' + prod_name + '_' + scale_str + 'm'
+
+  #==========================================================================================================
+  # Prepare initial export dictionary and output location 
+  #==========================================================================================================
+  export_dict = {'image': inMap,
+                 'description': filename,                 
+                 'scale': int(fun_Param_dict['resolution']),
+                 'crs': 'EPSG:3979',
+                 'maxPixels': 1e11,
+                 'region': ee.Geometry(Region)}  
+
+  #==========================================================================================================
+  # Export a biophysical parameter map to one of three places: GD, GCS or GEE Assets
+  #==========================================================================================================  
+  out_location = str(fun_Param_dict['location']).lower()
+
+  if out_location.find('drive') > -1:
+    print('<Image:export_one_map> Exporting biophysical map to Google Drive......')
+    export_dict['folder'] = exportFolder
+    export_dict['fileNamePrefix'] = filename
+    task_list.append(ee.batch.Export.image.toDrive(**export_dict).start())
+
+  elif out_location.find('storage') > -1:
+    print('<Image:export_one_map> Exporting biophysical map to Google Cloud Storage......')
+    export_dict['bucket'] = str(fun_Param_dict['bucket'])
+    export_dict['fileNamePrefix'] = exportFolder + '/' + filename
+    task_list.append(ee.batch.Export.image.toCloudStorage(**export_dict).start())
+
+  elif out_location.find('asset') > -1:
+    print('<Image:export_one_map> Exporting biophysical map to GEE Assets......')
+    asset_root = 'projects/ee-lsunott/assets/'
+    export_dict['assetId'] = asset_root + exportFolder + '/' + filename
+    task_list.append(ee.batch.Export.image.toAsset(**export_dict).start())
+
+
+
+
 
 #############################################################################################################
 # Description: This function manages a list of exporting tasks

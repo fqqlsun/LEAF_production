@@ -105,11 +105,12 @@ def get_CanLC(Year):
   # Choose a proper land cover image collection based on a given "Year"
   #==========================================================================================================
   year = int(Year)  
-  ccrs_LC_assets  = 'projects/ccmeo-ag-000007/assets/CanadaLC2020_30m' 
+  #ccrs_LC_assets  = 'projects/ccmeo-ag-000007/assets/CanadaLC2020_30m' 
+  ccrs_LC_assets  = 'projects/ee-lsunott/assets/CanadaLC2020_30m' 
 
   if year > 2017:
     #ccrs_LC_assets = 'projects/ccmeo-ag-000007/assets/CanLC2020'
-    ccrs_LC_assets  = 'projects/ccmeo-ag-000007/assets/CanadaLC2020_30m' 
+    ccrs_LC_assets  = 'projects/ee-lsunott/assets/CanadaLC2020_30m' 
 
   #==========================================================================================================
   # Create a CCRS land cover image
@@ -143,8 +144,8 @@ def get_GlobLC(Region, Year, IsBiome):
   ccrs_LC_assets = 'users/rfernand387/NA_NALCMS_2015_tiles'
 
   if year > 2017:
-    ccrs_LC_assets = 'projects/ccmeo-ag-000007/assets/CanLC2020'
-    ccrs_urban_map = ee.ImageCollection('projects/ccmeo-ag-000007/assets/Urban_Map_2020').mosaic()
+    ccrs_LC_assets = 'projects/ee-lsunott/assets/CanLC2020'
+    ccrs_urban_map = ee.ImageCollection('projects/ee-lsunott/assets/Urban2020').mosaic()
     #ccrs_LC_assets = 'projects/ee-lsunott/assets/CanLC2020'
     #ccrs_urban_map = ee.ImageCollection('projects/ee-lsunott/assets/Urban2020').mosaic()
  

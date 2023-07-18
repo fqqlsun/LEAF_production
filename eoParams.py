@@ -31,7 +31,7 @@ DefaultParams = {
     'reducer': ee.Reducer.mean(),
     'buff_radius': 10, 
     'tile_scale': 4,
-    'export_style': 'compact'}
+    'export_style': 'separate'}
 
 
 
