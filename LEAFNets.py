@@ -1461,10 +1461,10 @@ def LEAF_production(ExeParamDict):
         out_params = compact_params(mosaic, SsrData, ClassImg)
 
         # Export the 64-bits image to either GD or GCS
-        return export_compact_params(fun_Param_dict, region, out_params, task_list)
+        export_compact_params(fun_Param_dict, region, out_params, task_list)
       else: # Create separate parameter maps
         print('\n<LEAF_production> Call separate_params function .......')
-        return separate_params(fun_Param_dict, mosaic, region, SsrData, ClassImg, task_list)
+        separate_params(fun_Param_dict, mosaic, region, SsrData, ClassImg, task_list)
       
   #return task_list
 
