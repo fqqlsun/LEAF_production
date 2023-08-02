@@ -1,6 +1,6 @@
 ## FNet_to_DNet(feature_list, class_ID)
 ### Description
-This function converts a shallow LEAF network from a ee.Feature object to a ee.Dictionary object with 8 keys (“inpSlope”, “inpOffset”, “h1wt”, “h1bi”, “h2wt”, “h2bi”, “outSlope”, “outBias”).
+This function converts a given LEAF network in ee.Feature format to a network in ee.Dictionary format with 8 keys (“inpSlope”, “inpOffset”, “h1wt”, “h1bi”, “h2wt”, “h2bi”, “outSlope”, “outBias”).
 ### Arguments:
 (1) feature_list (ee.List): a list of LEAF networks (with ee.Feature objects as elements) for one biophysical parameter and multiple land cover types.
 
