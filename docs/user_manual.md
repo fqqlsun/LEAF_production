@@ -11,6 +11,8 @@ See [link](https://cloud.google.com/apigee/docs/hybrid/v1.1/precog-gcpaccount) f
 
 To enable your accessment to GEE servers, you have to obtain an authentication credential from Google. Within your activated conda virtual environment (will be explained in next section), run `earthengine authenticate` command and follow the instructions. A URL will be provided that generates an authorization code upon agreement. Copy the authorization code and enter it as the input of the command line.
 
+RefreshError: ('invalid_grant: Token has been expired or revoked.', {'error': 'invalid_grant', 'error_description': 'Token has been expired or revoked.'})
+
 ### 1.2 Install Anaconda and GEE Python API
 The installation of Anaconda on a local computer is a straightforward process. Just go to the [website](https://www.anaconda.com/) of Anaconda and follow the given instructions. After the installation, open a Windows terminal or **Anaconda Prompt**, so that some conda commands can be issued from there. 
 
