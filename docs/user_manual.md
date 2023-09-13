@@ -54,5 +54,5 @@ It is recommanded to run LEAF production tool using a Notebook comes with LEAF p
 
 (3) Within the Jupyter Notebook Home Page, you should be able to see all the directories on your desired local drive. Go to the directory where you stored the LEAF production tool package and double click "LeafProdTool.ipynb" file.
 
-(4) Within LeafProdTool notebook webpage, go to the seconf code cell and modify some input parameters as need. The second code cell includes a Python Dictionary data structure, which contains all required input parameters for executing LEAF production tool. The key to run the LEAF production tool is to adjust input parameters according to your production need. For the detailed information on this, please refer to section 1.3 in [code architecture](/docs/code_architecture.md).
+(4) Within LeafProdTool notebook webpage, go to the seconf code cell and modify some input parameters as need. The second code cell includes a Python Dictionary data structure, which contains all required input parameters for executing LEAF production tool. The key to run the LEAF production tool is to adjust input parameters according to your production need. For detailed information on this, please refer to section 1.3 in [code architecture](/docs/code_architecture.md).
 
