@@ -1,4 +1,4 @@
-## 1. Prepare an Environment for Running the LEAF Production Tool
+## 1. Create Accounts and an Environment for Running the LEAF Production Tool
 
 To run the LEAF production tool on a local computer, the following prerequisites need to be fulfilled:
 
