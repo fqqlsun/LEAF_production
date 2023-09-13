@@ -14,9 +14,9 @@ The most convenient way to download files from Google Drive is to add Google Dri
 
 ## 2. Download Files from Google Cloud Storage
 
-(1) Install Google Cloud CLI on your local PC and then answer some questions such as project name, computer engine zone.
+(1) Install Google Cloud CLI on your local PC and answer questions such as project name, computer engine zone.
 
-(2) To download objects from Google Cloud Storage, issue a command something like: gsutil -m cp -r gs://bucket D:\test. On the other hand, issue a command similar to: gsutil -m cp D:\file gs://bucket. Note: the destination path must point to an existing directory, which means “test” directory must exist in the above example command.
+(2) To download floders/files from Google Cloud Storage, issue a command similar to: **gsutil -m cp -r gs://bucket D:\test**. On the other hand, issue a command similar to: gsutil -m cp D:\file gs://bucket. Note: the destination path must point to an existing directory, which means “test” directory must exist in the above example command.
 
 Google Cloud CLI has been installed on the desktop computer in the downstairs living room (installed location is C:\Users\fqq\AppData\Local\Google\Cloud SDK). There is a link called “Google Cloud SDE Shell” on the desktop, by which various google cloud commands (including gsutil) can be issued.
 
