@@ -1,4 +1,4 @@
-## 1. Download files from Google Drive
+## 1. Download Files from Google Drive
 
 The most convenient way to download files from Google Drive is to add Google Drive to Windows File Explorer, To do so, the following steps must be followed:
 
@@ -14,5 +14,5 @@ The most convenient way to download files from Google Drive is to add Google Dri
 
 
 
-## 2. Run LEAF Production Tool from Jupyter Notebook
+## 2. Download Files from Google Cloud Storage
  
