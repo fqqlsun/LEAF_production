@@ -46,7 +46,13 @@ There are two ways to obtain the source code of LEAF production tool from Github
 
 ## 2. Run LEAF Production Tool
  
-Running LEAF production tool is straightforward. Only a few python statements are needed. The following python program is a typical sample to execute LEAF production tool.
+It is recommanded to run LEAF production tool using a Notebook comes with LEAF production tool package. To do so, follow the next steps:
+
+(1) Open **Anaconda Prompt** and activate your conda virtual environment dedicated for LEAF production tool, if you have not done these yet. 
+
+(2) Issue **`jupyter notebook`** command from the local drive where you store the LEAF production tool package (use **`cd drive`** command to go to a desired local drive).
+
+Only a few python statements are needed. The following python program is a typical sample to execute LEAF production tool.
 
 ![](/wiki_images/leaf_tool_code.jpg)
 
