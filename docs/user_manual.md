@@ -22,7 +22,7 @@ It is recommanded to run LEAF production tool using a Notebook comes with LEAF p
 
 ## 3. Download Product Files from either Google Drive or Google Cloud Storage
  
-The LEAF production tool can export products to either Google Drive or Google Cloud Storage. Depending on where you export your products, the procedure for downloading the product files will be different.  
+The LEAF production tool can export products to either Google Drive or Google Cloud Storage. Depending on your choice of export destination, the process for downloading the product files will vary. The detailed steps for downloading the product files from these two places can be found in [Download files from Google Drive](/docs/code_architecture.md) and [Download files from Google Cloud Storage](/docs/code_architecture.md)   
 
 ## 4. Check the Results using either PCI or QGIS
  
