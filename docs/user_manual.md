@@ -1,4 +1,4 @@
-## 1. Prepare the Environment for Executing the LEAF Production Tool
+## 1. Prepare the Environment for Running the LEAF Production Tool
 
 To run the LEAF production tool on a local computer, the following prerequisites need to be fulfilled:
 
@@ -8,7 +8,7 @@ To run the LEAF production tool on a local computer, the following prerequisites
 
 Go to [Prepare Environment](/docs/prepare_environment.md) to get the detailed steps for fullfilling these prerequisites.
 
-## 2. Run LEAF Production Tool from Jupyter Notebook
+## 2. Run the LEAF Production Tool from Jupyter Notebook
  
 It is recommanded to run LEAF production tool using a Notebook comes with LEAF production tool package. To do so, follow the next steps:
 
@@ -20,10 +20,12 @@ It is recommanded to run LEAF production tool using a Notebook comes with LEAF p
 
 (4) Within LeafProdTool notebook webpage, go to the seconf code cell and modify some input parameters as need. The second code cell includes a Python Dictionary data structure, which contains all required input parameters for executing LEAF production tool. The key to run the LEAF production tool is to adjust input parameters according to your production need. For detailed information on this, please refer to section 1.3 in [code architecture](/docs/code_architecture.md).
 
-## 3. Download Product Files from either Google Drive or Google Cloud Storage
+## 3. Troubleshooting in the Execution 
+
+## 4. Download Product Files from either Google Drive or Google Cloud Storage
  
 The LEAF production tool can export products to either Google Drive or Google Cloud Storage. Depending on your choice of export destination, the process for downloading the product files will vary. The detailed steps for downloading the product files from these places can be found in [Download files from Google Drive and Google Cloud Storage](/docs/download_products.md)   
 
-## 4. Check the Results using either PCI or QGIS
+## 5. Check the Results using either PCI or QGIS
  
 Once you downloaded your product files to your local drive, you check the results by using either PCI focus or QGIS.
