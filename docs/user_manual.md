@@ -44,7 +44,7 @@ There are two ways to obtain the source code of LEAF production tool from Github
 
 * The source code is copied or downloaded on your preferred location.
 
-## 2. Run LEAF Production Tool
+## 2. Run LEAF Production Tool from Jupyter Notebook
  
 It is recommanded to run LEAF production tool using a Notebook comes with LEAF production tool package. To do so, follow the next steps:
 
@@ -52,9 +52,10 @@ It is recommanded to run LEAF production tool using a Notebook comes with LEAF p
 
 (2) Issue **`jupyter notebook`** command within **Anaconda Prompt** to start Jupyter Notebook Home Page in your default web browser. Note that ensure **jupyter notebook** command is issued from the local drive where you store the LEAF production tool package, otherwise using **`cd drive`** command to go to the desired local drive.
 
-(3) Within the Jupyter Notebook Home Page, you should be able to see all the directories on your desired local drive. Go to the directory where you stored the LEAF production tool package and double click **LeafProdTool.ipynb** file.
+(3) Within the Jupyter Notebook Home Page, you should be able to see all the directories on your desired local drive. Go to the directory where you stored the LEAF production tool package and double click "LeafProdTool.ipynb" file.
 
-Only a few python statements are needed. The following python program is a typical sample to execute LEAF production tool.
+(4) Within LeafProdTool notebook webpage, go to the seconf code cell and modify some input parameters as need. The second code cell includes a Python Dictionary data structure (see ), which includes all required input parameters for executing LEAF production tool.  
+
 
 ![](/wiki_images/leaf_tool_code.jpg)
 
