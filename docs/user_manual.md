@@ -22,7 +22,7 @@ The installation of Anaconda on a local computer is a straightforward process. J
 
 It is highly recommended to create a dedicated conda virtual environment for installing GEE Python API and executing the LEAF production tool. The following command line can be used to create a dedicated conda vitual environment ('leaf_prod' is used here to name the environment, but you can use any other name you like):
 
-`conda create -n leaf_prod`
+`**conda create -n leaf_prod**`
 
 The following two command lines can be used to activate the virtual environment and install GEE Python API within it:
 
