@@ -13,7 +13,9 @@ The LEAF production tool was built on the basis of GEE Python API. So to be able
 
 (2) Request Access to GEE: Having a Google Account, dose not mean you can access to GEE and its APIs. You need to request access by going to [Request Access to GEE](https://earthengine.google.com/) and clicking on the "Sign Up" or "Request Access" button. Follow the instruction to submit a request for access. 
 
-To enable your accessment to GEE servers, you have to obtain an authentication credential from Google. Within your activated conda virtual environment (will be explained in next section), run `earthengine authenticate` command and follow the instructions. A URL will be provided that generates an authorization code upon agreement. Copy the authorization code and enter it as the input of the command line.
+(3) Approval and Invitation: GEE access requests are typically reviewed by Google, and if approved, you will receive an invitation to use GEE. This may take some time, as access is often granted to researchers, scientists, and organizations working on environmental and geospatial projects. Once you receive an invitation, follow the instructions in the email to accept it. You may be asked to provide additional information about your intended use of GEE.
+
+(4) Within your activated conda virtual environment (will be explained in next section), run `earthengine authenticate` command and follow the instructions. A URL will be provided that generates an authorization code upon agreement. Copy the authorization code and enter it as the input of the command line.
 
 RefreshError: ('invalid_grant: Token has been expired or revoked.', {'error': 'invalid_grant', 'error_description': 'Token has been expired or revoked.'})
 
