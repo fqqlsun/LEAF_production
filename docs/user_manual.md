@@ -33,11 +33,11 @@ The following two command lines can be used to activate the virtual environment 
 Lastly, authenticate with GEE by running **`earthengine authenticate`** command and follow the instructions. A URL will be provided that generates an authorization code upon agreement. Copy the authorization code and enter it as the input of the command line.
 
 ### 1.3 Make a copy of the LEAF production tool from GitHub
-There are two ways to obtain the source code hosted on Github.
+There are two ways to obtain the source code of LEAF production tool from Github.
 
-1. Download the source code from the option you can see when you land on github source code.
+(1) Download the source code from the option you can see when you land on github source code. After the source code has been downloaded, copy it to a desired location on your local drive and unzip it.
 
-2. Clone the repo on your desktop (which is same as downloading on desktop but in a GIT way). You just have to run only one command which is git clone https://github.com/username/repo-url.
+(2) Clone the repo on your desktop (which is same as downloading on desktop but in a GIT way). You just have to run only one command which is git clone https://github.com/username/repo-url.
 * Copy the url which is given in your clone with HTTPS box.
 
 * Open you terminal/command prompt and paste the url and hit enter
