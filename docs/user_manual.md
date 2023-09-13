@@ -30,10 +30,10 @@ The following two command lines can be used to activate the virtual environment 
 
 **`conda install -c conda-forge earthengine-api`**
 
-Lastly, Authenticate with GEE by running **`earthengine authenticate`** command and follow the instructions. A URL will be provided that generates an authorization code upon agreement. Copy the authorization code and enter it as the input of the command line.
+Lastly, authenticate with GEE by running **`earthengine authenticate`** command and follow the instructions. A URL will be provided that generates an authorization code upon agreement. Copy the authorization code and enter it as the input of the command line.
 
 ### 1.3 Make a copy of the LEAF production tool from GitHub
-There are two ways in which you can obtain the source code hosted on Github.
+There are two ways to obtain the source code hosted on Github.
 
 1. Download the source code from the option you can see when you land on github source code.
 
