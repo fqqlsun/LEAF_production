@@ -48,9 +48,11 @@ There are two ways to obtain the source code of LEAF production tool from Github
  
 It is recommanded to run LEAF production tool using a Notebook comes with LEAF production tool package. To do so, follow the next steps:
 
-(1) Open **Anaconda Prompt** and activate your conda virtual environment dedicated for LEAF production tool, if you have not done these yet. 
+(1) Open **Anaconda Prompt** and **activate your conda virtual environment dedicated for LEAF production tool**, if you have not done these yet. 
 
-(2) Issue **`jupyter notebook`** command from the local drive where you store the LEAF production tool package (use **`cd drive`** command to go to a desired local drive).
+(2) Issue **`jupyter notebook`** command within **Anaconda Prompt** to start Jupyter Notebook Home Page in your default web browser. Note that ensure **jupyter notebook** command is issued from the local drive where you store the LEAF production tool package, otherwise using **`cd drive`** command to go to the desired local drive.
+
+(3) Within the Jupyter Notebook Home Page, you should be able to see all the directories on your desired local drive. Go to the directory where you stored the LEAF production tool package and double click **LeafProdTool.ipynb** file.
 
 Only a few python statements are needed. The following python program is a typical sample to execute LEAF production tool.
 
