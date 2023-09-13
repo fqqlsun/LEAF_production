@@ -6,7 +6,7 @@ To run the LEAF production tool on a local computer with the Windows Operating S
 *  Installation of [Anaconda](https://www.anaconda.com/) and [GEE Python API](https://developers.google.com/earth-engine/tutorials/community/intro-to-python-api-guiattard) on the user's local computer. Anaconda is a widely-used Python distribution suitable for most data science applcations.
 * Clone or download the LEAF production tool from GitHub and save it in a dedicated directory on the local computer. 
 
-### 1.1 Create a Google Cloud Account and Obtain an Authentication Credential
+### 1.1 Sign up for both Google Cloud and Google Earth Engine accounts
 See [link](https://cloud.google.com/apigee/docs/hybrid/v1.1/precog-gcpaccount) for the steps to create a Google Cloud account.
 
 To enable your accessment to GEE servers, you have to obtain an authentication credential from Google. Within your activated conda virtual environment (will be explained in next section), run `earthengine authenticate` command and follow the instructions. A URL will be provided that generates an authorization code upon agreement. Copy the authorization code and enter it as the input of the command line.
