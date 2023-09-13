@@ -20,12 +20,12 @@ It is recommanded to run LEAF production tool using a Notebook comes with LEAF p
 
 (4) Within LeafProdTool notebook webpage, go to the seconf code cell and modify some input parameters as need. The second code cell includes a Python Dictionary data structure, which contains all required input parameters for executing LEAF production tool. The key to run the LEAF production tool is to adjust input parameters according to your production need. For detailed information on this, please refer to section 1.3 in [code architecture](/docs/code_architecture.md).
 
-## 3. Troubleshooting in the Execution 
+## 3. Troubleshooting 
 
-## 4. Download Product Files from either Google Drive or Google Cloud Storage
+## 4. Download Product Files from Google Drive or Google Cloud Storage
  
 The LEAF production tool can export products to either Google Drive or Google Cloud Storage. Depending on your choice of export destination, the process for downloading the product files will vary. The detailed steps for downloading the product files from these places can be found in [Download files from Google Drive and Google Cloud Storage](/docs/download_products.md)   
 
-## 5. Check the Results using either PCI or QGIS
+## 5. Check the Results using PCI or QGIS
  
 Once you downloaded your product files to your local drive, you check the results by using either PCI focus or QGIS.
