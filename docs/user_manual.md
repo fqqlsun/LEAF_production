@@ -26,11 +26,11 @@ It is highly recommended to create a dedicated conda virtual environment for ins
 
 The following two command lines can be used to activate the virtual environment and install GEE Python API within it:
 
-`conda activate leaf-prod`
+**`conda activate leaf-prod`**
 
-`conda install -c conda-forge earthengine-api`
+**`conda install -c conda-forge earthengine-api`**
 
-Lastly, Authenticate with GEE by running `earthengine authenticate` command and follow the instructions. A URL will be provided that generates an authorization code upon agreement. Copy the authorization code and enter it as the input of the command line.
+Lastly, Authenticate with GEE by running **`earthengine authenticate`** command and follow the instructions. A URL will be provided that generates an authorization code upon agreement. Copy the authorization code and enter it as the input of the command line.
 
 ### 1.3 Make a copy of the LEAF production tool from GitHub
 There are two ways in which you can obtain the source code hosted on Github.
