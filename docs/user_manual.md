@@ -2,7 +2,7 @@
 
 To run the LEAF production tool on a local computer, the following prerequisites need to be fulfilled:
 
-*  A registered Google Account and an approval to access Google Earth Engine (GEE). These are mandentory requirments to access GEE python API.
+*  A registered Google Account and an approval to access Google Earth Engine (GEE). These are mandentory requirments to access GEE Python API.
 *  Installation of [Anaconda](https://www.anaconda.com/) and [GEE Python API](https://developers.google.com/earth-engine/tutorials/community/intro-to-python-api-guiattard) on the user's local computer. Anaconda is a widely-used Python distribution suitable for most data science applcations.
 * Clone or download the LEAF production tool from GitHub and save it in a dedicated directory on the local computer. 
 
