@@ -7,7 +7,8 @@ To run the LEAF production tool on a local computer with the Windows Operating S
 * Clone or download the LEAF production tool from GitHub and save it in a dedicated directory on the local computer. 
 
 ### 1.1 Create Google Account and Request Access to Google Earth Engine
-The LEAF production tool was built on the basis of GEE Python API. So to able to run LEAF production tool, you need to follow next steps:
+The LEAF production tool was built on the basis of GEE Python API. So to be able to run LEAF production tool, you need to follow next steps:
+
 (1) Create a Google Account: If you don't already have one, you'll need to create a Google Acount. See [link](https://cloud.google.com/apigee/docs/hybrid/v1.1/precog-gcpaccount) for the steps to create a Google Account.
 
 To enable your accessment to GEE servers, you have to obtain an authentication credential from Google. Within your activated conda virtual environment (will be explained in next section), run `earthengine authenticate` command and follow the instructions. A URL will be provided that generates an authorization code upon agreement. Copy the authorization code and enter it as the input of the command line.
