@@ -28,4 +28,4 @@ The LEAF production tool can export products to either Google Drive or Google Cl
 
 ## 5. Check the Results using PCI or QGIS
  
-Once you downloaded your product files to your local drive, you check the results by using either PCI focus or QGIS.
+Once you downloaded the product files to your local drive, you can check the results using either PCI focus or QGIS.
