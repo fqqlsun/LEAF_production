@@ -537,9 +537,10 @@ LLPolygon     = ee.Geometry.Polygon([[-90,  70],  [-70,  70],  [-70,  42],  [-90
 RingOfFire    = ee.Geometry.Polygon([[-90.95,  56.94],  [-77.72,  55.61],  [-80.82,  48.23],  [-91.86,  49.33]])
 Canada        = ee.Geometry.Polygon([[-177.2923,  66.9063],  [-7.6309,  57.0210],  [-57.5425,  31.7174],  [-122.9136,  36.2150]])
 SmallRegion   = ee.Geometry.Polygon([[-75.97,  46.49],  [-75.42,  45.52],  [-75.47,  45.24],  [-75.95,  45.23]])
+StasCan_area  = ee.Geometry.Polygon([[-131.95,  59.58],  [-109.99, 60.63],  [-110.02, 49.99],  [-128.23, 48.66]])
 
-custom_names    = ee.List(['ROF', 'Canada', 'small_region'])
-custom_polygons = ee.List([RingOfFire, Canada, SmallRegion])
+custom_names    = ee.List(['ROF', 'Canada', 'small_region', 'StasCan'])
+custom_polygons = ee.List([RingOfFire, Canada, SmallRegion, StasCan_area])
 
 custom_RegionDict = ee.Dictionary.fromLists(custom_names, custom_polygons)
 

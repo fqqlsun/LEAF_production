@@ -7,7 +7,6 @@ import Image as Img
 
 
 
-
 ######################################################################################################
 # Description: This function returns the last date of a specified month.
 #
@@ -62,10 +61,10 @@ def summer_range(Year):
   '''Returns the stop date of growing peak season. 
   Arg: 
      Year(int): A regular pyhton integer, rather than a GEE object'''
-  start = ee.Date.fromYMD(2000, 6, 15)
-  stop  = ee.Date.fromYMD(2000, 9, 15)
+  start = ee.Date.fromYMD(2000, 6, 15).update(Year)
+  stop  = ee.Date.fromYMD(2000, 9, 15).update(Year)
   
-  return start.update(Year), stop.update(Year)
+  return start, stop
 
 
 
@@ -89,13 +88,13 @@ def summer_centre(Year):
 # Revision history:  2021-May-20  Lixin Sun  Initial creation 
 #  
 ######################################################################################################
-def period_centre(StartDate, StopDate):
+def period_centre(StartD, StopD):
   '''Returns the middle date of a given time period. 
   Arg: 
-    Start(string or ee.Date): Start date string;
-    Stop(string or ee.Date): stop date string.'''  
-  start = ee.Date(StartDate)
-  stop  = ee.Date(StopDate)
+    StartD(string or ee.Date): Start date string;
+    StopD(string or ee.Date): Stop date string.'''  
+  start = ee.Date(StartD)
+  stop  = ee.Date(StopD)
 
   return ee.Date(start.millis().add(stop.millis()).divide(ee.Number(2.0)))
 
@@ -112,6 +111,9 @@ def period_centre(StartDate, StopDate):
 #                                            is an optional cloud coverage percentage/rate.  
 #                    2023-Apr-14  Lixin Sun  Added a case for "MODIS/061/MOD09A1", which does have any
 #                                            image property
+#                    2023-Sep-30  Lixin Sun  For Landsat 8 or 9, if target year is after 2022, then
+#                                            both of them will be put into the returned collection.
+#
 ######################################################################################################
 def getCollection(SsrData, Region, StartDate, StopDate, CloudRate = -100):  
   '''Returns a image collection acquired by a sensor over a geographical region during a period of time  
@@ -122,11 +124,14 @@ def getCollection(SsrData, Region, StartDate, StopDate, CloudRate = -100):
      start_date(string or ee.Date): The start acquisition date string (e.g., '2020-07-01');
      stop_date(string or ee.Date): The stop acquisition date string (e.g., '2020-07-31');
      CloudRate(float): a given cloud coverage rate.'''
-
+  
+  print('<getCollection> SsrData info:', SsrData)
   # Cast the input parameters into proper formats  
   region = ee.Geometry(Region)
   start  = ee.Date(StartDate)
   stop   = ee.Date(StopDate)
+  year   = int(start.get('year').getInfo())
+  print('\n<getCollection> The year of time window = ', year) 
 
   #===================================================================================================
   # Determine a cloud coverage percentage/rate 
@@ -142,9 +147,10 @@ def getCollection(SsrData, Region, StartDate, StopDate, CloudRate = -100):
   #===================================================================================================
   #cloud_up = 70
   #cloud_dn = 30
-  CollName = SsrData['GEE_NAME']  
-  ssr_code = SsrData['SSR_CODE']
-  
+  CollName  = SsrData['GEE_NAME']  
+  ssr_code  = SsrData['SSR_CODE']
+  data_unit = SsrData['DATA_UNIT'] 
+
   if ssr_code == Img.MOD_sensor: # for MODIS data
     coll = ee.ImageCollection(CollName).filterBounds(region).filterDate(start, stop) 
   elif ssr_code > Img.MAX_LS_CODE: # for Sentinel-2 data   
@@ -158,10 +164,21 @@ def getCollection(SsrData, Region, StartDate, StopDate, CloudRate = -100):
                #.filterMetadata(SsrData['CLOUD'], 'less_than', cloud_up) \
                #.filterMetadata(SsrData['CLOUD'], 'greater_than', cloud_dn) \
   else: # for Landsat data
-    coll = ee.ImageCollection(CollName).filterBounds(region).filterDate(start, stop) #\
+    coll = ee.ImageCollection(CollName).filterBounds(region).filterDate(start, stop) #\             
                 #.filterMetadata(SsrData['CLOUD'], 'less_than', cloud_rate) \
                 #.filterMetadata(SsrData['VAA'], 'greater_than', 0.0) \
-                #.filterMetadata(SsrData['SAA'], 'greater_than', 0.0)                   
+                #.filterMetadata(SsrData['SAA'], 'greater_than', 0.0)  
+    if year >= 2022:
+      if ssr_code == Img.LS8_sensor:
+        ssr_data  = Img.SSR_META_DICT['L9_SR'] if data_unit == Img.sur_ref else Img.SSR_META_DICT['L9_TOA']
+        coll_name = ssr_data['GEE_NAME']
+        coll_2nd  = ee.ImageCollection(coll_name).filterBounds(region).filterDate(start, stop)
+        coll      = coll.merge(coll_2nd)
+      elif ssr_code == Img.LS9_sensor:
+        ssr_data  = Img.SSR_META_DICT['L8_SR'] if data_unit == Img.sur_ref else Img.SSR_META_DICT['L8_TOA']
+        coll_name = ssr_data['GEE_NAME']
+        coll_2nd  = ee.ImageCollection(coll_name).filterBounds(region).filterDate(start, stop)
+        coll      = coll.merge(coll_2nd)
 
   print('\n<getCollection> The name of data catalog = ', CollName)             
   print('<getCollection> The number of images in selected image collection = ', coll.size().getInfo())
@@ -223,8 +240,6 @@ def peak_median_blue(SsrData, Year, Region, CloudRate):
   
   blue_coll = peak_coll.map(lambda image: get_blue(image))
   return blue_coll.median()
-
-
 
 
 

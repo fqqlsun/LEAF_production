@@ -19,10 +19,6 @@ MOD_sensor     = 50
 TOA_ref        = 1
 sur_ref        = 2
 
-Img_Standard   = 1
-Img_Fraction   = 2
-Img_Regular    = 3
-
 DPB_band       = 0
 BLU_band       = 1
 GRN_band       = 2
@@ -37,6 +33,7 @@ WV_band        = 10
 
 
 pix_score       = 'pix_score'
+score_target    = 'score_target'
 pix_date        = 'date'
 neg_blu_score   = 'neg_blu_score'
 Texture_name    = 'texture'
@@ -306,54 +303,6 @@ def get_SsrData_key(SsrCode, DataUnit):
   else:
     print('<get_SsrData> Wrong sensor code or data unit provided!')
     return ''
-
-
-
-
-#############################################################################################################
-# Description: This function returns a visulization parameter dictionary based on given Sensor Metadata
-#              "SsrData", ImgType and MaxRef.
-#             
-# Revision history:  2021-May-20  Lixin Sun  Initial creation
-#                    2023-Apr-14  Lixin Sun  Added a case for MODIS data
-#############################################################################################################
-def mosaic_Vis(SsrData, ImgType, MaxRef):
-  '''Returns a visulization parameter dictionary based on given SensorCode, DataUnit, ImgType and MaxRef.
-     Args:
-       SsrData(Dictionary): A Dictionary containing metadata associated with a sensor and data unit;
-       ImgType(int): A image type code representing STD or fraction or regular image;
-       MaxRef(int): A maximum reflectance value (normally 1 or 100).'''
-  ssr_code  = SsrData['SSR_CODE']
-  data_unit = SsrData['DATA_UNIT']
-  img_type  = int(ImgType)
-  max_ref   = int(MaxRef)
-
-  core_dict_1   = {'min': 0, 'max': 0.6, 'gamma': 1.8}
-  core_dict_100 = {'min': 0, 'max': 60, 'gamma': 1.8}
-
-  if img_type == Img_Standard: # For a standard image
-    core_dict_1['bands']   = ['nir', 'red', 'green']
-    core_dict_100['bands'] = ['nir', 'red', 'green']
-    return core_dict_1 if max_ref < 10 else core_dict_100
-
-  if img_type == Img_Fraction: # For a fraction image
-    core_dict_1['bands']   = ['band_0', 'band_1', 'band_2']
-    core_dict_100['bands'] = ['band_0', 'band_1', 'band_2']
-    return core_dict_1 if max_ref < 10 else core_dict_100 
-  
-  
-  if ssr_code == MOD_sensor:  # For MODIS surface reflectance image
-    core_dict_1['bands']   = ['sur_refl_b01', 'sur_refl_b04', 'sur_refl_b03']
-    core_dict_100['bands'] = ['sur_refl_b01', 'sur_refl_b04', 'sur_refl_b03']
-  elif ssr_code > MAX_LS_CODE or (ssr_code < MAX_LS_CODE and data_unit == 1):  # For Senstinel-2 or Landsat TOA reflectance image
-    core_dict_1['bands']   = ['B4', 'B3', 'B2']
-    core_dict_100['bands'] = ['B4', 'B3', 'B2']  
-  elif ssr_code < MAX_LS_CODE and data_unit == 2:   # For a Landsat surface reflectance image
-    core_dict_1['bands']   = ['SR_B4', 'SR_B3', 'SR_B2']
-    core_dict_100['bands'] = ['SR_B4', 'SR_B3', 'SR_B2']
-
-  return core_dict_1 if max_ref < 10 else core_dict_100
-
 
 
 

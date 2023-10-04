@@ -10,19 +10,59 @@ import eoAuxData as eoAD
 import LEAF_LSv1 as LFLS
 
 
+
 #############################################################################################################
 # Description: Functions is for reading parameters for creating the ANNs applicable to Sentinel-2 data 
 # 
 # Revision history:  2021-May-17  Lixin Sun  Copied from the Richard's Python code
 #                    2022-Jan-17  Lixin Sun  Added more feature collections for diverse land covers. 
+#                    2022_Sep-08  Lixin Sun  Further reduce the number of land cover types for SL2P
+#  
 #############################################################################################################
-def s2_createFeatureCollection_estimates(version_nb):
-    print("\n<s2_createFeatureCollection_estimates> function is called......")
-    if version_nb == 0:
+def s2_createFeatureCollection_estimates(version):
+    #print("\n<s2_createFeatureCollection_estimates> function is called......")
+    if version == 0:
       return ee.FeatureCollection ('users/rfernand387/COPERNICUS_S2_SR/s2_sl2p_weiss_or_prosail_NNT3_Single_0_1')  
       #return ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/s2_sl2p_ROF_sobol_prosail_dbf_big_NNT1_Single_0_1') 
     else:
-      print("\n<s2_createFeatureCollection_estimates> SL2P version1 is being used......")
+      #print("\n<s2_createFeatureCollection_estimates> SL2P version1 is being used......")
+      return  ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/s2_sl2p_weiss_or_prosail_NNT3_Single_0_1') \
+       .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/s2_sl2p_ROF_sobol_prosail_dbf_big_clumped_NNT1_Single_0_1_v2')) \
+       .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/s2_sl2p_ROF_sobol_prosail_enf_big_clumped_NNT1_Single_0_1_v2')) \
+       .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/s2_sl2p_ROF_sobol_prosail_mix_big_clumped_NNT1_Single_0_1_v2'))   
+
+
+def s2_createFeatureCollection_errors(version):
+    if version == 0:
+      return ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/s2_sl2p_weiss_or_prosail_NNT3_Single_0_1_error')
+    else:
+      return   ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/s2_sl2p_weiss_or_prosail_NNT3_Single_0_1_error') \
+        .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/s2_sl2p_ROF_sobol_prosail_dbf_big_clumped_NNT1_Single_0_1_v2_errors')) \
+        .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/s2_sl2p_ROF_sobol_prosail_enf_big_clumped_NNT1_Single_0_1_v2_errors')) \
+        .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/s2_sl2p_ROF_sobol_prosail_mix_big_clumped_NNT1_Single_0_1_v2_errors'))
+
+
+def s2_createFeatureCollection_domains(version):
+    if version == 0:
+      return ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/S2_SL2P_WEISS_ORIGINAL_DOMAIN')
+     #return ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/weiss_or_prosail3_NNT3_Single_0_1_DOMAIN')
+    else:
+      return   ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/S2_SL2P_WEISS_ORIGINAL_DOMAIN') \
+        .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/S2_SL2P_WEISS_ORIGINAL_DOMAIN')) \
+        .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/S2_SL2P_WEISS_ORIGINAL_DOMAIN')) \
+        .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/S2_SL2P_WEISS_ORIGINAL_DOMAIN'))
+
+
+
+
+'''
+def s2_createFeatureCollection_estimates(version):
+    #print("\n<s2_createFeatureCollection_estimates> function is called......")
+    if version == 0:
+      return ee.FeatureCollection ('users/rfernand387/COPERNICUS_S2_SR/s2_sl2p_weiss_or_prosail_NNT3_Single_0_1')  
+      #return ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/s2_sl2p_ROF_sobol_prosail_dbf_big_NNT1_Single_0_1') 
+    else:
+      #print("\n<s2_createFeatureCollection_estimates> SL2P version1 is being used......")
       return  ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/s2_sl2p_weiss_or_prosail_NNT3_Single_0_1') \
        .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/s2_sl2p_weiss_or_prosail_NNT3_Single_0_1')) \
        .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/s2_sl2p_ROF_sobol_prosail_dbf_big_clumped_NNT1_Single_0_1_v2')) \
@@ -37,8 +77,8 @@ def s2_createFeatureCollection_estimates(version_nb):
        .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/s2_sl2p_ROF_sobol_prosail_mix_big_clumped_NNT1_Single_0_1_v2'))   
 
 
-def s2_createFeatureCollection_errors(version_nb):
-    if version_nb == 0:
+def s2_createFeatureCollection_errors(version):
+    if version == 0:
       return ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/s2_sl2p_weiss_or_prosail_NNT3_Single_0_1_error')
     else:
       return   ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/s2_sl2p_weiss_or_prosail_NNT3_Single_0_1_error') \
@@ -55,8 +95,8 @@ def s2_createFeatureCollection_errors(version_nb):
         .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/s2_sl2p_ROF_sobol_prosail_mix_big_clumped_NNT1_Single_0_1_v2_errors'))
 
 
-def s2_createFeatureCollection_domains(version_nb):
-    if version_nb == 0:
+def s2_createFeatureCollection_domains(version):
+    if version == 0:
       return ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/S2_SL2P_WEISS_ORIGINAL_DOMAIN')
      #return ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/weiss_or_prosail3_NNT3_Single_0_1_DOMAIN')
     else:
@@ -72,28 +112,17 @@ def s2_createFeatureCollection_domains(version_nb):
         .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/S2_SL2P_WEISS_ORIGINAL_DOMAIN')) \
         .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/S2_SL2P_WEISS_ORIGINAL_DOMAIN')) \
         .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/S2_SL2P_WEISS_ORIGINAL_DOMAIN'))
+'''
 
-
-def s2_createFeatureCollection_range(version_nb):
-    if version_nb == 0:
-      return ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/weiss_or_prosail3_NNT3_Single_0_1_RANGE')
-    else:
-      return   ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/weiss_or_prosail3_NNT3_Single_0_1_RANGE') \
-        .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/weiss_or_prosail3_NNT3_Single_0_1_RANGE')) \
-        .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/weiss_or_prosail3_NNT3_Single_0_1_RANGE')) \
-        .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/weiss_or_prosail3_NNT3_Single_0_1_RANGE')) \
-        .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/weiss_or_prosail3_NNT3_Single_0_1_RANGE')) \
-        .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/weiss_or_prosail3_NNT3_Single_0_1_RANGE')) \
-        .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/weiss_or_prosail3_NNT3_Single_0_1_RANGE')) \
-        .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/weiss_or_prosail3_NNT3_Single_0_1_RANGE')) \
-        .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/weiss_or_prosail3_NNT3_Single_0_1_RANGE')) \
-        .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/weiss_or_prosail3_NNT3_Single_0_1_RANGE')) \
-        .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/weiss_or_prosail3_NNT3_Single_0_1_RANGE')) \
-        .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/weiss_or_prosail3_NNT3_Single_0_1_RANGE')) 
-
+def s2_createFeatureCollection_range():
+    return ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/weiss_or_prosail3_NNT3_Single_0_1_RANGE')
     
 def s2_createFeatureCollection_Network_Ind():
   return ee.FeatureCollection('users/rfernand387/Parameter_file_prosail_ccrs_big_clumped2')
+
+def s2_createFeatureCollection_legend():
+    #return ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/Legend_sl2p')
+    return ee.FeatureCollection('users/rfernand387/Legend_prosail_ccrs_big_clumped')
 
 '''
 def createImageCollection_partition():  
@@ -104,31 +133,194 @@ def createImageCollection_partition():
            .map(lambda image: image.select("b1").rename("partition")))
 '''
 
-def s2_createFeatureCollection_legend():
-    #return ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/Legend_sl2p')
-    return ee.FeatureCollection('users/rfernand387/Legend_prosail_ccrs_big_clumped')
 
 
 #############################################################################################################
-# Description: Functions for reading parameters for creating ANNs applicable to Landsat-8 data 
+# Description: Functions for reading ANN coefficients that are applicable to Sentinel-2 data without using
+#              three red-edge bands. The vegetation parameters extracted from this kind of ANN are more
+#              comparable to that extracted from Landsat data.  
+# 
+# Revision history:  2023-Aug-30  Lixin Sun  Initial creation
+# 
+#############################################################################################################
+def s2_no_edge_createFeatureCollection_estimates():
+    return   ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_weiss_or_prosail_NNT1_Single_0_1') \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_ccrs_sobol_4sail2_dbf_NNT1_Single_0_1')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_ccrs_sobol_4sail2_enf_NNT1_Single_0_1')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_ccrs_sobol_4sail2_dbf_NNT1_Single_0_1')) 
+
+def s2_no_edge_createFeatureCollection_errors():
+    return   ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes') \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_ccrs_sobol_4sail2_dbf_NNT1_Single_0_1_incertitudes')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_ccrs_sobol_4sail2_enf_NNT1_Single_0_1_incertitudes')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_ccrs_sobol_4sail2_dbf_NNT1_Single_0_1_incertitudes')) 
+
+
+def s2_no_edge_createFeatureCollection_domains():
+    return   ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_weiss_or_prosail_domain') \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_ccrs_sobol_4sail2_dbf_domain')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_ccrs_sobol_4sail2_enf_domain')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_ccrs_sobol_4sail2_dbf_domain')) 
+
+
+'''
+def s2_no_edge_createFeatureCollection_estimates():
+    return   ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_weiss_or_prosail_NNT1_Single_0_1') \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_weiss_or_prosail_NNT1_Single_0_1')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_ccrs_sobol_4sail2_dbf_NNT1_Single_0_1')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_ccrs_sobol_4sail2_enf_NNT1_Single_0_1')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_weiss_or_prosail_NNT1_Single_0_1')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_weiss_or_prosail_NNT1_Single_0_1')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_weiss_or_prosail_NNT1_Single_0_1')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_ccrs_sobol_4sail2_dbf_NNT1_Single_0_1')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_weiss_or_prosail_NNT1_Single_0_1')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_weiss_or_prosail_NNT1_Single_0_1')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_weiss_or_prosail_NNT1_Single_0_1')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_ccrs_sobol_4sail2_dbf_NNT1_Single_0_1')) 
+
+def s2_no_edge_createFeatureCollection_errors():
+    return   ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes') \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_ccrs_sobol_4sail2_dbf_NNT1_Single_0_1_incertitudes')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_ccrs_sobol_4sail2_enf_NNT1_Single_0_1_incertitudes')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_ccrs_sobol_4sail2_dbf_NNT1_Single_0_1_incertitudes')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_ccrs_sobol_4sail2_dbf_NNT1_Single_0_1_incertitudes')) 
+
+
+def s2_no_edge_createFeatureCollection_domains():
+    return   ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_weiss_or_prosail_domain') \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_weiss_or_prosail_domain')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_ccrs_sobol_4sail2_dbf_domain')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_ccrs_sobol_4sail2_enf_domain')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_weiss_or_prosail_domain')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_weiss_or_prosail_domain')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_weiss_or_prosail_domain')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_ccrs_sobol_4sail2_dbf_domain')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_weiss_or_prosail_domain')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_weiss_or_prosail_domain')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_weiss_or_prosail_domain')) \
+      .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_ccrs_sobol_4sail2_dbf_domain')) 
+'''
+
+def s2_no_edge_createFeatureCollection_range():
+    return ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/weiss_or_prosail3_NNT3_Single_0_1_RANGE')
+    
+def s2_no_edge_createFeatureCollection_Network_Ind():
+    #return ee.FeatureCollection('users/rfernand387/LANDSAT_LC08_C01_T1_SR/Parameter_file_sl2p')
+    return ee.FeatureCollection('users/rfernand387/Parameter_file_prosail_ccrs_big_clumped2')
+
+def s2_no_edge_createFeatureCollection_legend():
+    #return ee.FeatureCollection('users/rfernand387/LANDSAT_LC08_C01_T1_SR/Legend_sl2p')
+    return ee.FeatureCollection('users/rfernand387/Legend_prosail_ccrs_big_clumped')
+
+
+
+#############################################################################################################
+# Description: Functions for reading ANN coefficients that are applicable to Landsat-8 data 
 # 
 # Revision history:  2021-May-17  Lixin Sun  Copied from the Richard's Python code in Jupyter Notebook
 # 
 #############################################################################################################
-def l8_createFeatureCollection_estimates():
-    return ee.FeatureCollection('users/rfernand387/LANDSAT_LC08_C01_T1_SR/LANDSAT_LC08_C01_T1_SR_SL2P_OUTPUT')    
-    
-def l8_createFeatureCollection_errors():
-    return ee.FeatureCollection('users/rfernand387/LANDSAT_LC08_C01_T1_SR/LANDSAT_LC08_C01_T1_SR_SL2P_ERRORS')
+def l8_createFeatureCollection_estimates(version):
+    if version == 0:
+      return  ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_NNT1_Single_0_1')
+    else: 
+      return  ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_NNT1_Single_0_1') \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_dbf_NNT1_Single_0_1')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_enf_NNT1_Single_0_1')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_dbf_NNT1_Single_0_1')) 
 
-def l8_createFeatureCollection_domains():
-    return ee.FeatureCollection('users/rfernand387/LANDSAT_LC08_C01_T1_SR/LANDSAT_LC08_C01_T1_SR_DOMAIN')    
+def l8_createFeatureCollection_errors(version):
+    if version == 0:
+      return  ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_NNT1_Single_0_1')
+    else:
+      return  ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes') \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_dbf_NNT1_Single_0_1_incertitudes')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_enf_NNT1_Single_0_1_incertitudes')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_dbf_NNT1_Single_0_1_incertitudes')) 
 
-def l8_createFeatureCollection_range():
+
+def l8_createFeatureCollection_domains(version):
+    if version == 0:
+      return  ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_domain')
+    else:
+      return  ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_domain') \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_dbf_domain')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_enf_domain')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_dbf_domain')) 
+
+
+'''
+def l8_createFeatureCollection_estimates(version):
+    if version == 0:
+      return ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_NNT1_Single_0_1')
+    else: 
+      return  ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_NNT1_Single_0_1') \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_NNT1_Single_0_1')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_dbf_NNT1_Single_0_1')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_enf_NNT1_Single_0_1')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_NNT1_Single_0_1')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_NNT1_Single_0_1')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_NNT1_Single_0_1')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_dbf_NNT1_Single_0_1')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_NNT1_Single_0_1')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_NNT1_Single_0_1')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_NNT1_Single_0_1')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_dbf_NNT1_Single_0_1')) 
+
+def l8_createFeatureCollection_errors(version):
+    if version == 0:
+      return ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_NNT1_Single_0_1')
+    else:
+      return  ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes') \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_dbf_NNT1_Single_0_1_incertitudes')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_enf_NNT1_Single_0_1_incertitudes')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_dbf_NNT1_Single_0_1_incertitudes')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_dbf_NNT1_Single_0_1_incertitudes')) 
+
+
+def l8_createFeatureCollection_domains(version):
+    if version == 0:
+      return ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_domain')
+    else:
+      return  ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_domain') \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_domain')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_dbf_domain')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_enf_domain')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_domain')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_domain')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_domain')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_dbf_domain')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_domain')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_domain')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_domain')) \
+       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_dbf_domain')) 
+'''
+
+def l8_createFeatureCollection_range(version):
     return ee.FeatureCollection('users/rfernand387/LANDSAT_LC08_C01_T1_SR/LANDSAT_LC08_C01_T1_SR_RANGE')
     
 def l8_createFeatureCollection_Network_Ind():
-    return ee.FeatureCollection('users/rfernand387/LANDSAT_LC08_C01_T1_SR/Parameter_file_sl2p')
+    #return ee.FeatureCollection('users/rfernand387/LANDSAT_LC08_C01_T1_SR/Parameter_file_sl2p')
+    return ee.FeatureCollection('users/rfernand387/Parameter_file_prosail_ccrs_big_clumped2')
+
+def l8_createFeatureCollection_legend():
+    #return ee.FeatureCollection('users/rfernand387/LANDSAT_LC08_C01_T1_SR/Legend_sl2p')
+    return ee.FeatureCollection('users/rfernand387/Legend_prosail_ccrs_big_clumped')
+
 
 #def l8_createImageCollection_partition():
 #    return ee.ImageCollection('users/rfernand387/NA_NALCMS_2015_tiles') \
@@ -137,8 +329,6 @@ def l8_createFeatureCollection_Network_Ind():
 #             .map(lambda image: image.select("discrete_classification") \
 #             .remap([0,20,30,40,50,60,70,80,90,100,111,112,113,114,115,116,121,122,123,124,125,126,200],[0,8,10,15,17,16,19,18,14,13,1,3,1,5,6,6,2,4,2,5,6,6,18],0).uint8().rename("partition")))
 
-def l8_createFeatureCollection_legend():
-    return ee.FeatureCollection('users/rfernand387/LANDSAT_LC08_C01_T1_SR/Legend_sl2p')
 
    
 
@@ -167,20 +357,38 @@ COLL_OPTIONS = {
       "Network_Ind":           ee.FeatureCollection(s2_createFeatureCollection_Network_Ind()),
       "legend":                ee.FeatureCollection(s2_createFeatureCollection_legend()),
       "numVariables": 7,
-      "inputBands":   ['cosVZA','cosSZA','cosRAA','B3','B4', 'B5', 'B6', 'B7', 'B8A','B11','B12'],
+      "inputBands":   ['cosVZA','cosSZA','cosRAA','B3',   'B4', 'B5',      'B6',      'B7',     'B8A','B11',    'B12'], 
+                                                  #green, red, red_edge1, red_edge2, red_edge3, NIR,  SWIR1 and SWIR2
     },
+
     'L8_SR': {
       "name": 'L8',
       "description": 'LANDSAT 8',      
       "Watercover": 'CLOUD_COVER',      
       "VIS_OPTIONS": 'VIS_OPTIONS',
-      "Collection_SL2P":       ee.FeatureCollection(l8_createFeatureCollection_estimates()),
-      "Collection_SL2Perrors": ee.FeatureCollection(l8_createFeatureCollection_errors()),
-      "sl2pDomain":            ee.FeatureCollection(l8_createFeatureCollection_domains()),
+      "Collection_SL2P":       ee.FeatureCollection(l8_createFeatureCollection_estimates(VERSION_NB)),
+      "Collection_SL2Perrors": ee.FeatureCollection(l8_createFeatureCollection_errors(VERSION_NB)),
+      "sl2pDomain":            ee.FeatureCollection(l8_createFeatureCollection_domains(VERSION_NB)),
       "Network_Ind":           ee.FeatureCollection(l8_createFeatureCollection_Network_Ind()),
       "legend":                ee.FeatureCollection(l8_createFeatureCollection_legend()),
       "numVariables": 7,
       "inputBands":   ['cosVZA','cosSZA','cosRAA', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7'],
+                                                   #green,  red,     NIR,     SWIR1 and SWIR2
+    },
+
+    'S2_SR6': {  #For using Sentinel-2 data with only 6 Landsat equivalent bands
+      "name": 'S2',
+      "description": 'Sentinel 2A',      
+      "Watercover": 'WATER_PERCENTAGE',
+      "VIS_OPTIONS": 'VIS_OPTIONS',
+      "Collection_SL2P":       ee.FeatureCollection(s2_no_edge_createFeatureCollection_estimates()),      
+      "Collection_SL2Perrors": ee.FeatureCollection(s2_no_edge_createFeatureCollection_errors()),  
+      "sl2pDomain":            ee.FeatureCollection(s2_no_edge_createFeatureCollection_domains()),
+      "Network_Ind":           ee.FeatureCollection(s2_no_edge_createFeatureCollection_Network_Ind()),
+      "legend":                ee.FeatureCollection(s2_no_edge_createFeatureCollection_legend()),
+      "numVariables": 7,
+      "inputBands":   ['cosVZA','cosSZA','cosRAA', 'B3', 'B4', 'B8A','B11', 'B12'], 
+                                                  #green, red, NIR, SWIR1 and SWIR2
     }
 }
 
@@ -266,7 +474,7 @@ PROD_OPTIONS = {
 
 
 #############################################################################################################
-# Description: Returns a single band image named "networkID" to map teh networks to be applied according to
+# Description: Returns a single band image named "networkID" to map the networks to be applied according to
 #              a land cover map. 
 #
 # Revision history:  2021-May-17  Copied from Richard's Python notebook (In [162])
@@ -293,15 +501,15 @@ def makeIndexLayer(partition, numb_classes, legend, network_IDs):
     # get a list of all valid class IDs
     #========================================================================================================
     legend_list = legend.toList(legend.size())
-    lc_IDs      = legend_list.map(lambda feature: ee.Feature(feature).getNumber('Value'))
+    CCRS_LC_IDs = legend_list.map(lambda feature: ee.Feature(feature).getNumber('Value'))
     
-    print('\n\n<makeIndexLayer> land cover IDs = ', lc_IDs.getInfo())
+    print('\n\n<makeIndexLayer> land cover IDs = ', CCRS_LC_IDs.getInfo())
     #========================================================================================================
     # get network indices corresponding to the class IDs
     #========================================================================================================
     print('<makeIndexLayer> numb of valid classes = ', classes.getInfo())
     if classes.getInfo() == 1:  # the case of LEAF V0
-      nbClsIDs   = lc_IDs.size().getInfo()
+      nbClsIDs   = CCRS_LC_IDs.size().getInfo()
       networkIDs = ee.List([0]*nbClsIDs)
       print('<makeIndexLayer> LEAF V0 network IDs = ', networkIDs.getInfo())
     else:  # the case of LEAF V1
@@ -312,7 +520,12 @@ def makeIndexLayer(partition, numb_classes, legend, network_IDs):
     #========================================================================================================
     # return a mapped network index map and name it as 'networkID'
     #========================================================================================================
-    return partition.remap(lc_IDs, networkIDs, 0).rename('networkID')
+    init_net_ID_map = partition.remap(CCRS_LC_IDs, networkIDs, 0)
+    
+    init_net_IDs = [0,1,2,3,4,5,6,7,8,9,10,11]
+    real_net_IDs = [0,0,1,2,0,0,0,1,0,0,0,3]
+
+    return init_net_ID_map.remap(init_net_IDs, real_net_IDs, 0).rename('networkID')
     
 
 
@@ -349,94 +562,123 @@ def FNet_to_DNet(feature_list, class_ID):
        (“inpSlope”, “inpOffset”, “h1wt”, “h1bi”, “h2wt”, “h2bi”, “outSlope”, “outBias”).
 
        Args:
-         feature_list(ee.List): A list of network features (ee.Features) for one vegetation parameter;
+         feature_list(ee.List): A list of network ee.Features for one parameter of all classes;
          class_ID(ee.Number): A land cover class number/ID. '''
-    cls_features = ee.List(feature_list)  # a list of networks (in ee.Feature format) for one vegetation parameter
-    cls_ID       = ee.Number(class_ID)     
     
-    #extract a LEAF network (ee.Feature object) from the "feature_list" based on class ID
-    netData = ee.Feature(cls_features.get(cls_ID.subtract(1)))
+    #========================================================================================================
+    # typecast function parameters 
+    #========================================================================================================
+    features = ee.List(feature_list)  # a list of network ee.Features for one parameterof all classes
+    cls_ID   = ee.Number(class_ID)     
+    
+    #========================================================================================================
+    # Extract one LEAF network ee.Feature from the "feature_list" based on a given class_ID
+    #========================================================================================================
+    class_net = ee.Feature(features.get(cls_ID.subtract(1)))
 
-    # initialize the created network dictionary
-    net = {}
+    #========================================================================================================
+    #========================================================================================================
+    # Break down a feature (class_net, a 1D vector) into eight vectors and associate them with eight keys.  
+    #========================================================================================================
+    out_net = {}
     
-    # input slope (11 values)
-    num   = ee.Number(6)
-    start = num.add(1)
-    end   = num.add(netData.getNumber(ee.String('tabledata').cat(num.format())))
-    net["inpSlope"] = ee.List.sequence(start, end).map(lambda indx: getCoefs(netData, indx))
+    # input slope (11 values for S2 and 8 for LS)
+    num    = ee.Number(6)    # 6
+    offset = class_net.getNumber(ee.String('tabledata').cat(num.format()))  #The value corresponding to 'tabledata6'
+    start  = num.add(1)      # 7
+    end    = num.add(offset) # 6 + offset'
+    out_net["inpSlope"] = ee.List.sequence(start, end).map(lambda indx: getCoefs(class_net, indx))
     
-    # input offset (11 values)
-    num   = end.add(1)
-    start = num.add(1)
-    end   = num.add(netData.getNumber(ee.String('tabledata').cat(num.format())))
-    net["inpOffset"] = ee.List.sequence(start, end).map(lambda indx: getCoefs(netData, indx))
+    # input offset (11 values for S2 and 8 for LS)
+    num    = end.add(1)
+    offset = class_net.getNumber(ee.String('tabledata').cat(num.format()))
+    start  = num.add(1)
+    end    = num.add(offset)
+    out_net["inpOffset"] = ee.List.sequence(start, end).map(lambda indx: getCoefs(class_net, indx))
 
     # hidden layer 1 weight (55 values = 11 x 5) 
-    num   = end.add(1)
-    start = num.add(1)
-    end   = num.add(netData.getNumber(ee.String('tabledata').cat(num.format())))
-    net["h1wt"] = ee.List.sequence(start,end).map(lambda indx: getCoefs(netData,indx))
+    num    = end.add(1)
+    offset = class_net.getNumber(ee.String('tabledata').cat(num.format()))
+    start  = num.add(1)
+    end    = num.add(offset)
+    out_net["h1wt"] = ee.List.sequence(start,end).map(lambda indx: getCoefs(class_net,indx))
 
     # hidden layer 1 bias (5 values)
-    num   = end.add(1)
-    start = num.add(1)
-    end   = num.add(netData.getNumber(ee.String('tabledata').cat(num.format())))
-    net["h1bi"] = ee.List.sequence(start,end).map(lambda indx: getCoefs(netData,indx))
+    num    = end.add(1)
+    offset = class_net.getNumber(ee.String('tabledata').cat(num.format()))
+    start  = num.add(1)
+    end    = num.add(offset)
+    out_net["h1bi"] = ee.List.sequence(start,end).map(lambda indx: getCoefs(class_net,indx))
 
     # hidden layer 2 weight (5 values)
-    num   = end.add(1)
-    start = num.add(1)
-    end   = num.add(netData.getNumber(ee.String('tabledata').cat(num.format())))
-    net["h2wt"] = ee.List.sequence(start,end).map(lambda indx: getCoefs(netData,indx))
+    num    = end.add(1)
+    offset = class_net.getNumber(ee.String('tabledata').cat(num.format()))
+    start  = num.add(1)
+    end    = num.add(offset)
+    out_net["h2wt"] = ee.List.sequence(start,end).map(lambda indx: getCoefs(class_net,indx))
   
     # hidden layer 2 bias (1 value)
-    num   = end.add(1)
-    start = num.add(1)
-    end   = num.add(netData.getNumber(ee.String('tabledata').cat(num.format())))
-    net["h2bi"] = ee.List.sequence(start,end).map(lambda indx: getCoefs(netData,indx))
+    num    = end.add(1)
+    offset = class_net.getNumber(ee.String('tabledata').cat(num.format()))
+    start  = num.add(1)
+    end    = num.add(offset)
+    out_net["h2bi"] = ee.List.sequence(start,end).map(lambda indx: getCoefs(class_net,indx))
 
     # output slope (1 value)
-    num   = end.add(1)
-    start = num.add(1)
-    end   = num.add(netData.getNumber(ee.String('tabledata').cat(num.format())))
-    net["outSlope"] = ee.List.sequence(start,end).map(lambda indx: getCoefs(netData,indx))
+    num    = end.add(1)
+    offset = class_net.getNumber(ee.String('tabledata').cat(num.format()))
+    start  = num.add(1)
+    end    = num.add(offset)
+    out_net["outSlope"] = ee.List.sequence(start,end).map(lambda indx: getCoefs(class_net,indx))
   
     # output offset (1 value)
-    num   = end.add(1)
-    start = num.add(1)
-    end   = num.add(netData.getNumber(ee.String('tabledata').cat(num.format())))
-    net["outBias"] = ee.List.sequence(start,end).map(lambda indx: getCoefs(netData, indx))
+    num    = end.add(1)
+    offset = class_net.getNumber(ee.String('tabledata').cat(num.format()))
+    start  = num.add(1)
+    end    = num.add(offset)
+    out_net["outBias"] = ee.List.sequence(start,end).map(lambda indx: getCoefs(class_net, indx))
     
-    return(ee.Dictionary(net))
+    #print('<FNet_to_DNet> The output network in dictionary format:', out_net)
+    return ee.Dictionary(out_net)
 
 
 
 
 #############################################################################################################
-# Description: Returns a list of LEAF networks (with ee.Dictionary objects as elements) for one biophysical
-#              parameter and multiple land cover types. 
+# Description: Returns a list of LEAF networks (with ee.Dictionary objects as elements) for calculating 
+#              one biophysical parameter map across different land cover types. 
 #              
 # Revision history:  2021-May-17  Copied from Richard's Python notebook (In [165])
 #
 #############################################################################################################
 def make_DNet_arr(all_nets, numClasses, ParamID):
-    '''Returns a array of LEAF networks (with ee.Dictionary objects as elements) corresponding to one 
-       biophysical parameter and multiple land cover types.
+    '''Returns a list of LEAF networks (with ee.Dictionary objects as elements) for calculating one
+       biophysical parameter map across different land cover types. 
 
        Args:
          all_nets(ee.FeatureCollection): a collection of LEAF networks (with ee.Feature as elements) for
-                                         different biophysical parameters and land covers; 
+                                         all biophysical parameters and land cover types; 
          numClasses(ee.Number): the total number of land cover types (1 or 11);
          ParamID(ee.Number): the ID number of a vegetation parameter (e.g., 1 for 'LAI'). '''
+    #========================================================================================================
+    # typecast function parameters 
+    #========================================================================================================
     all_nets   = ee.FeatureCollection(all_nets)  #A network matrix for different bio-parameters and land covers; 
     numClasses = ee.Number(numClasses)           #The total number of land cover types
     ParamID    = ee.Number(ParamID)              #The ID number of a vegetation parameter
-
-    #extract a list of network features for one biophysical parameter and different land cover types  
-    filtered_features = ee.FeatureCollection(all_nets.filter(ee.Filter.eq('tabledata3', ParamID))).toList(numClasses)
     
+    #========================================================================================================
+    # Extract a list of network features for one biophysical parameter and different land cover types
+    # The value associated with 'tabledata3' key is the biophysical parameter ID (e.g., 1 means LAI). 
+    # All the features with 'tabledata3' equal to the same values are the networks for calculating the same
+    # biophysical parameter across different land cover types.   
+    #========================================================================================================
+    filtered_features = ee.FeatureCollection(all_nets.filter(ee.Filter.eq('tabledata3', ParamID))).toList(numClasses)
+    #print('<make_DNet_arr> Filtered network feature list:', filtered_features.getInfo())
+
     # Return a list of network (in ee.Dictionary format) for different land cover types
+    # "FNet_to_DNet" function converts a given LEAF network from ee.Feature format to ee.Dictionary format.
+    #return FNet_to_DNet(filtered_features, 1)
     return ee.List.sequence(1, numClasses).map(lambda ClsID: FNet_to_DNet(filtered_features, ClsID))
     
 
@@ -446,8 +688,8 @@ def make_DNet_arr(all_nets, numClasses, ParamID):
 # Description: Applies a specified (defined by 'inNetIndex') two-layer neural network to a subset of land
 #              covers and returns a single band image containing results.
 #
-# Note:        This function applys gain and offset to convert the image values to reflectance value range 
-#              between 0 and 1 (instead of 100)
+# Note:        This function applys gain and offset to convert the image values to reflectance values 
+#              ranging from between 0 and 1, instead of from 0 to 100
 #
 # Revision history:  2021-May-17              Copied from Richard's Python notebook (In [167])
 #                    2021-May-27  Lixin Sun   Reviewed and added comments
@@ -455,31 +697,30 @@ def make_DNet_arr(all_nets, numClasses, ParamID):
 #                                             doing this is to apply a spatial mask to resultant image
 #                                             (see 'return' statment). 
 #                    2022-Mar-28  Lixin Sun   Updated to use "apply_gain_offset" for image value conversion.
-#                    2022-Jun-17  Lixin Sun   Removed gain/offset application to outside of this function.
+#                    2022-Jun-17  Lixin Sun   Moved pixel gain/offset application to outside of this function.
 #                                             So the reflectance value range in the given mosaic image must
 #                                             be from 0 to 1.  
 #############################################################################################################
-def applyNet(inImage, net_list, band_names, net_indx, output_name):
+def applyNet(Image, NetList, BandNames, NetIndex, OutName):
     '''Applies a specified (defined by 'inNetIndex') two-layer neural network to a subset of land covers.
 
        Args: 
-         inImage(ee.Image): a ee.Image object with network index band (named 'networkID') attached;
-         inNetList():       a list of networks for one parameter and various land cover types;
-         inBandNames(ee.List):  a list of band names to be used in parameter extraction;              
-         inNetIndex(ee.Number): an index number to a land cover;
-         ssr_code(int): a sensor type code (current: 5, 7, 8, 9 or 101)
-         inOutputName(string): the name string of output band. '''
-    image      = ee.Image(inImage)         # a mosaic image with a "networkID" band image attached 
-    netList    = ee.List(net_list)         # a list of all available LEAF networks
-    bandNames  = ee.List(band_names)       # [cosCZA,cosVZA,cosRAA,B3,B4,B5,B6,B7,B8,B11 and B12] for Sentinel2
-    netIndex   = ee.Number(net_indx).int() # the index number of a specified LEAF network   
-    outputName = ee.String(output_name)    # the name of the band containing output results
+         Image(ee.Image): a ee.Image object with network index band (named 'networkID') attached;
+         NetList(ee.List):  a list of networks for one parameter and various land cover types;
+         BandNames(ee.List):  a list of band names to be used in parameter extraction;              
+         NetIndex(ee.Number): an index number to a land cover;
+         OutName(string): the name string of output band. '''
+    in_image   = ee.Image(Image)           # a mosaic image with a "networkID" band image attached 
+    netList    = ee.List(NetList)          # a list of all available LEAF networks
+    bandNames  = ee.List(BandNames)        # [cosCZA,cosVZA,cosRAA,B3,B4,B5,B6,B7,B8,B11 and B12] for Sentinel2
+    netIndex   = ee.Number(NetIndex).int() # the index number of a specified LEAF network   
+    outputName = ee.String(OutName)        # the name of the band containing output results
 
     #========================================================================================================
     # Mask unselected land cover areas and then rescale selected band images
     #========================================================================================================
-    mask     = image.select('networkID').eq(netIndex)
-    used_img = image.select(bandNames).updateMask(mask)
+    mask     = in_image.select('networkID').eq(netIndex)    # a mask to mask out unselected land cover types  
+    used_img = in_image.select(bandNames).updateMask(mask)  # Update the mask for a number of selected bands
     
     # Select the network corresponding to a land cover type
     used_net = ee.Dictionary(netList.get(netIndex))    
@@ -524,11 +765,13 @@ def applyNet(inImage, net_list, band_names, net_indx, output_name):
 
 
 #############################################################################################################
-# Description: Applies a set of shallow networks to an image based on a given land cover map of the same 
-#              region and returns image (ee.Image object) containing three bands, a biophysical parameter 
-#              map, a land cover map and a network index map. 
+# Description: Applies a set of networks to an image based on a given land cover map and returns an image
+#              (ee.Image object) containing three bands, a biophysical parameter map, a land cover map and 
+#              a network index map. 
 #
-# Note:        The reflectance value range of the given mosaic image (inImage) must be within 0 and 1.
+# Note:        (1) The reflectance value range of the given mosaic image (inImage) must be within 0 and 1.
+#              (2) Note the dictionaries used in this function are all ee.Dictionary objects, so the items 
+#                  cannot be accessed through subscription (e.g., dictionary.['key']).
 #
 # Revision history:  2021-May-17  Copied from Richard's Python notebook (In [168])
 #
@@ -537,16 +780,14 @@ def wrapperNNets(networks, partition, prod_options, coll_options, suffix_name, i
     '''Applies a set of shallow networks to an image based on a given land cover map.
 
        Args: 
-         networks(ee.List): a 2d matrix of networks (ee.Dictionary objects);
+         networks(ee.List): a 2D matrix of networks (ee.Dictionary objects);
          partition(ee.Image): a partition/classification map;
          prod_options(ee.Dictionary): a dictionary containing the info related to a selected parameter type;
          coll_options(ee.Dictionary): a dictionary containing the info related to a selected satellite type;
          suffix_name(string): a suffix name of output;
          inImage(ee.Image): a mosaic image for vegetation parameter extraction. '''
     #========================================================================================================
-    # typecast function parameters 
-    # Note that the dictionaries in this function are all ee.Dictionary objects, rather than regular Python
-    # dictionary. So the items cannot be accessed through subscription (e.g., dictionary.['key']).
+    # typecast function parameters  
     #========================================================================================================     
     networks    = ee.List(networks)            # a 2D matrix of networks with rows and columns for parameters and land covers
     partition   = ee.Image(partition)          # a land cove classification map
@@ -566,7 +807,7 @@ def wrapperNNets(networks, partition, prod_options, coll_options, suffix_name, i
     # Attach a network index band to the given (mosaic) image cube
     #========================================================================================================
     net_indx_map = makeIndexLayer(partition, nbClsNets, CollOptions.get('legend'), CollOptions.get('Network_Ind'))
-    used_image   = image.addBands(net_indx_map)
+    used_image   = image.addBands(net_indx_map)  #The name of the added band is "networkID"
 
     #========================================================================================================
     # Apply each network in 'netList' to its corresponding land cover separately and then merge the results
@@ -895,7 +1136,7 @@ def LEAF_valid_mask(Image, SsrData, MaxRef, ClassMap):
 #                    2021-Oct-15  Lixin Sun  Modified so that peak season ("month" argument is outside of 
 #                                            1 and 12) product can also be generated. 
 #############################################################################################################
-def S2_separate_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, task_list):
+def SL2P_separate_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, task_list = None):
   '''Produces a full set of LEAF products for a specific region and time period and export them in separate files.
 
     Args:
@@ -909,20 +1150,21 @@ def S2_separate_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, task
   # Obtain the names of a GEE Data Catalog ('COPERNICUS/S2_SR_HARMONIZED' or 'LANDSAT/LC08/C01/T1_SR') and
   # a biophysical parameter (one of 'LAI', 'fCOVER', 'fAPAR' and 'Albedo').
   #==========================================================================================================
-  coll_dict = COLL_OPTIONS[SsrData['NAME']] # ee.Dictionay object related to a selected collection type
+  coll_dict   = COLL_OPTIONS[SsrData['NAME']] # ee.Dictionay object related to a selected collection type
  
-  sl2pDomain = coll_dict["sl2pDomain"].aggregate_array("DomainCode").sort()
-  bandList   = ee.List(coll_dict["inputBands"])
-  LEAF_image = inMosaic.select(bandList.slice(3))  #Only select required spectral bands
-  nBands     = bandList.slice(3).length()
-
+  sl2p_Domain = coll_dict["sl2pDomain"].aggregate_array("DomainCode").sort()
+  bandList    = ee.List(coll_dict["inputBands"])
+  LEAF_image  = inMosaic.select(bandList.slice(3))  #Select only required spectral bands
+  nBands      = bandList.slice(3).length()
+  
+  print("\n\n>>>>> <SL2P_separate_params> Selected band names in given mosaic:", LEAF_image.bandNames().getInfo())
   #==========================================================================================================
   # Create a QC image to mark the pixels where spectral values are out of the input range for calculating
   # biophysical parameters
   #==========================================================================================================
   QC_img = LEAF_image.multiply(ee.Image.constant(ee.Number(10))).ceil().mod(ee.Number(10))\
                      .multiply(ee.Image.constant(ee.List.sequence(0, nBands.subtract(1)).map(lambda value: ee.Number(10).pow(ee.Number(value))))) \
-                     .reduce("sum").remap(sl2pDomain, ee.List.repeat(0, sl2pDomain.length()), 1).uint8()
+                     .reduce("sum").remap(sl2p_Domain, ee.List.repeat(0, sl2p_Domain.length()), 1).uint8()
 
   #==========================================================================================================
   # Mask out water bodies from the mosaic image
@@ -930,24 +1172,33 @@ def S2_separate_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, task
   water_mask = ClassImg.neq(ee.Image(0)).And(ClassImg.neq(ee.Image(18)))
   mosaic     = inMosaic.updateMask(water_mask)
 
+  print("<SL2P_separate_params> The bands in LEAF mosaic_image", mosaic.bandNames().getInfo())
   #==========================================================================================================
   # Determine the number of land cover classes based on the number of networks and parameter types.
   #==========================================================================================================
-  coll_nets  = coll_dict["Collection_SL2P"]
-  #print("\n<S2_separate_params>", coll_nets.getInfo())
+  coll_nets  = coll_dict["Collection_SL2P"]             # Get all the networks for parameter estimation
+  #print("\n<SL2P_separate_params>", coll_nets.getInfo())
 
   total_nets = coll_nets.size()                         # the total number of networks (ee.Feature objects)  
   numbParams = int(coll_dict["numVariables"])           # the total number of biophysical parameters (normally 7)
   numClasses = total_nets.divide(ee.Number(numbParams)) # the number of land cover classes
+  print("\n<SL2P_separate_params> total numb of nets:", total_nets.getInfo())
+  print("\n<SL2P_separate_params> nParams and nClasses:", numbParams, numClasses.getInfo())
 
-  estim_net = ee.List.sequence(1, numbParams).map(lambda netNumb: make_DNet_arr(coll_nets, numClasses, netNumb))
+  #==========================================================================================================
+  # Create a list of networks in ee.Dictionary format for all biophysical parameters.
+  # In case of multiple classes are applied, each element in above list is another list of networks for 
+  # diverse land cove types.  
+  #==========================================================================================================
+  #make_DNet_arr(coll_nets, numClasses, 1)
+  DNet_arr = ee.List.sequence(1, numbParams).map(lambda paramID: make_DNet_arr(coll_nets, numClasses, paramID))
 
   #==========================================================================================================
   # Define a function that can estimate a biophysical parameter and its corresponding QC image
   #==========================================================================================================   
   def estimate_param_QC(fun_Param_dict, QC_img):
     prod_dict = PROD_OPTIONS[fun_Param_dict['prod_name']]
-    estim_img = wrapperNNets(estim_net, ClassImg, prod_dict, coll_dict, "estimate", mosaic)
+    estim_img = wrapperNNets(DNet_arr, ClassImg, prod_dict, coll_dict, "estimate", mosaic)
 
     # Identify the pixels exceeding the output range 
     out_min    = ee.Image(prod_dict['outmin'])
@@ -967,7 +1218,7 @@ def S2_separate_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, task
   LAI_map, QC_img = estimate_param_QC(fun_Param_dict, QC_img)
   if task_list != None:
     Img.export_one_map(fun_Param_dict, Region, LAI_map, task_list)  
-
+    
   fun_Param_dict['prod_name'] = 'fCOVER'  
   fCOVER_map, QC_img = estimate_param_QC(fun_Param_dict, QC_img)
   if task_list != None:
@@ -992,9 +1243,9 @@ def S2_separate_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, task
   QC_map       = QC_img.unmask().bitwiseOr(invalid_mask)
   if task_list != None:
     Img.export_one_map(fun_Param_dict, Region, QC_map, task_list)
-
+  
   return LAI_map, fCOVER_map, fAPAR_map, Albedo_map, QC_map
-
+  
 
 
 
@@ -1024,10 +1275,10 @@ def S2_region_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, task_l
   coll_name = SsrData['NAME']
   coll_dict = COLL_OPTIONS[coll_name] # ee.Dictionay object related to a selected collection type
  
-  sl2pDomain = coll_dict["sl2pDomain"].aggregate_array("DomainCode").sort()
-  bandList   = ee.List(coll_dict["inputBands"])
-  LEAF_image = inMosaic.select(bandList.slice(3))  #Only select required spectral bands
-  nBands     = bandList.slice(3).length()
+  sl2p_Domain = coll_dict["sl2pDomain"].aggregate_array("DomainCode").sort()
+  bandList    = ee.List(coll_dict["inputBands"])
+  LEAF_image  = inMosaic.select(bandList.slice(3))  #Only select required spectral bands
+  nBands      = bandList.slice(3).length()
 
   #==========================================================================================================
   # Create a QC image to mark the pixels where spectral values are out of the input range for calculating
@@ -1035,7 +1286,7 @@ def S2_region_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, task_l
   #==========================================================================================================
   QC_img = LEAF_image.multiply(ee.Image.constant(ee.Number(10))).ceil().mod(ee.Number(10))\
                      .multiply(ee.Image.constant(ee.List.sequence(0, nBands.subtract(1)).map(lambda value: ee.Number(10).pow(ee.Number(value))))) \
-                     .reduce("sum").remap(sl2pDomain, ee.List.repeat(0, sl2pDomain.length()), 1).uint8()
+                     .reduce("sum").remap(sl2p_Domain, ee.List.repeat(0, sl2p_Domain.length()), 1).uint8()
 
   #==========================================================================================================
   # Mask out water bodies from the mosaic image
@@ -1224,13 +1475,15 @@ def separate_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, task_li
   # a biophysical parameter (one of 'LAI', 'fCOVER', 'fAPAR' and 'Albedo').
   #==========================================================================================================
   ssr_code = SsrData['SSR_CODE']
-
+  
+  return SL2P_separate_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, task_list)
+  '''
   if ssr_code > Img.MAX_LS_CODE:
     return S2_separate_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, task_list)
   else:
     LAI_map, fAPAR_map, QC_map = LS_separate_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, task_list)
     return export_LS_BioMaps(fun_Param_dict, Region, LAI_map, fAPAR_map, QC_map, task_list)
-
+  '''
 
 
 
@@ -1259,14 +1512,14 @@ def compact_params(inMosaic, SsrData, ClassImg):
   coll_name  = SsrData['NAME']         # Obtain the metadata dictionary associated with a sensor
   coll_dict  = COLL_OPTIONS[coll_name] # ee.Dictionay object related to a selected collection type  
 
-  sl2pDomain = coll_dict["sl2pDomain"].aggregate_array("DomainCode").sort()
-  bandList   = ee.List(coll_dict["inputBands"])
-  LEAF_image = inMosaic.select(bandList.slice(3))  #Only select required spectral bands
-  nBands     = bandList.slice(3).length()
+  sl2p_Domain = coll_dict["sl2pDomain"].aggregate_array("DomainCode").sort()
+  bandList    = ee.List(coll_dict["inputBands"])
+  LEAF_image  = inMosaic.select(bandList.slice(3))  #Only select required spectral bands
+  nBands      = bandList.slice(3).length()
 
   QC_img = LEAF_image.multiply(ee.Image.constant(10)).ceil().mod(ee.Number(10))\
                      .multiply(ee.Image.constant(ee.List.sequence(0, nBands.subtract(1)).map(lambda value: ee.Number(10).pow(ee.Number(value))))) \
-                     .reduce("sum").remap(sl2pDomain, ee.List.repeat(0, sl2pDomain.length()), 1).uint8()
+                     .reduce("sum").remap(sl2p_Domain, ee.List.repeat(0, sl2p_Domain.length()), 1).uint8()
 
   #==========================================================================================================
   # Mask out water bodies from the mosaic image
@@ -1395,13 +1648,15 @@ def LEAF_production(ExeParamDict):
   '''Produces monthly biophysical parameter maps for a number of tiles and months.
 
      Args:
-       exe_Param_dict({}): A Python dictionary storing parameters for one execution of LEAF Production Tool.'''
+       ExeParamDict({}): A Python dictionary storing input parameters for executing LEAF Production Tool.'''
 
+  #==========================================================================================================
   # Standardize the given execution parameters
+  #==========================================================================================================
   exe_Param_dict = eoParams.get_LEAF_params(ExeParamDict)
 
   #==========================================================================================================
-  # Create an initial/base "fun_Param_dict" dictionary from a subset of the elements of 'exe_Param_dict' 
+  # Create an initial/base "fun_Param_dict" dictionary from a subset of the elements in "ExeParamDict"
   # dictionary. During the process of passing "fun_Param_dict" to 'LEAF_Mosaic', 'one_LEAF_Product' and
   # 'export_ancillaries' functions, missing elements will be added later on.
   #==========================================================================================================
@@ -1419,7 +1674,6 @@ def LEAF_production(ExeParamDict):
   # Note that, for the same month, one mosaic can be reused for generating different products. 
   #==========================================================================================================
   SsrData     = Img.SSR_META_DICT[exe_Param_dict['sensor']]
-  ssr_code    = SsrData['SSR_CODE']
   year        = int(exe_Param_dict['year'])
   ProductList = exe_Param_dict['prod_names']
   task_list   = []
@@ -1428,14 +1682,14 @@ def LEAF_production(ExeParamDict):
   for tile in exe_Param_dict['tile_names']:  
     fun_Param_dict['tile_name'] = tile   # Add an element with 'tile_name' as key to 'fun_Param_dict'    
 
-    region     = eoTG.PolygonDict.get(tile) if eoTG.is_valid_tile_name(tile) == True else eoTG.custom_RegionDict.get(tile)
-    region     = eoTG.expandSquare(region, 0.02)
-    cloud_rate = eoTG.get_tile_cloud_rate(tile) if eoTG.is_valid_tile_name(tile) == True else -100
+    region = eoTG.PolygonDict.get(tile) if eoTG.is_valid_tile_name(tile) == True else eoTG.custom_RegionDict.get(tile)
+    region = eoTG.expandSquare(region, 0.02)
+    #cloud_rate = eoTG.get_tile_cloud_rate(tile) if eoTG.is_valid_tile_name(tile) == True else -100
 
     # Create a classification map image based on region and targeted year
     print('\n<LEAF_production> generate a global LC map.......')
-    IsBiome  = True if ssr_code < Img.MAX_LS_CODE else False
-    ClassImg = eoAD.get_GlobLC(region, year, IsBiome).uint8()
+    #IsBiome  = True if ssr_code < Img.MAX_LS_CODE else False
+    ClassImg = eoAD.get_GlobLC(region, year, False).uint8()
 
     # Export a classification for a tile only once. 
     if Is_export_required('parti', ProductList):
@@ -1448,7 +1702,8 @@ def LEAF_production(ExeParamDict):
 
       # Generate a mosaic image for a month with either S2 or LS8/9 data 
       print('\n<LEAF_production> generate a mosaic for month', month)
-      mosaic = Mosaic.LEAF_Mosaic(fun_Param_dict, region)
+      mosaic = Mosaic.LEAF_Mosaic(fun_Param_dict, region, True)
+      print('\n\n<LEAF_production>The band names in LEAF mosaic = ', mosaic.bandNames().getInfo())
       #return mosaic
     
       if Is_export_required('date', ProductList):
@@ -1464,9 +1719,10 @@ def LEAF_production(ExeParamDict):
         export_compact_params(fun_Param_dict, region, out_params, task_list)
       else: # Create separate parameter maps
         print('\n<LEAF_production> Call separate_params function .......')
-        separate_params(fun_Param_dict, mosaic, region, SsrData, ClassImg, task_list)
-      
-  #return task_list
+        #separate_params(fun_Param_dict, mosaic, region, SsrData, ClassImg, task_list)
+        return SL2P_separate_params(fun_Param_dict, mosaic, region, SsrData, ClassImg, task_list)
+
+  return task_list
 
 
 
@@ -1474,14 +1730,14 @@ def LEAF_production(ExeParamDict):
 
 
 #############################################################################################################
-# Description: Produces monthly biophysical parameter maps for a customized region (e.g., an entire country
-#              or study site).
+# Description: This fuction produces monthly biophysical parameter maps for a customized region, such as 
+#              an entire country or study site.
 #     
 # Revision history:  2023-Feb-16  Lixin Sun  Initial creation 
 #
 #############################################################################################################
 def National_LEAF_production(ExeParamDict):
-  '''Produces monthly biophysical parameter maps for a number of tiles and months.
+  '''Produces one monthly biophysical parameter map for a customized region such as an entire country or study site.
 
      Args:
        exe_Param_dict({}): A Python dictionary storing parameters for one execution of LEAF Production Tool.'''
@@ -1490,9 +1746,7 @@ def National_LEAF_production(ExeParamDict):
   exe_Param_dict = eoParams.get_LEAF_params(ExeParamDict)
 
   #==========================================================================================================
-  # Create an initial/base "fun_Param_dict" dictionary from a subset of the elements of 'exe_Param_dict' 
-  # dictionary. During the process of passing "fun_Param_dict" to 'LEAF_Mosaic', 'one_LEAF_Product' and
-  # 'export_ancillaries' functions, missing elements will be added later on.
+  # Create an "fun_Param_dict" dictionary from a subset of the elements of 'exe_Param_dict' dictionary. 
   #==========================================================================================================
   fun_Param_dict = {'sensor':     exe_Param_dict['sensor'],
                     'year':       exe_Param_dict['year'],
@@ -1505,24 +1759,20 @@ def National_LEAF_production(ExeParamDict):
                     'export_style': exe_Param_dict['export_style']}
     
   #==========================================================================================================
-  # Three Loops through the combinations between the elements of the vectors with 'tile_names', 'months' and
-  # 'prod_names' as keys in 'exe_Param_dict'.
-  # Note that, for the same month, one mosaic can be reused for generating different products. 
+  # Obtain Sensor's meta data, targeted year and spatial region
   #==========================================================================================================
-  SsrData   = Img.SSR_META_DICT[exe_Param_dict['sensor']]
-  year      = int(exe_Param_dict['year'])
-  tile      = fun_Param_dict['tile_name']
-  task_list = []
+  SsrData = Img.SSR_META_DICT[exe_Param_dict['sensor']]
+  year    = int(exe_Param_dict['year'])
+  region  = eoTG.custom_RegionDict.get(fun_Param_dict['tile_name'])
 
-  region    = eoTG.custom_RegionDict.get(tile)
-
-  # Create a classification map image based on region and targeted year
+  # Clip a classification map according to the specified region and targeted year
   ClassImg = eoAD.get_CanLC(year).uint8()
  
-  # Generate a mosaic image for a month with either S2 or LS8/9 data 
-  mosaic = Mosaic.LEAF_Mosaic(fun_Param_dict, region)
+  # Generate a monthly mosaic image with either S2 or LS8/9 data 
+  mosaic = Mosaic.LEAF_Mosaic(fun_Param_dict, region, True)
 
-  # Produce vegetation parameter maps and export them in a specified way (a compact image or separate images)
+  # Produce biophysical parameter maps and export them as either a compact image or separate images
+  task_list = []
   return S2_region_params(fun_Param_dict, mosaic, region, SsrData, ClassImg, task_list)   
 
 
