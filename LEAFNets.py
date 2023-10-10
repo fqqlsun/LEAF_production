@@ -53,6 +53,8 @@ def s2_createFeatureCollection_domains(version):
         .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/S2_SL2P_WEISS_ORIGINAL_DOMAIN'))
 
 
+    init_net_IDs = [0,1,2,3,4,5,6,7,8,9,10,11]
+    real_net_IDs = [0,0,1,2,0,0,0,1,0,0,0,3]
 
 
 '''
@@ -1720,7 +1722,7 @@ def LEAF_production(ExeParamDict):
       else: # Create separate parameter maps
         print('\n<LEAF_production> Call separate_params function .......')
         #separate_params(fun_Param_dict, mosaic, region, SsrData, ClassImg, task_list)
-        return SL2P_separate_params(fun_Param_dict, mosaic, region, SsrData, ClassImg, task_list)
+        SL2P_separate_params(fun_Param_dict, mosaic, region, SsrData, ClassImg, task_list)
 
   return task_list
 
