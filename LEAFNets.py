@@ -1,5 +1,6 @@
 import ee
-
+ee.Initialize()
+#ee.Authenticate()
 
 import Image as Img
 import ImgMask as IM
@@ -1779,6 +1780,19 @@ def National_LEAF_production(ExeParamDict):
 
 
 
-###########################################################################
-# This is a test to see the synchronization between VS Code and databricks
-###########################################################################
+###################################################################################################
+# 
+###################################################################################################
+params = {
+    'sensor': 'S2_SR',           # A string indicating sensor and data unit (e.g., 'S2_SR' or 'L8_SR')    
+    'year': 2023,                # An integer representing image acquisition year
+    'months': [7],               # A set of integers represening months (a negative value means whole summer)
+    'tile_names': ['tile55','tile42'],    # A list of tile name strings as per the CCRS' tile griding system
+    'prod_names': ['LAI','fAPAR','fCOVER','Albedo', 'QC'],   # ['LAI','fAPAR','fCOVER','Albedo', 'QC', 'date', 'partition']
+    'resolution': 20,            # The spatial resultion (in meter) of the exported products
+    'location': 'drive',         # The destination of exporting the products ('drive' or 'storage')     
+    'bucket': 'S2_leaf_2023',    # An unique bucket name in GCS (must have been created beforehand)
+    'folder': 'S2_leaf_2023'     # the folder name intended for exporting products in either GD or GCS    
+}
+
+mosaic = LEAF_production(params)
