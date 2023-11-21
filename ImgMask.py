@@ -81,8 +81,9 @@ def mask_from_MODIS(Image, SsrData, MODIS_mosaic):
 # Description: This function extracts a type of mask from the specific bands in a given image. The masks were
 #              created by the image provider.
 #
-# Note:        the returned mask is a 0/1 image with 1 represening specified targets (e.g., cloud, cirrus,
-#              shadow, water or snow/ice)  
+# Note:        The returned mask is a 0/1 image with 1 represening specified targets (e.g., cloud, cirrus,
+#              shadow, water or snow/ice). This is in reverse with the required mask for "updateMask" function
+#              of ee.Image object.
 #
 # Revision history:  2022-Jun-22  Lixin Sun  Initial creation
 #                    2023-Jan-11  Lixin Sun  Added MODIS sensor code option and MODIS mosaic image.
@@ -192,6 +193,36 @@ def Img_VenderMask(Image, SsrData, MaskType, MODIS_mosaic = None):
       #return sa.multiply(0)
     else:
       return qa.multiply(0)
+
+
+
+
+#############################################################################################################
+# Description: This function creates a value-invalid pixel mask (1 => invalid value pixels) for an image.
+# 
+# Revision history:  2023-Nov-10  Lixin Sun  Initial creation
+#
+#############################################################################################################
+def Img_ClearMask(Image, SsrData):
+  '''Creates a value-invalid pixel mask (1 => value_invalid pixel) for an image.
+
+     Args:
+       Image(ee.Image): a given ee.Image object;
+       SsrData(Dictionary): A Dictionary with metadata for a sensor and data unit;
+       MaxRef(int): a maximum reflectance value (1 or 100).'''
+  ssr_code  = SsrData['SSR_CODE']
+  
+  if ssr_code > Img.MAX_LS_CODE: # for Sentinel-2 data   
+    img_foot = Image.geometry()
+    csPlus   = ee.ImageCollection('GOOGLE/CLOUD_SCORE_PLUS/V1/S2_HARMONIZED').filterBounds(img_foot)
+    
+    img      = Image.linkCollection(csPlus, ['cs'])
+
+    return img.select('cs').lt(0.6)
+  
+  else: # for Landsat data
+    return Img_VenderMask(Image, SsrData, CLEAR_MASK)
+
 
 
 

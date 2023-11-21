@@ -44,20 +44,45 @@ def get_time_score(image, midDate, ssr_code):
   # Note that 86400000 is milliseconds per day
   #==================================================================================================
   millis_per_day = 86400000
-  img_date   = ee.Date(image.date()).millis().divide(millis_per_day)
-  refer_date = ee.Date(midDate).millis().divide(millis_per_day)
+  img_date   = ee.Date(image.date())  # Get the Unix date of the given image   
+  img_year   = img_date.get('year')   # Get the year integer of the given image
+  DOY_1st    = ee.Date.fromYMD(img_year, 1, 1).millis().divide(millis_per_day)  # the unix date of the 1st DOY 
+  mid_date   = ee.Date(midDate).update(img_year)  # Corrected midDate
+  
+  img_date   = img_date.millis().divide(millis_per_day).subtract(DOY_1st)
+  refer_date = mid_date.millis().divide(millis_per_day).subtract(DOY_1st)
   date_diff  = img_date.subtract(refer_date).abs()
 
   #==================================================================================================
-  # Calculatr time score according to sensor type (Sentinel-2: sensor_code > 100
-  # Landsat: ssr_code < 100)
+  # Calculatr time score according to sensor type 
   #==================================================================================================
   ssr_code = int(ssr_code)
 
-  factor  = 25 if ssr_code > Img.MAX_LS_CODE else 32
+  factor  = 25 if ssr_code > Img.MAX_LS_CODE else 64
   one_img = image.select([0]).multiply(0).add(1)
 
   return one_img.divide((ee.Image(date_diff).divide(ee.Image(factor))).exp())
+
+
+
+
+######################################################################################################
+# Description: This function creates a score image for a given ee.Image object.
+#   
+# Note:        The value ranges of all the input spectral bands must be within [0, 100]  
+#
+# Revision history:  2023-Aug-25  Lixin Sun  Initial creation
+#
+######################################################################################################
+def get_spec_score(blu, nir, med_blu, med_nir):
+  maxNB   = nir.max(blu)
+  minNB   = nir.min(blu)
+  nir_pen = med_nir.subtract(nir).abs().exp()
+  blu_pen = med_blu.subtract(blu).abs().exp()
+  
+  score   = maxNB.divide(minNB.add(blu_pen).add(nir_pen).add(maxNB.divide(2)))
+
+  return ee.Image(score)
 
 
 
@@ -70,20 +95,16 @@ def get_time_score(image, midDate, ssr_code):
 # Revision history:  2023-Aug-25  Lixin Sun  Initial creation
 #
 ######################################################################################################
-def get_land_score(blu, grn, red, nir, sw1, sw2, med_blu, med_nir):  
-  mean_VIS  = blu.add(red).divide(ee.Image(2.0))
-  max_IR    = nir.add(sw1).divide(ee.Image(2.0))
-
-  blu_refer = med_blu.add(med_blu.multiply(ee.Image(0.1)))
-  nir_refer = med_nir.subtract(med_nir.multiply(ee.Image(0.2)))
-  shdw_pen  = nir_refer.subtract(nir).exp()
-  haze_pen  = blu.subtract(blu_refer).exp()
-
-  score     = max_IR.divide(mean_VIS.add(haze_pen).add(shdw_pen)) 
+def get_land_score(blu, grn, red, nir, sw1, sw2, med_blu, med_nir):
+  nir_pen = med_nir.subtract(nir).abs().exp()
+  blu_pen = med_blu.subtract(blu).abs().exp()
+  
+  score   = nir.divide(blu.add(blu_pen).add(nir_pen).add(nir.subtract(2)))   #.multiply(0.1)
+  #score   = blu.add(1).divide(blu.add(blu_pen).add(nir_pen))
 
   #==================================================================================================
   # Apply bottom line for spectral values of vegetated pixels
-  #==================================================================================================
+  #==================================================================================================  
   min_VIS   = blu.min(grn).min(red) 
   min_IR    = nir.min(sw1).min(sw2) 
   neg_score = score.abs().multiply(-1)
@@ -99,10 +120,11 @@ def get_land_score(blu, grn, red, nir, sw1, sw2, med_blu, med_nir):
   # (3) SWIR2 is bigger than SWIR1
   #==================================================================================================
   ndvi    = nir.subtract(red).divide(nir.add(red))
-  not_veg = ndvi.gt(0.5).And(blu.gt(grn).Or(sw2.gt(sw1)))
-  score   = score.where(not_veg, neg_score)
+  bad_veg = ndvi.gt(0.5).And(blu.gt(grn).Or(sw2.gt(sw1)))
+  score   = score.where(bad_veg, neg_score)
 
   return ee.Image(score)
+
 
 
 
@@ -115,13 +137,12 @@ def get_land_score(blu, grn, red, nir, sw1, sw2, med_blu, med_nir):
 # Revision history:  2023-Aug-25  Lixin Sun  Initial creation
 #
 ######################################################################################################
-def get_water_score(blu, grn, red, nir, sw1, sw2, medBlue):
-  mean_VIS     = blu.add(grn).add(red).divide(3.0)
+def get_water_score(blu, grn, red, nir, sw1, sw2, medBlue):  
   max_SW       = sw1.max(sw2)
   nir_sw_ratio = nir.add(1).divide(max_SW.add(1))  # This ratio is useful for excluding ice/snow
   shadow_pen   = medBlue.subtract(blu).abs().exp()
-  numerator    = ee.Image.constant(4.0).subtract(max_SW).exp() 
-  denominator  = nir_sw_ratio.add(shadow_pen)   #.add(mean_VIS.abs())
+  numerator    = ee.Image.constant(4).subtract(max_SW) 
+  denominator  = nir_sw_ratio.add(shadow_pen).add(4)
 
   score  = numerator.divide(denominator)
 
@@ -129,8 +150,9 @@ def get_water_score(blu, grn, red, nir, sw1, sw2, medBlue):
   # Apply bottom line for spectral values of vegetated pixels
   #==================================================================================================
   #min_VIS = blu.min(grn).min(red)
-  min_IR  = nir.min(sw1).min(sw2)
-  score   = score.where(mean_VIS.lt(0).Or(min_IR.lt(-1.5)), score.abs().multiply(-10))
+  mean_VIS = blu.add(grn).add(red).divide(3.0)
+  min_IR   = nir.min(sw1).min(sw2)
+  score    = score.where(mean_VIS.lt(0).Or(min_IR.lt(-1.5)), score.abs().multiply(-10))
 
   return ee.Image(score)
 
@@ -154,7 +176,7 @@ def get_water_score(blu, grn, red, nir, sw1, sw2, medBlue):
 #                                            map is for generating mosaic for land pixels only.
 #                                            (Biophysical parameter extraction needs land mosaic only)
 ######################################################################################################
-def get_score_map(inMidDate, SsrData, image, MedianMosaic, WaterMap, LandOnly):
+def get_score_map(inMidDate, SsrData, image, MedBlue, MedNIR, WaterMap, LandOnly):
   '''Return a pixel score image corresponding to a given image
   
   Args:      
@@ -170,48 +192,46 @@ def get_score_map(inMidDate, SsrData, image, MedianMosaic, WaterMap, LandOnly):
   max_ref = 100
   scaled_img = Img.apply_gain_offset(image, SsrData, max_ref, False)  
 
+  #==================================================================================================  
+  # Get separate band images 
   #==================================================================================================
-  # Create separate references for each of the SIX bands
-  #==================================================================================================
-  blu = scaled_img.select(SsrData['BLU'])
-  grn = scaled_img.select(SsrData['GRN'])
-  red = scaled_img.select(SsrData['RED'])
-  nir = scaled_img.select(SsrData['NIR'])
-  sw1 = scaled_img.select(SsrData['SW1'])
-  sw2 = scaled_img.select(SsrData['SW2'])    
-  
-  med_blu = MedianMosaic.select(SsrData['BLU'])
-  med_nir = MedianMosaic.select(SsrData['NIR'])
+  blu  = scaled_img.select(SsrData['BLU'])
+  #grn  = scaled_img.select(SsrData['GRN'])
+  #red  = scaled_img.select(SsrData['RED'])
+  nir  = scaled_img.select(SsrData['NIR'])
+  #sw1  = scaled_img.select(SsrData['SW1'])
+  #sw2  = scaled_img.select(SsrData['SW2'])
 
   #==================================================================================================
   # Calculate base score for both vagetated and non-vegetated targets
   #==================================================================================================
-  score = ee.Image(get_land_score(blu, grn, red, nir, sw1, sw2, med_blu, med_nir))
+  #land_score = ee.Image(get_land_score(blu, grn, red, nir, sw1, sw2, MedBlue, MedNIR))
+  spec_score = ee.Image(get_spec_score(blu, nir, MedBlue, MedNIR))
+  '''
   if LandOnly == False:
-    water_score = ee.Image(get_water_score(blu, grn, red, nir, sw1, sw2, med_blu))
+    water_score = ee.Image(get_water_score(blu, grn, red, nir, sw1, sw2, MedBlue))
     score       = score.where(WaterMap.gt(0).And(water_score.gt(0)), water_score)  
+  '''  
     #score       = score.max(water_score)  #Does not work in northern area
-  
-  #ndvi  = nir.subtract(red).divide(nir.add(red))  
-  #score = score.where(ndvi.gt(0.5).And(nir.gt(5)), veg_score)
-  #target_mark = target_mark.where(ndvi.gt(0.5).And(nir.gt(5)), ee.Image(2))
-
-  #target_mark = blu.multiply(0).add(1)
-  #target_mark = target_mark.where(WaterMap.gt(0).And(water_score.gt(0)), ee.Image(2))
-  
-  #target_mark = target_mark.where(water_score.gt(score), ee.Image(3))
-  #score       = score.where(water_score.gt(score), water_score)
-  
+    
   #score = land_score.max(water_score)
+  #==================================================================================================
+  # Apply could coverage score
+  #==================================================================================================
+  cloud_cover = ee.Number(image.get(SsrData['CLOUD'])).divide(100)  
+  cover_score = ee.Image.constant(ee.Number(1).subtract(cloud_cover))   #.multiply(0.63)
+  #cover_score = cover_score.where(cloud_cover.gt(0.2), ee.Image.constant(0))   #.multiply(0.63)
 
   #==================================================================================================
-  # Apply time scores to vegetation targets 
+  # Apply time scores exclusively to vegetation targets 
   #==================================================================================================
   ssr_code   = SsrData['SSR_CODE']
-  time_score = ee.Image(get_time_score(image, inMidDate, ssr_code))
-  score      = ee.Image(score).multiply(time_score) 
+  time_score = ee.Image(get_time_score(image, inMidDate, ssr_code))   #.multiply(0.9)
+  
+  #score      = score.where(ndvi.gt(0.5), score.add(time_score))
+  total_score = spec_score.add(cover_score).add(time_score)   #.divide(2.53)
  
-  return ee.Image(score).rename([Img.pix_score]) #, ee.Image(target_mark).rename([Img.score_target])
+  return ee.Image(total_score).rename([Img.pix_score]) #, ee.Image(target_mark).rename([Img.score_target])
 
 
 
@@ -264,7 +284,7 @@ def mosaic_score_map(mosaic, SsrData):
 # Revision history:  2020-Dec-22  Lixin Sun  Initial creation
 #
 ######################################################################################################
-def attach_Score(midDate, SsrData, Image, MedianMosaic, WaterMap, LandOnly):
+def attach_Score(midDate, SsrData, Image, MedBlue, MedNIR, WaterMap, LandOnly):
   '''Attach a score image to a given image.
   
   Args:      
@@ -277,15 +297,15 @@ def attach_Score(midDate, SsrData, Image, MedianMosaic, WaterMap, LandOnly):
   #==================================================================================================
   # Create a map that combines spectral and time scores
   #==================================================================================================
-  score_map = get_score_map(midDate, SsrData, Image, MedianMosaic, WaterMap, LandOnly)
+  score_map = get_score_map(midDate, SsrData, Image, MedBlue, MedNIR, WaterMap, LandOnly)
 
   # Define a boxcar or low-pass kernel.
-  boxcar = ee.Kernel.circle(radius = 2, units = 'pixels', normalize = True)
+  #boxcar = ee.Kernel.circle(radius = 2, units = 'pixels', normalize = True)
 
   # Smooth the image by convolving with the boxcar kernel.
-  smoothed_score = score_map.convolve(boxcar)
+  #smoothed_score = score_map.convolve(boxcar)
 
-  return Image.addBands(smoothed_score)
+  return Image.addBands(score_map)
              
 
 
@@ -317,16 +337,19 @@ def score_collection(collection, SsrData, midDate, ExtraBandCode, LandOnly, modi
   # Note: doing mosaic without applying inherent masks will cause some water bodies cannot be 
   #       correctly identified by mosaic algorithm (whatever a mosaic algorithm is used).
   #==================================================================================================
-  def apply_mask(image):
-    mask = IM.Img_VenderMask(image, SsrData, IM.CLEAR_MASK, modis_img)
-    return image.updateMask(mask.Not()) 
-  
-  masked_ImgColl = collection.map(lambda image: apply_mask(image))
+  masked_ImgColl = IS.mask_collection(collection, SsrData)
   #print('\n\n<score_collection> band names:', masked_ImgColl.first().bandNames().getInfo())
   
   median_mosaic = masked_ImgColl.median()
   median_mosaic = Img.apply_gain_offset(median_mosaic, SsrData, 100, False)  
   print('\n\n<score_collection> bands in median mosaic:', median_mosaic.bandNames().getInfo())
+
+  med_blu = median_mosaic.select(SsrData['BLU'])  
+  med_red = median_mosaic.select(SsrData['RED'])
+  med_nir = median_mosaic.select(SsrData['NIR'])
+
+  med_HOT = med_red.multiply(0.5).add(0.8)
+  med_blu = med_blu.min(med_HOT)
 
   #==================================================================================================
   # Attach a spectral-time score and acquisition date bands to each image in the image collection
@@ -335,7 +358,7 @@ def score_collection(collection, SsrData, midDate, ExtraBandCode, LandOnly, modi
   #kernel    = ee.Kernel.circle(radius = 1)
   #water_map = water_map.focalMax(kernel = kernel, iterations = 2)
 
-  scored_ImgColl = masked_ImgColl.map(lambda image: attach_Score(midDate, SsrData, image, median_mosaic, water_map, LandOnly)) \
+  scored_ImgColl = masked_ImgColl.map(lambda image: attach_Score(midDate, SsrData, image, med_blu, med_nir, water_map, LandOnly)) \
                                  .map(lambda image: Img.attach_Date(image))  
   
   #==================================================================================================
@@ -1025,6 +1048,7 @@ def export_mosaic(fun_Param_dict, mosaic, SsrData, Region, task_list):
 
 
 
+
 ###################################################################################################
 # Description: This function creates a mosaic image within a defined region by using all accessible
 #              images acquired over a specified timeframe from the Landsat series and Sentinel-2 
@@ -1080,7 +1104,7 @@ def FullMix_PeriodMosaic(DataUnit, Region, targetY, NbYs, StartD, StopD, ExtraBa
   #================================================================================================
   # Merge Sentinel-2 and Landat mosaic images into one with Sentinel-2 mosaic as basis 
   #================================================================================================
-  mix_mosaic = MergeMosaics(s2_mosaic, ls_mosaic, S2_ssrData, L8_ssrData, 1.0)
+  mix_mosaic = MergeMosaics(s2_mosaic, ls_mosaic, S2_ssrData, L8_ssrData, 3.0)
   
   print('\n\n<<<<<<<<<<<< The final merge step in <FullMix_PeriodMosaic>')
   print('<FullMix_PeriodMosaic> bands in mixed mosaic:', mix_mosaic.bandNames().getInfo())
@@ -1088,7 +1112,6 @@ def FullMix_PeriodMosaic(DataUnit, Region, targetY, NbYs, StartD, StopD, ExtraBa
   print('\n<FullMix_PeriodMosaic> bands in L8 mosaic:', ls_mosaic.bandNames().getInfo())
 
   return mix_mosaic, s2_mosaic, ls_mosaic
-
 
 
 
@@ -1105,7 +1128,8 @@ def FullMix_PeriodMosaic(DataUnit, Region, targetY, NbYs, StartD, StopD, ExtraBa
 def Mosaic_production(exe_Param_dict, ExtraBandCode):
   '''Produces various mosaic products for one or more tiles using Landsat or Sentinel2 images
      Args:
-       Param_dict(Dictionary): A dictionary storing required parameters.
+       Param_dict(Dictionary): A dictionary storing required parameters;
+       MixSensor(Boolean): Indicate if to utilize mixed image data;
        ExtraBandCode(int): A integer(EXTRA_NONE, EXTRA_ANGLE, EXTRA_NDVI) representing extra bands to be attached to each image.'''
   #==========================================================================================================
   # Create an initial "fun_Param_dict" dictionary, which will contain one combination of the elements of the
@@ -1140,7 +1164,7 @@ def Mosaic_production(exe_Param_dict, ExtraBandCode):
     else:
       region = eoTG.custom_RegionDict.get(tile_name)
 
-    if nYears > 0:  # Create a peak-season mosaic for a specific region/tile and year
+    if nYears > 0:  # Create a peak-season mosaic for a specific region/tile and year      
       mosaic = HomoPeakMosaic(ssr_data, region, year, nYears, ExtraBandCode, False)
       mosaic = Img.apply_gain_offset(mosaic, ssr_data, 100, False)
 
@@ -1160,3 +1184,57 @@ def Mosaic_production(exe_Param_dict, ExtraBandCode):
 
 
 
+
+
+#############################################################################################################
+# Description: The start/main function for operationally producing tile mosaic images using mixted satellite
+#              images from Landsat and Sentinel-2
+#
+# Revision history:  2023-Oct-16  Lixin Sun  Initial creation 
+#
+#############################################################################################################
+def MixMosaic_production(exe_Param_dict, ExtraBandCode):
+  '''Produces various mosaic products for one or more tiles using Landsat or Sentinel2 images
+     Args:
+       Param_dict(Dictionary): A dictionary storing required parameters;
+       ExtraBandCode(int): A integer(EXTRA_NONE, EXTRA_ANGLE, EXTRA_NDVI) representing extra bands to be attached to each image.'''
+  #==========================================================================================================
+  # Create an initial "fun_Param_dict" dictionary, which will contain one combination of the elements of the
+  # 'exe_Param_dict' dictionary and iteratively be paased directly to 'LEAF_Mosaic', 'one_LEAF_Product' and
+  # 'export_ancillaries' functions, as well as subsequently their subroutines.
+  #==========================================================================================================
+  fun_Param_dict = {'sensor':     exe_Param_dict['sensor'],
+                    'year':       exe_Param_dict['year'],
+                    'nbYears':    exe_Param_dict['nbYears'],
+                    'resolution': exe_Param_dict['resolution'],
+                    'location':   exe_Param_dict['location'],
+                    'bucket':     exe_Param_dict['bucket'],
+                    'folder':     exe_Param_dict['folder']}
+
+  #==========================================================================================================
+  # Start to generate required mosaic images and then export them to specific location
+  #==========================================================================================================  
+  ssr_data = Img.SSR_META_DICT[exe_Param_dict['sensor']]
+  year     = int(exe_Param_dict['year'])
+  nYears   = int(exe_Param_dict['nbYears'])    
+
+  task_list = []  
+  #==========================================================================================================
+  # Loop through each tile
+  #==========================================================================================================
+  for tile_name in exe_Param_dict['tile_names']:
+    fun_Param_dict['tile_name'] = tile_name
+
+    # Create a mosaic region ee.Geometry object 
+    if eoTG.is_valid_tile_name(tile_name) == True:
+      region = eoTG.PolygonDict.get(tile_name)      
+    else:
+      region = eoTG.custom_RegionDict.get(tile_name)
+    
+    for month in exe_Param_dict['months']:
+      fun_Param_dict['month'] = month
+      start, stop = IS.month_range(year, month)
+      mosaic = FullMix_PeriodMosaic(2, region, year, nYears, StartD, StopD, ExtraBandCode)
+      export_mosaic(fun_Param_dict, mosaic, ssr_data, region, task_list)
+      
+  return task_list

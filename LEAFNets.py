@@ -232,31 +232,31 @@ def s2_no_edge_createFeatureCollection_legend():
 #############################################################################################################
 def l8_createFeatureCollection_estimates(version):
     if version == 0:
-      return  ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_NNT1_Single_0_1')
+      return  ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1')
     else: 
-      return  ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_NNT1_Single_0_1') \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_dbf_NNT1_Single_0_1')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_enf_NNT1_Single_0_1')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_dbf_NNT1_Single_0_1')) 
+      return  ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1') \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_dbf_dig_clupmedv2_NNT1_Single_0_1')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_enf_dig_clupmedv2_NNT1_Single_0_1')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_dbf_dig_clupmedv2_NNT1_Single_0_1')) 
 
 def l8_createFeatureCollection_errors(version):
     if version == 0:
-      return  ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_NNT1_Single_0_1')
+      return  ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1')
     else:
-      return  ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes') \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_dbf_NNT1_Single_0_1_incertitudes')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_enf_NNT1_Single_0_1_incertitudes')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_dbf_NNT1_Single_0_1_incertitudes')) 
+      return  ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes') \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2P_ROF_sobol_prosail_dbf_dig_clupmedv2_NNT1_Single_0_1_incertitudes')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2P_ROF_sobol_prosail_enf_dig_clupmedv2_NNT1_Single_0_1_incertitudes')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2P_ROF_sobol_prosail_dbf_dig_clupmedv2_NNT1_Single_0_1_incertitudes')) 
 
 
 def l8_createFeatureCollection_domains(version):
     if version == 0:
-      return  ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_domain')
+      return  ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_domain')
     else:
-      return  ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_domain') \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_dbf_domain')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_enf_domain')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_dbf_domain')) 
+      return  ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_domain') \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_dbf_dig_clupmedv2_domain')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_enf_dig_clupmedv2_domain')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_dbf_dig_clupmedv2_domain')) 
 
 
 '''
@@ -1779,7 +1779,7 @@ def National_LEAF_production(ExeParamDict):
   return S2_region_params(fun_Param_dict, mosaic, region, SsrData, ClassImg, task_list)   
 
 
-
+'''
 ###################################################################################################
 # 
 ###################################################################################################
@@ -1796,3 +1796,4 @@ params = {
 }
 
 mosaic = LEAF_production(params)
+'''
