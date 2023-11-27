@@ -29,7 +29,7 @@ Specifically, the dictionary includes NINE “key:value” pairs, each of which 
 
 (6) 'spatial_scale' : an integer that defines the spatial resolution (in meter) of the exported products.
 
-(7) 'location' : a string specifying the location to export the products. The valid string for this parameter could be either 'drive' or 'storage', representing Google Drive (GD) and Google Cloud Storage (GCS), respectively.
+(7) 'out_location' : a string indicating the destination for exporting the products. An acceptable value for this key is 'drive' or 'storage', corresponding to Google Drive (GD) and Google Cloud Storage (GCS), respectively.
 
 (8) 'bucket' : a customized name string of a bucket on GCS. This parameter only is used when the exporting location is GCS (when value corresponding to 'location' is 'storage'). Note that a bucket with this name must exist on your GCS before exporting products. 
 
