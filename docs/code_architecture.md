@@ -11,13 +11,13 @@ This python dictionary object includes EIGHT "key:value" pairs. Four of them are
 
 
 ### 1.3 Parameter Dictionary for Running the LEAF Production Tool
-To execute the LEAF production tool, a number of parameters are required to be provided. To facilitate the transfer of the parameters, a python dictionary is utilized as a container. An example of the parameter dictionary is displayed below:
+To run the LEAF production tool, a number of parameters must be provided. To streamline the provision of these parameters, a Python dictionary is used as a parameter container. An illustration of the parameter dictionary is presented below:
 
 ![](/wiki_images/LEAF_param_dict.png)
 
-Specifically, the dictionary includes NINE “key:value” pairs, which are described in detail as follows:
+Specifically, the dictionary includes NINE “key:value” pairs, each of which is detailed as follows:
 
-(1) 'sensor: an integer representing a satellite sensor. The valid values for this key are 5, 7, 8, 9 and 101, which stand for Landsat 5, 7, 8, 9 and Sentinel-2, respectively. 
+(1) 'sensor': a string denoting a satellite sensor and data unit. The valid values for this key are 'L8_SR' and 'S2_SR', representing Landsat 8/9 and Sentinel-2 surface reflectance, respectively. 
 
 (2) 'year' : a 4-digits integer, identifying the year of the image acquisitions (e.g., 2020).
 
