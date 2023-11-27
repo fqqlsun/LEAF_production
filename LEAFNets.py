@@ -912,7 +912,7 @@ def export_one_param(fun_Param_dict, Region, inMap, task_list):
   month        = int(fun_Param_dict['month'])
   year_str     = str(fun_Param_dict['year'])   
   tile_str     = str(fun_Param_dict['tile_name'])
-  scale_str    = str(fun_Param_dict['out_resolution'])
+  scale_str    = str(fun_Param_dict['spatial_scale'])
   given_folder = str(fun_Param_dict['out_folder'])
   prod_name    = str(fun_Param_dict['prod_name'])
   sensor_type  = str(fun_Param_dict['sensor']).split('_')[0]
@@ -933,7 +933,7 @@ def export_one_param(fun_Param_dict, Region, inMap, task_list):
   #==========================================================================================================
   export_dict = {'image': inMap,
                  'description': filename,                 
-                 'scale': int(fun_Param_dict['out_resolution']),
+                 'scale': int(fun_Param_dict['spatial_scale']),
                  'crs': 'EPSG:3979',
                  'maxPixels': 1e11,
                  'region': ee.Geometry(Region)}  
@@ -1051,7 +1051,7 @@ def export_DateImg(mosaic, fun_Param_dict, region, task_list):
   month        = int(fun_Param_dict['month']) 
   year_str     = str(fun_Param_dict['year'])
   tile_str     = str(fun_Param_dict['tile_name'])
-  scale_str    = str(fun_Param_dict['out_resolution'])
+  scale_str    = str(fun_Param_dict['spatial_scale'])
   given_folder = str(fun_Param_dict['out_folder'])
 
   form_folder  = tile_str + '_' + year_str
@@ -1065,7 +1065,7 @@ def export_DateImg(mosaic, fun_Param_dict, region, task_list):
   #==========================================================================================================
   out_location = str(fun_Param_dict['out_location']).lower()
 
-  export_dict = {'scale': fun_Param_dict['out_resolution'],
+  export_dict = {'scale': fun_Param_dict['spatial_scale'],
                  'crs': 'EPSG:3979',
                  'maxPixels': 1e11,
                  'region': region}
@@ -1698,7 +1698,7 @@ def custom_LEAF_production(exe_Param_dict, task_list):
        task_list([]): a list for storing the exporting tasks.'''  
   
   fun_Param_dict = eoParams.LEAF_initial_func_Params(exe_Param_dict)
-  print('<custom_LEAF_production> func param dictionary:', ee.Dictionary(exe_Param_dict).getInfo())
+  
   #==========================================================================================================
   # 
   #==========================================================================================================
@@ -1712,7 +1712,7 @@ def custom_LEAF_production(exe_Param_dict, task_list):
 
   ClassImg = eoAD.get_GlobLC(year, False).uint8().clip(region)
 
-  fun_Param_dict['tile_name'] = 'custom'   
+  fun_Param_dict['tile_name'] = 'custom_region'   
 
   # Export a classification for a tile only once. 
   if Is_export_required('parti', ProductList):
@@ -1734,13 +1734,13 @@ def custom_LEAF_production(exe_Param_dict, task_list):
         # Produce vegetation parameter maps and export them in a specified way (a compact image or separate images)      
         out_style = str(fun_Param_dict['export_style']).lower()
         if out_style.find('comp') > -1:
-          print('\n<custom_LEAF_production> Call compact_params function .......')
+          print('\n<custom_LEAF_production> Call compact_params function.......')
           out_params = compact_params(mosaic, SsrData, ClassImg)
 
           # Export the 64-bits image to either GD or GCS
           export_compact_params(fun_Param_dict, region, out_params, task_list)
         else: # Create separate parameter maps
-          print('\n<custom_LEAF_production> Call separate_params function .......')
+          print('\n<custom_LEAF_production> Call separate_params function.......')
           #separate_params(fun_Param_dict, mosaic, region, SsrData, ClassImg, task_list)
           SL2P_separate_params(fun_Param_dict, mosaic, region, SsrData, ClassImg, task_list)
   else:
@@ -1749,7 +1749,7 @@ def custom_LEAF_production(exe_Param_dict, task_list):
     if Is_export_required('date', ProductList):
       export_DateImg(mosaic, fun_Param_dict, region, task_list)
     
-    print('\n<custom_LEAF_production> Call separate_params function .......')
+    print('\n<custom_LEAF_production> Call separate_params function.......')
     #separate_params(fun_Param_dict, mosaic, region, SsrData, ClassImg, task_list)
     SL2P_separate_params(fun_Param_dict, mosaic, region, SsrData, ClassImg, task_list)
     
@@ -1813,8 +1813,10 @@ def LEAF_production(ExeParamDict):
   task_list = []
 
   if ExeParamDict.get('custom_region') == None:    # 'custom region" has higher priority than 'tile_names'
+    print('\n<LEAF_production> Calling LEAF production for tiles......')
     tile_LEAF_production(exe_Param_dict, task_list)
   else: 
+    print('\n<LEAF_production> Calling LEAF production for user-defined region......')
     custom_LEAF_production(exe_Param_dict, task_list)
 
   return task_list
@@ -1878,7 +1880,7 @@ params = {
     'months': [8],       # A list of integers represening monthes (a negative value means peak season)    
     'prod_names': ['LAI', 'fAPAR','fCOVER','Albedo','date'],  # A list of parameter type strings
     'tile_names': ['UK'],    # A list of tile names (defined using CCRS' tile griding system)    
-    'out_resolution': 20,            # Exporting spatial resolution in meter
+    'spatial_scale': 20,            # Exporting spatial resolution in meter
     'out_location': 'drive',         # Exporting location ('drive', 'storage' or 'asset') 
     'bucket': 's2_leaf_2021_date', # An unique bucket name on Google Cloud Storage (must be created beforehand)
     'folder': 'UK_S2_LEAF_2023',      # The directory name on Google Drive

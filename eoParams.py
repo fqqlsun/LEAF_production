@@ -1,11 +1,3 @@
-#############################################################################################################
-# 
-# 
-# Revision history:  2022-Mar-29  Lixin Sun  Initial creation
-#
-#############################################################################################################
-import ee
-
 
 #############################################################################################################
 # Description: Define a default execution parameter dictionary. 
@@ -21,7 +13,7 @@ DefaultParams = {
     'tile_names': ['tile55'],    # A list of (sub-)tile names (defined using CCRS' tile griding system) 
     'prod_names': ['mosaic'],    #['mosaic', 'LAI', 'fCOVER', ]
     'out_location': 'drive',     # Exporting location ('drive', 'storage' or 'asset') 
-    'out_resolution': 30,        # Exporting spatial resolution
+    'spatial_scale': 30,        # Exporting spatial resolution
     'GCS_bucket': '',            # An unique bucket name on Google Cloud Storage
     'out_folder': '',            # the folder name for exporting
     'export_style': 'separate',
@@ -77,10 +69,6 @@ def get_LC_params(inParams):
 #############################################################################################################
 def LEAF_initial_func_Params(exe_Param_dict):
   fun_Param_dict = modify_default_params(exe_Param_dict)
-
-  #fun_Param_dict.pop('months')
-  #fun_Param_dict.pop('tile_names')
-  #fun_Param_dict.pop('prod_names')
 
   return fun_Param_dict
 
