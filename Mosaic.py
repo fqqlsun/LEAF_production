@@ -32,13 +32,14 @@ EXTRA_CODE  = 3     # sensor code
 # Revision history:  2020-Dec-22  Lixin Sun  Initial creation
 #
 ######################################################################################################
-def get_time_score(image, midDate, ssr_code):
+def get_time_score(image, midDate, ssr_code, TWinSize=30):
   '''Return a time score image corresponding to a given image
   
      Args:
         image (ee.Image): A given ee.Image object to be generated a time score image.
         midData (ee.Date): The centre date of a time period for a mosaic generation.
-        ssr_code (int): The sensor type code.'''
+        ssr_code (int): The sensor type code;
+        TWinSize(int): The size of a composite time window. '''
   #==================================================================================================
   # Calculate the date difference betwen the given image and a reference date
   # Note that 86400000 is milliseconds per day
@@ -51,18 +52,82 @@ def get_time_score(image, midDate, ssr_code):
   
   img_date   = img_date.millis().divide(millis_per_day).subtract(DOY_1st)
   refer_date = mid_date.millis().divide(millis_per_day).subtract(DOY_1st)
-  date_diff  = img_date.subtract(refer_date).abs()
+  date_diff  = img_date.subtract(refer_date)
 
   #==================================================================================================
   # Calculatr time score according to sensor type 
   #==================================================================================================
-  ssr_code = int(ssr_code)
+  ssr_code = int(ssr_code)  
 
-  factor  = 10 if ssr_code > Img.MAX_LS_CODE else 16
-  one_img = image.select([0]).multiply(0).add(1)
+  STD  = 12 if ssr_code > Img.MAX_LS_CODE else 16
+  '''
+  STD = 5
+  if TWinSize <= 10:
+    STD = 2.4
+  elif TWinSize <= 35:
+    STD = 10
+  elif TWinSize <= 95:
+    STD = 15
+  else:
+    STD = 20
+  '''
+  
+  one_img = ee.Image.constant(1)
+  factor  = ee.Image(date_diff).divide(ee.Image.constant(STD)).pow(ee.Image.constant(2))
 
-  return one_img.divide((ee.Image(date_diff).divide(ee.Image(factor))).exp())
+  return one_img.divide((ee.Image.constant(0.5).multiply(factor)).exp())
 
+
+
+######################################################################################################
+# Description: This function returns a median mosaic based on a given image collection
+#
+# Revision history:  2023-Nov-24  Lixin Sun  Initial creation
+#
+######################################################################################################
+def get_median_mosaic(ImgColl, SsrData, MidDate, WinSize):
+  masked_ImgColl = IS.mask_collection(ImgColl, SsrData, True)  
+  median_mosaic  = masked_ImgColl.median()
+
+  if ee.Number(WinSize).getInfo() > 35:
+    start, stop = IS.time_range(MidDate, 30)
+    month_Coll  = masked_ImgColl.filterDate(start, stop)
+  
+    month_med_mosaic = month_Coll.median()  
+
+    median_mosaic = month_med_mosaic.unmask(median_mosaic)
+
+  return Img.apply_gain_offset(median_mosaic, SsrData, 100, False)  
+
+
+
+
+
+######################################################################################################
+# Description: This function returns a HOT score map
+#
+# Revision history:  2023-Oct-22  Lixin Sun  Initial creation
+#
+######################################################################################################
+def get_HOT_score(blu, red):
+  HOT     = blu.subtract(red.multiply(0.5).add(0.8))
+  one_img = ee.Image.constant(1)
+
+  return one_img.divide(one_img.add((HOT.add(0.075).multiply(50)).exp()))
+
+
+
+
+######################################################################################################
+# Description: This function returns a HOT score map
+#
+# Revision history:  2023-Oct-22  Lixin Sun  Initial creation
+#
+######################################################################################################
+def get_CCover_score(Img, SsrData):
+  coverage = ee.Number(Img.get(SsrData['CLOUD'])).divide(100)  
+
+  return ee.Image.constant(ee.Number(1).subtract(coverage))
 
 
 
@@ -80,7 +145,8 @@ def get_spec_score(blu, nir, med_blu, med_nir):
   nir_pen = med_nir.subtract(nir).abs().exp()
   blu_pen = med_blu.subtract(blu).abs().exp()
   
-  score   = maxNB.divide(minNB.add(blu_pen).add(nir_pen).add(maxNB.divide(2)))
+  #score   = maxNB.divide(minNB.add(blu_pen).add(nir_pen).add(maxNB.divide(2)))
+  score   = maxNB.divide(minNB.add(blu_pen).add(nir_pen))
 
   return ee.Image(score)
 
@@ -167,23 +233,19 @@ def get_water_score(blu, grn, red, nir, sw1, sw2, medBlue):
 #              (2) The value range of "median_blue" is already in between 0 and 100
 #
 # Revision history:  2020-Dec-22  Lixin Sun  Initial creation
-#                    2023-Aug-20  Lixin Sun  Added a water map input parameter so that water pixels
-#                                            can be identified.
-#                    2023-Aug-24  Lixin Sun  Added the second returned image to indicate a score value
-#                                            is from which type of target (non-vegetated, vegetated
-#                                            or water)
 #                    2023-Sep-08  Lixin Sun  Added the fifth input parameter to flag if the score
 #                                            map is for generating mosaic for land pixels only.
 #                                            (Biophysical parameter extraction needs land mosaic only)
 ######################################################################################################
-def get_score_map(inMidDate, SsrData, image, MedBlue, MedNIR):
+def get_score_map(inMidDate, SsrData, image, MedBlue, MedNIR, WinSize):
   '''Return a pixel score image corresponding to a given image
   
   Args:      
-      inMidDate(ee.Date): The centre date of a time period for a mosaic generation.
+      inMidDate(ee.Date): The centre date of a compositing time period.
       SsrData(Dictionary): A Dictionary containing metadata associated with a sensor and data unit;
       image(ee.Image): A given ee.Image object with cloud/shadow mask applied;
-      WaterMap(ee.Image): A given water map.'''
+      MedBlue(ee.Image): A given median blue band image; 
+      MedNIR(ee.Image): A given median NIR band image.'''
   
   #==================================================================================================
   # Rescale the pixel values in the given image
@@ -205,24 +267,26 @@ def get_score_map(inMidDate, SsrData, image, MedBlue, MedNIR):
   # Calculate base score for both vagetated and non-vegetated targets
   #==================================================================================================
   #land_score = ee.Image(get_land_score(blu, grn, red, nir, sw1, sw2, MedBlue, MedNIR))
-  spec_score = ee.Image(get_spec_score(blu, nir, MedBlue, MedNIR))
+  spec_score = ee.Image(get_spec_score(blu, nir, MedBlue, MedNIR))  
     
+  #score = land_score.max(water_score)
   #==================================================================================================
   # Apply could coverage score
   #==================================================================================================
   cloud_cover = ee.Number(image.get(SsrData['CLOUD'])).divide(100)  
-  cover_score = ee.Image.constant(ee.Number(1).subtract(cloud_cover))   #.multiply(0.63)
+  cover_score = ee.Image.constant(ee.Number(1).subtract(cloud_cover)) 
+  cover_score = cover_score.where(cover_score.lt(0.7), ee.Image.constant(0))
 
   #==================================================================================================
   # Apply time scores exclusively to vegetation targets 
   #==================================================================================================
   ssr_code   = SsrData['SSR_CODE']
-  time_score = ee.Image(get_time_score(image, inMidDate, ssr_code))   #.multiply(0.9)
+  time_score = ee.Image(get_time_score(image, inMidDate, ssr_code, WinSize))   #.multiply(0.9)
   
   #score      = score.where(ndvi.gt(0.5), score.add(time_score))
-  total_score = spec_score.add(cover_score).add(time_score)   #.divide(2.53)
+  total_score = spec_score.multiply((cover_score).add(time_score))   #.divide(2.53)
  
-  return ee.Image(total_score).rename([Img.pix_score]) 
+  return ee.Image(total_score).rename([Img.pix_score]) #, ee.Image(target_mark).rename([Img.score_target])
 
 
 
@@ -275,19 +339,20 @@ def mosaic_score_map(mosaic, SsrData):
 # Revision history:  2020-Dec-22  Lixin Sun  Initial creation
 #
 ######################################################################################################
-def attach_Score(midDate, SsrData, Image, MedBlue, MedNIR):
+def attach_Score(midDate, SsrData, Image, MedBlue, MedNIR, WinSize):
   '''Attach a score image to a given image.
   
   Args:      
-      midDate(ee.Date): The centre date of a time period for a mosaic generation.
+      midDate(ee.Date): The centre date of a compositing time period;
       SsrData(Dictionary): A Dictionary containing metadata associated with a sensor and data unit;
       Image(ee.Image): A given ee.Image object to be attached a score image;
-      WaterMap(ee.Image): A given water map.'''
+      MedBlue(ee.Image): A given median blue band image;
+      MedNIR(ee.Image): A given median NIR band image.'''
 
   #==================================================================================================
   # Create a map that combines spectral and time scores
   #==================================================================================================
-  score_map = get_score_map(midDate, SsrData, Image, MedBlue, MedNIR)
+  score_map = get_score_map(midDate, SsrData, Image, MedBlue, MedNIR, WinSize)
 
   # Define a boxcar or low-pass kernel.
   #boxcar = ee.Kernel.circle(radius = 2, units = 'pixels', normalize = True)
@@ -311,44 +376,38 @@ def attach_Score(midDate, SsrData, Image, MedBlue, MedNIR):
 #                                            that various different bands can be attached to each
 #                                            scored image.
 ######################################################################################################
-def score_collection(collection, SsrData, midDate, ExtraBandCode, modis_img = None):
+def score_collection(collection, SsrData, midDate, ExtraBandCode, CS_plus, WinSize, modis_img = None):
   '''Attaches a score, acquisition date and some specified bands to each image of a collection.
   
   Args:
      collection(ee.ImageCollection): A given image collection;
      SsrData(Dictionary): A Dictionary containing metadata associated with a sensor and data unit;
-     midDate(ee.Date): The centre date of a time period for a mosaic generation;
-     ExtraBandCode(int): The integer code representing band type to be added additionally.'''
+     midDate(ee.Date): The centre date of a comositing time period;
+     ExtraBandCode(int): The integer code representing band type to be added additionally;
+     CS_plus(Boolean): A flag indicating if to apply CloudScore+ mask.'''
   
   #print('<score_collection> band names of 1st image = ', collection.first().bandNames().getInfo())
-  #print('<score_collection> the given collection = ', collection.size().getInfo())
+  #print('<score_collection> the given collection = ', collection.size().getInfo())  
   #==================================================================================================
-  # Apply inherent cloud and shadow masks to each image in thegiven image collection
+  # Apply inherent cloud and shadow masks to each image in the given image collection
   # Note: doing mosaic without applying inherent masks will cause some water bodies cannot be 
   #       correctly identified by mosaic algorithm (whatever a mosaic algorithm is used).
-  #==================================================================================================
-  masked_ImgColl = IS.mask_collection(collection, SsrData, False)
-  #print('\n\n<score_collection> band names:', masked_ImgColl.first().bandNames().getInfo())
-  
-  median_mosaic = masked_ImgColl.median()
-  median_mosaic = Img.apply_gain_offset(median_mosaic, SsrData, 100, False)  
-  print('\n\n<score_collection> bands in median mosaic:', median_mosaic.bandNames().getInfo())
+  #==================================================================================================  
+  median_mosaic = get_median_mosaic(collection, SsrData, midDate, WinSize)
 
   med_blu = median_mosaic.select(SsrData['BLU'])  
   med_red = median_mosaic.select(SsrData['RED'])
   med_nir = median_mosaic.select(SsrData['NIR'])
 
-  med_HOT = med_red.multiply(0.5).add(0.8)
-  med_blu = med_blu.min(med_HOT)
+  modle_blu = med_red.multiply(0.5).add(0.8)
+  med_blu   = med_blu.min(modle_blu)
 
   #==================================================================================================
   # Attach a spectral-time score and acquisition date bands to each image in the image collection
-  #==================================================================================================
-  #water_map = eoAD.get_GlobWater(1)
-  #kernel    = ee.Kernel.circle(radius = 1)
-  #water_map = water_map.focalMax(kernel = kernel, iterations = 2)
+  #==================================================================================================  
+  masked_ImgColl = IS.mask_collection(collection, SsrData, CS_plus)
 
-  scored_ImgColl = masked_ImgColl.map(lambda image: attach_Score(midDate, SsrData, image, med_blu, med_nir)) \
+  scored_ImgColl = masked_ImgColl.map(lambda image: attach_Score(midDate, SsrData, image, med_blu, med_nir, WinSize)) \
                                  .map(lambda image: Img.attach_Date(image))  
   
   #==================================================================================================
@@ -374,19 +433,21 @@ def score_collection(collection, SsrData, midDate, ExtraBandCode, modis_img = No
 # Revision history:  2020-Dec-22  Lixin Sun  Initial creation
 #
 ######################################################################################################
-def coll_mosaic(collection, SsrData, midDate, ExtraBandCode, modis_img = None):
+def coll_mosaic(collection, SsrData, midDate, ExtraBandCode, CS_plus, WinSize, modis_img = None):
   '''Create a mosaic image based on a given image collection.
   
   Args:
      collection(ee.ImageCollection): A given image collection;
      SsrData(Dictionary): A Dictionary containing metadata associated with a sensor and data unit;
      midDate(ee.Date): The centre date of a time period for a mosaic generation;
-     ExtraBandCode(int): The integer code representing the band type to be added additionally.'''
+     ExtraBandCode(int): The integer code representing the band type to be added additionally;
+     CS_plus(Boolean): A flag indicating if to apply CloudScore+ mask to image collection;
+     modis_img(ee.Image): A given MODIS mosaic image.'''
   
   #==================================================================================================
   # Create a scored image collection (attach a score image for each image in the given collection)
   #==================================================================================================  
-  scored_collection = score_collection(collection, SsrData, midDate, ExtraBandCode, modis_img)
+  scored_collection = score_collection(collection, SsrData, midDate, ExtraBandCode, CS_plus, WinSize, modis_img)
 
   #==================================================================================================
   # Create and return a mosaic based on associated score maps
@@ -425,9 +486,16 @@ def LEAF_Mosaic(fun_param_dict, region, SL2P_algo):
   #==========================================================================================================
   # Determine time period based on the given year and month
   #==========================================================================================================
-  year  = int(fun_param_dict['year'])
-  month = int(fun_param_dict['month'])
-  start, stop = IS.month_range(year, month) if month > 0 and month < 13 else IS.summer_range(year)
+  year       = int(fun_param_dict['year'])
+  month      = int(fun_param_dict['month'])
+  start_str  = fun_param_dict['start_date']
+  stop_str   = fun_param_dict['stop_date']
+
+  if len(start_str) < 6 or len(stop_str) < 6:
+    start, stop = IS.month_range(year, month) if month > 0 and month < 13 else IS.summer_range(year)
+  else:
+    start = ee.Date(start_str)
+    stop  = ee.Date(stop_str)
 
   #==========================================================================================================
   # Create a mosaic image including imaging geometry angles that are  required by vegetation parameter 
@@ -438,7 +506,7 @@ def LEAF_Mosaic(fun_param_dict, region, SL2P_algo):
   ssr_data = Img.SSR_META_DICT[fun_param_dict['sensor']]
   ssr_code = ssr_data['SSR_CODE']
 
-  mosaic = HomoPeriodMosaic(ssr_data, region, year, -1, start, stop, EXTRA_ANGLE)
+  mosaic = HomoPeriodMosaic(ssr_data, region, year, -1, start, stop, EXTRA_ANGLE, True)
 
   if (ssr_code < Img.MAX_LS_CODE and SL2P_algo == True) or ssr_code >= Img.MAX_LS_CODE:
     mosaic = Img.apply_gain_offset(mosaic, ssr_data, 1, False)
@@ -522,7 +590,7 @@ def MergeMosaics(MosaicBase, MosaicBkUp, SensorBase, SensorBkUp, ScroeThresh):
 # Revision history:  2021-Jun-02  Lixin Sun  Initial creation
 #                    2021-Oct-05  Lixin Sun  Added an output option 
 ###################################################################################################
-def HomoPeriodMosaic(SsrData, Region, TargetY, NbYs, StartD, StopD, ExtraBandCode):
+def HomoPeriodMosaic(SsrData, Region, TargetY, NbYs, StartD, StopD, ExtraBandCode, CS_plus):
   '''Creates a mosaic image for a region using the images acquired during a period of time. 
      
   Args:
@@ -532,7 +600,8 @@ def HomoPeriodMosaic(SsrData, Region, TargetY, NbYs, StartD, StopD, ExtraBandCod
       NbYs(int): The number of years
       StartD(ee.Date or string): The start Date (e.g., '2020-06-01');
       StopD(ee.Date or string): The stop date (e.g., '2020-06-30');
-      ExtraBandCode(int): A integr code representing band type be aatached additionally. '''  
+      ExtraBandCode(int): A integr code representing band type be aatached additionally;
+      CS_plus(Boolean): A flag indicating if to apply CloudScore+ mask.'''  
   # Cast some input parameters 
   nb_years = int(NbYs)
   ssr_code = SsrData['SSR_CODE']
@@ -540,12 +609,13 @@ def HomoPeriodMosaic(SsrData, Region, TargetY, NbYs, StartD, StopD, ExtraBandCod
   stop     = ee.Date(StopD).update(TargetY)
 
   midDate  = IS.period_centre(start, stop)
+  WinSize  = IS.time_window_size(start, stop)
 
   #==========================================================================================================
   # Get a mosaic image corresponding to a given time window in a targeted year
   #==========================================================================================================
   coll_target   = IS.getCollection(SsrData, Region, start, stop)
-  mosaic_target = coll_mosaic(coll_target, SsrData, midDate, ExtraBandCode)
+  mosaic_target = coll_mosaic(coll_target, SsrData, midDate, ExtraBandCode, CS_plus, WinSize)
   ssr_code_img  = mosaic_target.select([0]).multiply(0).add(ssr_code).rename([Img.mosaic_ssr_code])
 
   if nb_years <= 1:
@@ -559,7 +629,7 @@ def HomoPeriodMosaic(SsrData, Region, TargetY, NbYs, StartD, StopD, ExtraBandCod
 
     coll_before    = IS.getCollection(SsrData, Region, start, stop)
     midDate_before = IS.period_centre(start, stop)
-    mosaic_before  = coll_mosaic(coll_before, SsrData, midDate_before, ExtraBandCode)
+    mosaic_before  = coll_mosaic(coll_before, SsrData, midDate_before, ExtraBandCode, CS_plus, WinSize)
 
     # Merge the two mosaic images into one and return it  
     mosaic = MergeMosaics(mosaic_target, mosaic_before, SsrData, SsrData, 3.0)
@@ -572,7 +642,7 @@ def HomoPeriodMosaic(SsrData, Region, TargetY, NbYs, StartD, StopD, ExtraBandCod
 
     coll_after    = IS.getCollection(SsrData, Region, start, stop)
     midDate_after = IS.period_centre(start, stop)
-    mosaic_after  = coll_mosaic(coll_after, SsrData, midDate_after, ExtraBandCode)
+    mosaic_after  = coll_mosaic(coll_after, SsrData, midDate_after, ExtraBandCode, CS_plus, WinSize)
 
     mosaic = MergeMosaics(mosaic_target, mosaic_after, SsrData, SsrData, 3.0)
 
@@ -583,7 +653,7 @@ def HomoPeriodMosaic(SsrData, Region, TargetY, NbYs, StartD, StopD, ExtraBandCod
 
     coll_before    = IS.getCollection(SsrData, Region, start, stop)
     midDate_before = IS.period_centre(start, stop)
-    mosaic_before  = coll_mosaic(coll_before, SsrData, midDate_before, ExtraBandCode)
+    mosaic_before  = coll_mosaic(coll_before, SsrData, midDate_before, ExtraBandCode, CS_plus,WinSize)
     
     mosaic = MergeMosaics(mosaic, mosaic_before, SsrData, SsrData, 3.0)
     return mosaic.addBands(ssr_code_img)
@@ -684,7 +754,7 @@ def LS_Dict_from_year(Year, Unit, prim_2nd_code):
 # Revision history:  2022-May-02  Lixin Sun  Initial creation
 #
 ###################################################################################################
-def LSMix_PeriodMosaic(DataUnit, Region, Year, StartDate, StopDate, ExtraBandCode):
+def LSMix_PeriodMosaic(DataUnit, Region, Year, StartDate, StopDate, ExtraBandCode, CS_plus):
   '''Creates a mosaic image for a region using the images acquired during a period of time. 
      
   Args:
@@ -693,8 +763,9 @@ def LSMix_PeriodMosaic(DataUnit, Region, Year, StartDate, StopDate, ExtraBandCod
       Year(int): A specified target year (must be a regular integer);
       Startdate(ee.Date or string): The start date string (e.g., '2020-06-01') or ee.Date object;
       StopDate(ee.Date or string): The end date string (e.g., '2020-06-30') or ee.Date object;
-      ExtraBandCode(int): A integer code representing band type to be attached additionaly.
-  '''
+      ExtraBandCode(int): A integer code representing band type to be attached additionaly;
+      CS_plus(Boolean): A flag indicating if to apply CloudScore+ mask.'''
+  
   #================================================================================================
   # Determine a proper time period based on a given target year and an initial period 
   #================================================================================================
@@ -702,14 +773,15 @@ def LSMix_PeriodMosaic(DataUnit, Region, Year, StartDate, StopDate, ExtraBandCod
   unit    = int(DataUnit)
   start   = ee.Date(StartDate).update(Year)
   stop    = ee.Date(StopDate).update(Year)
-  midDate = IS.period_centre(start, stop)
 
+  midDate = IS.period_centre(start, stop)
+  WinSize  = IS.time_window_size(start, stop)
   #================================================================================================
   # Create a base Landsat mosaic image
   #================================================================================================
   ssr_main      = LS_Dict_from_year(Year, unit, 1)
   img_coll_main = IS.getCollection(ssr_main, Region, start, stop)
-  mosaic_main   = coll_mosaic(img_coll_main, ssr_main, midDate, ExtraBandCode)  
+  mosaic_main   = coll_mosaic(img_coll_main, ssr_main, midDate, ExtraBandCode, CS_plus, WinSize)  
   #print('\n\n<LSMix_PeriodMosaic> bands in main mosaic = ', mosaic_main.bandNames().getInfo())
 
   #================================================================================================
@@ -717,7 +789,7 @@ def LSMix_PeriodMosaic(DataUnit, Region, Year, StartDate, StopDate, ExtraBandCod
   #================================================================================================
   ssr_2nd       = LS_Dict_from_year(Year, unit, 2)
   img_coll_2nd  = IS.getCollection(ssr_2nd, Region, start, stop)  
-  mosaic_2nd    = coll_mosaic(img_coll_2nd, ssr_2nd, midDate, ExtraBandCode)    
+  mosaic_2nd    = coll_mosaic(img_coll_2nd, ssr_2nd, midDate, ExtraBandCode, CS_plus, WinSize)    
 
   #print('\n\n<LSMix_PeriodMosaic> sensor info of the 2nd sensor = ', ssr_2nd)
   #print('\n<LSMix_PeriodMosaic> size of 2nd img coll = ', img_coll_2nd.size().getInfo())
@@ -777,25 +849,25 @@ def LSMix_PeriodMosaic(DataUnit, Region, Year, StartDate, StopDate, ExtraBandCod
 # Revision history:  2022-May-02  Lixin Sun  Initial creation
 #
 ###################################################################################################
-def LSMix_LEAFMosaic(Region, Year, StartDate, StopDate):
+def LSMix_LEAFMosaic(Region, Year, StartDate, StopDate, CS_plus):
   '''Creates a mosaic image for a region using the images acquired during a period of time. 
      
   Args:
-      DataUnit(int): Data unit code integer. 1 and 2 represent TOA and surface reflectance, respectively;
       Region(ee.Geometry): The spatial polygon of a ROI;
       Year(int): A specified target year (must be a regular integer);
       Startdate(ee.Date or string): The start date string (e.g., '2020-06-01') or ee.Date object;
       StopDate(ee.Date or string): The end date string (e.g., '2020-06-30') or ee.Date object;
-      ExtraBandCode(int): A integer code representing band type to be attached additionaly.
-  '''
+      CS_plus(Boolean): A flag indicating if to apply CloudScore+ mask. '''
+  
   #================================================================================================
   # Determine a proper time period based on a given target year and an initial period 
   #================================================================================================
   year    = int(Year)
   start   = ee.Date(StartDate).update(Year)
   stop    = ee.Date(StopDate).update(Year)
-  midDate = IS.period_centre(start, stop)
 
+  midDate = IS.period_centre(start, stop)
+  WinSize  = IS.time_window_size(start, stop)
   #================================================================================================
   # Create a base Landsat mosaic image
   #================================================================================================
@@ -806,7 +878,7 @@ def LSMix_LEAFMosaic(Region, Year, StartDate, StopDate):
   toa_img_coll1 = IS.getCollection(TOA_SSR_base, Region, start, stop)
   
   img_coll_base = img_coll_base.map(lambda image: attach_LSAngleBands(image, toa_img_coll1))
-  mosaic_base   = coll_mosaic(img_coll_base, SR_SSR_base, midDate, EXTRA_NONE)  
+  mosaic_base   = coll_mosaic(img_coll_base, SR_SSR_base, midDate, EXTRA_NONE, CS_plus, WinSize)  
 
   print('\n\n<LSMix_PeriodMosaic> bands in main mosaic = ', mosaic_base.bandNames().getInfo())
 
@@ -820,7 +892,7 @@ def LSMix_LEAFMosaic(Region, Year, StartDate, StopDate):
   toa_img_coll2 = IS.getCollection(TOA_SSR_base, Region, start, stop)
 
   img_coll_2nd  = img_coll_2nd.map(lambda image: attach_LSAngleBands(image, toa_img_coll2))
-  mosaic_2nd    = coll_mosaic(img_coll_2nd, SR_SSR_2nd, midDate, EXTRA_NONE)  
+  mosaic_2nd    = coll_mosaic(img_coll_2nd, SR_SSR_2nd, midDate, EXTRA_NONE, CS_plus, WinSize)  
 
   print('<LSMix_PeriodMosaic> bands in 2nd mosaic = ', mosaic_2nd.bandNames().getInfo())
 

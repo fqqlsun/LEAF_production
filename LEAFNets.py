@@ -1,6 +1,5 @@
 import ee
 ee.Initialize()
-#ee.Authenticate()
 
 import Image as Img
 import ImgMask as IM
@@ -20,6 +19,7 @@ import LEAF_LSv1 as LFLS
 #                    2022_Sep-08  Lixin Sun  Further reduce the number of land cover types for SL2P
 #  
 #############################################################################################################
+'''
 def s2_createFeatureCollection_estimates(version):
     #print("\n<s2_createFeatureCollection_estimates> function is called......")
     if version == 0:
@@ -52,13 +52,8 @@ def s2_createFeatureCollection_domains(version):
         .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/S2_SL2P_WEISS_ORIGINAL_DOMAIN')) \
         .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/S2_SL2P_WEISS_ORIGINAL_DOMAIN')) \
         .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/S2_SL2P_WEISS_ORIGINAL_DOMAIN'))
-
-
-    init_net_IDs = [0,1,2,3,4,5,6,7,8,9,10,11]
-    real_net_IDs = [0,0,1,2,0,0,0,1,0,0,0,3]
-
-
 '''
+
 def s2_createFeatureCollection_estimates(version):
     #print("\n<s2_createFeatureCollection_estimates> function is called......")
     if version == 0:
@@ -115,7 +110,7 @@ def s2_createFeatureCollection_domains(version):
         .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/S2_SL2P_WEISS_ORIGINAL_DOMAIN')) \
         .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/S2_SL2P_WEISS_ORIGINAL_DOMAIN')) \
         .merge(ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/S2_SL2P_WEISS_ORIGINAL_DOMAIN'))
-'''
+
 
 def s2_createFeatureCollection_range():
     return ee.FeatureCollection('users/rfernand387/COPERNICUS_S2_SR/weiss_or_prosail3_NNT3_Single_0_1_RANGE')
@@ -144,7 +139,7 @@ def createImageCollection_partition():
 #              comparable to that extracted from Landsat data.  
 # 
 # Revision history:  2023-Aug-30  Lixin Sun  Initial creation
-# 
+#
 #############################################################################################################
 def s2_no_edge_createFeatureCollection_estimates():
     return   ee.FeatureCollection('projects/ee-modis250/assets/SL2P/s2likel8_sl2p_weiss_or_prosail_NNT1_Single_0_1') \
@@ -228,90 +223,94 @@ def s2_no_edge_createFeatureCollection_legend():
 # Description: Functions for reading ANN coefficients that are applicable to Landsat-8 data 
 # 
 # Revision history:  2021-May-17  Lixin Sun  Copied from the Richard's Python code in Jupyter Notebook
-# 
+#                    2023-Sep-25  Lixin Sun  Further reduce the land cover IDs from [0,1,2,3,4,5,6,7,8,9,10,11]
+#                                            to [0,0,1,2,0,0,0,1,0,0,0,3];
+#
 #############################################################################################################
+'''
+def l8_createFeatureCollection_estimates(version):
+    if version == 0:
+      #return  ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1')
+      return ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_NNT1_Single_0_1')
+    else:   #ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1') \
+      return  ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_NNT1_Single_0_1') \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_dbf_big_clumpedv3_NNT1_Single_0_1')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_enf_big_clumpedv2_NNT1_Single_0_1')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_mix_big_clumpedv3_NNT1_Single_0_1')) 
+
+def l8_createFeatureCollection_errors(version):
+    if version == 0:
+      #return ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')
+      return ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')
+    else:  # ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes') \
+      return  ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes') \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_dbf_big_clumpedv3_NNT1_Single_0_1_incertitudes')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_enf_big_clumpedv2_NNT1_Single_0_1_incertitudes')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_mix_big_clumpedv3_NNT1_Single_0_1_incertitudes')) 
+
+
+def l8_createFeatureCollection_domains(version):
+    if version == 0:
+      #return ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_domain')
+      return ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_domain')
+    else:  # ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_domain')
+      return ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_domain') \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_dbf_big_clumpedv3_domain')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_enf_big_clumpedv2_domain')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_mix_big_clumpedv3_domain')) 
+'''
+
+
 def l8_createFeatureCollection_estimates(version):
     if version == 0:
       return  ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1')
     else: 
       return  ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1') \
-       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_dbf_dig_clupmedv2_NNT1_Single_0_1')) \
-       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_enf_dig_clupmedv2_NNT1_Single_0_1')) \
-       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_dbf_dig_clupmedv2_NNT1_Single_0_1')) 
-
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_dbf_big_clumpedv3_NNT1_Single_0_1')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_enf_big_clumpedv2_NNT1_Single_0_1')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_dbf_big_clumpedv3_NNT1_Single_0_1')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_mix_big_clumpedv3_NNT1_Single_0_1')) 
+      
 def l8_createFeatureCollection_errors(version):
     if version == 0:
-      return  ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1')
+      return  ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')
     else:
       return  ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes') \
-       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2P_ROF_sobol_prosail_dbf_dig_clupmedv2_NNT1_Single_0_1_incertitudes')) \
-       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2P_ROF_sobol_prosail_enf_dig_clupmedv2_NNT1_Single_0_1_incertitudes')) \
-       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2P_ROF_sobol_prosail_dbf_dig_clupmedv2_NNT1_Single_0_1_incertitudes')) 
-
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_dbf_big_clumpedv3_NNT1_Single_0_1_incertitudes')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_enf_big_clumpedv2_NNT1_Single_0_1_incertitudes')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_dbf_big_clumpedv3_NNT1_Single_0_1_incertitudes')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_mix_big_clumpedv3_NNT1_Single_0_1_incertitudes')) 
 
 def l8_createFeatureCollection_domains(version):
     if version == 0:
       return  ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_domain')
     else:
       return  ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_domain') \
-       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_dbf_dig_clupmedv2_domain')) \
-       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_enf_dig_clupmedv2_domain')) \
-       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_dbf_dig_clupmedv2_domain')) 
-
-
-'''
-def l8_createFeatureCollection_estimates(version):
-    if version == 0:
-      return ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_NNT1_Single_0_1')
-    else: 
-      return  ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_NNT1_Single_0_1') \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_NNT1_Single_0_1')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_dbf_NNT1_Single_0_1')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_enf_NNT1_Single_0_1')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_NNT1_Single_0_1')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_NNT1_Single_0_1')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_NNT1_Single_0_1')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_dbf_NNT1_Single_0_1')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_NNT1_Single_0_1')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_NNT1_Single_0_1')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_NNT1_Single_0_1')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_dbf_NNT1_Single_0_1')) 
-
-def l8_createFeatureCollection_errors(version):
-    if version == 0:
-      return ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_NNT1_Single_0_1')
-    else:
-      return  ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes') \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_dbf_NNT1_Single_0_1_incertitudes')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_enf_NNT1_Single_0_1_incertitudes')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_dbf_NNT1_Single_0_1_incertitudes')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2p_weiss_or_prosail_NNT1_Single_0_1_incertitudes')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_dbf_NNT1_Single_0_1_incertitudes')) 
-
-
-def l8_createFeatureCollection_domains(version):
-    if version == 0:
-      return ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_domain')
-    else:
-      return  ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_domain') \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_domain')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_dbf_domain')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_enf_domain')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_domain')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_domain')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_domain')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_dbf_domain')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_domain')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_domain')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_weiss_or_prosail_domain')) \
-       .merge(ee.FeatureCollection('projects/ee-lsunott/assets/LS_SL2P_model/l8_sl2P_ccrs_sobol_4sail2_dbf_domain')) 
-'''
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_domain')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_dbf_big_clumpedv3_domain')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_enf_big_clumpedv2_domain')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_domain')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_domain')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_domain')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_dbf_big_clumpedv3_domain')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_domain')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_domain')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_weiss_or_prosail_domain')) \
+       .merge(ee.FeatureCollection('projects/ee-modis250/assets/SL2P/l8_sl2p_ROF_sobol_prosail_mix_big_clumpedv3_domain')) 
 
 def l8_createFeatureCollection_range(version):
     return ee.FeatureCollection('users/rfernand387/LANDSAT_LC08_C01_T1_SR/LANDSAT_LC08_C01_T1_SR_RANGE')
@@ -524,11 +523,13 @@ def makeIndexLayer(partition, numb_classes, legend, network_IDs):
     # return a mapped network index map and name it as 'networkID'
     #========================================================================================================
     init_net_ID_map = partition.remap(CCRS_LC_IDs, networkIDs, 0)
-    
-    init_net_IDs = [0,1,2,3,4,5,6,7,8,9,10,11]
-    real_net_IDs = [0,0,1,2,0,0,0,1,0,0,0,3]
+    return init_net_ID_map.rename('networkID')
 
-    return init_net_ID_map.remap(init_net_IDs, real_net_IDs, 0).rename('networkID')
+    #init_net_IDs = [0,1,2,3,4,5,6,7,8,9,10,11]
+    #real_net_IDs = [0,0,1,2,0,0,0,1,0,0,0,3]
+
+    #return init_net_ID_map.remap(init_net_IDs, real_net_IDs, 0).rename('networkID')
+    
     
 
 
@@ -897,7 +898,7 @@ def export_compact_params(fun_Param_dict, region, compactImg, task_list):
 # Revision history:  2022-Nov-14  Lixin Sun  Initial creation 
 #
 #############################################################################################################
-def export_one_param(fun_Param_dict, Region, ParamMap, task_list):
+def export_one_param(fun_Param_dict, Region, inMap, task_list):
   '''Exports one biophysical parameter map to one of three places: GD, GCS or GEE assets.
 
      Args:
@@ -911,16 +912,17 @@ def export_one_param(fun_Param_dict, Region, ParamMap, task_list):
   month        = int(fun_Param_dict['month'])
   year_str     = str(fun_Param_dict['year'])   
   tile_str     = str(fun_Param_dict['tile_name'])
-  scale_str    = str(fun_Param_dict['resolution'])
-  given_folder = str(fun_Param_dict['folder'])
+  scale_str    = str(fun_Param_dict['out_resolution'])
+  given_folder = str(fun_Param_dict['out_folder'])
   prod_name    = str(fun_Param_dict['prod_name'])
+  sensor_type  = str(fun_Param_dict['sensor']).split('_')[0]
 
   tile_name    = tile_str.split('_')[0]
   form_folder  = tile_name + '_' + year_str
   exportFolder = form_folder if len(given_folder) < 2 else given_folder  
 
   month_name   = Img.get_MonthName(month)
-  filename  = tile_str + '_' + year_str
+  filename  = tile_str + '_' + sensor_type + '_' + year_str
   if month < 1 or month > 12:
     filename = filename + '_' + prod_name + '_' + scale_str + 'm'
   else:
@@ -929,9 +931,9 @@ def export_one_param(fun_Param_dict, Region, ParamMap, task_list):
   #==========================================================================================================
   # Prepare initial export dictionary and output location 
   #==========================================================================================================
-  export_dict = {'image': ParamMap,
+  export_dict = {'image': inMap,
                  'description': filename,                 
-                 'scale': int(fun_Param_dict['resolution']),
+                 'scale': int(fun_Param_dict['out_resolution']),
                  'crs': 'EPSG:3979',
                  'maxPixels': 1e11,
                  'region': ee.Geometry(Region)}  
@@ -939,7 +941,7 @@ def export_one_param(fun_Param_dict, Region, ParamMap, task_list):
   #==========================================================================================================
   # Export a biophysical parameter map to one of three places: GD, GCS or GEE Assets
   #==========================================================================================================  
-  out_location = str(fun_Param_dict['location']).lower()
+  out_location = str(fun_Param_dict['out_location']).lower()
 
   if out_location.find('drive') > -1:
     print('<export_one_param> Exporting biophysical map to Google Drive......')
@@ -958,7 +960,6 @@ def export_one_param(fun_Param_dict, Region, ParamMap, task_list):
     asset_root = 'projects/ee-lsunott/assets/'
     export_dict['assetId'] = asset_root + exportFolder + '/' + filename
     task_list.append(ee.batch.Export.image.toAsset(**export_dict).start())
-
 
 
 
@@ -1050,8 +1051,8 @@ def export_DateImg(mosaic, fun_Param_dict, region, task_list):
   month        = int(fun_Param_dict['month']) 
   year_str     = str(fun_Param_dict['year'])
   tile_str     = str(fun_Param_dict['tile_name'])
-  scale_str    = str(fun_Param_dict['resolution'])
-  given_folder = str(fun_Param_dict['folder'])
+  scale_str    = str(fun_Param_dict['out_resolution'])
+  given_folder = str(fun_Param_dict['out_folder'])
 
   form_folder  = tile_str + '_' + year_str
   exportFolder = form_folder if len(given_folder) < 2 else given_folder  
@@ -1062,9 +1063,9 @@ def export_DateImg(mosaic, fun_Param_dict, region, task_list):
   #==========================================================================================================
   # Export ancillary maps associated with LEAF products 
   #==========================================================================================================
-  out_location = str(fun_Param_dict['location']).lower()
+  out_location = str(fun_Param_dict['out_location']).lower()
 
-  export_dict = {'scale': fun_Param_dict['resolution'],
+  export_dict = {'scale': fun_Param_dict['out_resolution'],
                  'crs': 'EPSG:3979',
                  'maxPixels': 1e11,
                  'region': region}
@@ -1080,7 +1081,7 @@ def export_DateImg(mosaic, fun_Param_dict, region, task_list):
 
   elif out_location.find('storage') > -1:
     print('<export_DateImg> Exporting date image to Google Cloud Storage......')    
-    export_dict['bucket']         = str(fun_Param_dict['bucket'])    
+    export_dict['bucket']         = str(fun_Param_dict['GCS_bucket'])    
     export_dict['image']          = mosaic.select([Img.pix_date])
     export_dict['description']    = filePrefix + '_Date_' + scale_str + 'm'
     export_dict['fileNamePrefix'] = exportFolder + '/' + export_dict['description']
@@ -1175,7 +1176,7 @@ def SL2P_separate_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, ta
   water_mask = ClassImg.neq(ee.Image(0)).And(ClassImg.neq(ee.Image(18)))
   mosaic     = inMosaic.updateMask(water_mask)
 
-  print("<SL2P_separate_params> The bands in LEAF mosaic_image", mosaic.bandNames().getInfo())
+  #print("<SL2P_separate_params> The bands in LEAF mosaic_image", mosaic.bandNames().getInfo())
   #==========================================================================================================
   # Determine the number of land cover classes based on the number of networks and parameter types.
   #==========================================================================================================
@@ -1220,22 +1221,22 @@ def SL2P_separate_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, ta
   fun_Param_dict['prod_name'] = 'LAI'
   LAI_map, QC_img = estimate_param_QC(fun_Param_dict, QC_img)
   if task_list != None:
-    Img.export_one_map(fun_Param_dict, Region, LAI_map, task_list)  
-    
+    export_one_param(fun_Param_dict, Region, LAI_map, task_list)  
+
   fun_Param_dict['prod_name'] = 'fCOVER'  
   fCOVER_map, QC_img = estimate_param_QC(fun_Param_dict, QC_img)
   if task_list != None:
-    Img.export_one_map(fun_Param_dict, Region, fCOVER_map, task_list)
+    export_one_param(fun_Param_dict, Region, fCOVER_map, task_list)
 
   fun_Param_dict['prod_name'] = 'fAPAR'  
   fAPAR_map, QC_img = estimate_param_QC(fun_Param_dict, QC_img)
   if task_list != None:
-    Img.export_one_map(fun_Param_dict, Region, fAPAR_map, task_list)
+    export_one_param(fun_Param_dict, Region, fAPAR_map, task_list)
 
   fun_Param_dict['prod_name'] = 'Albedo'
   Albedo_map, QC_img = estimate_param_QC(fun_Param_dict, QC_img)
   if task_list != None:
-    Img.export_one_map(fun_Param_dict, Region, Albedo_map, task_list)  
+    export_one_param(fun_Param_dict, Region, Albedo_map, task_list)  
   
   #==========================================================================================================
   # Set flags/marks in the 3rd bit of "QC_img" for all kinds of invalid pixels (cloud, shadow, snow, ice, 
@@ -1245,7 +1246,7 @@ def SL2P_separate_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, ta
   invalid_mask = LEAF_valid_mask(inMosaic, SsrData, 1, ClassImg).multiply(ee.Image(4)).uint8()
   QC_map       = QC_img.unmask().bitwiseOr(invalid_mask)
   if task_list != None:
-    Img.export_one_map(fun_Param_dict, Region, QC_map, task_list)
+    export_one_param(fun_Param_dict, Region, QC_map, task_list)
   
   return LAI_map, fCOVER_map, fAPAR_map, Albedo_map, QC_map
   
@@ -1338,7 +1339,7 @@ def S2_region_params(fun_Param_dict, inMosaic, Region, SsrData, ClassImg, task_l
   LAI_map = LAI_map.where(QC_img.gt(3), ee.Image(2))
   LAI_map = LAI_map.where(land_mask.gt(0).And(LAI_map.lt(2)), ee.Image(2)).unmask()
   #LAI_map = LAI_map.multiply(land_mask).unmask()
-  Img.export_one_map(fun_Param_dict, Region, LAI_map, task_list)  
+  export_one_param(fun_Param_dict, Region, LAI_map, task_list)  
   
   '''
   fun_Param_dict['prod_name'] = 'fCOVER'  
@@ -1441,13 +1442,13 @@ def LS_separate_params(fun_Param_dict, inMosaic, Region, SsrData, BiomeImg, task
 
   if task_list != None:
     fun_Param_dict['prod_name'] = 'LAI'
-    Img.export_one_map(fun_Param_dict, Region, final_LAI_map, task_list)   
+    export_one_param(fun_Param_dict, Region, final_LAI_map, task_list)   
 
     fun_Param_dict['prod_name'] = 'fAPAR'
-    Img.export_one_map(fun_Param_dict, Region, final_fAPAR_map, task_list) 
+    export_one_param(fun_Param_dict, Region, final_fAPAR_map, task_list) 
 
     fun_Param_dict['prod_name'] = 'QC'
-    Img.export_one_map(fun_Param_dict, Region, QC_map, task_list)
+    export_one_param(fun_Param_dict, Region, QC_map, task_list)
     print('<export_LS_BioMaps> All biophysical maps have been exported!')
 
   return final_LAI_map, final_fAPAR_map, QC_map
@@ -1614,6 +1615,152 @@ def Is_export_required(InquireStr, ProductList):
 
 
 #############################################################################################################
+# Description: Produces LEAF products for one or multiple tiles in CANADA
+# 
+# Revision history:  2023-Nov-26  Lixin Sun  Initial creation 
+#
+#############################################################################################################
+def tile_LEAF_production(exe_Param_dict, task_list):
+  '''Produces LEAF products for one or multiple tiles in CANADA
+
+    Args:
+       exe_Param_dict(dictionary): A dictionary storing all input parameters for one execution;
+       task_list([]): a list for storing the exporting tasks.'''  
+  
+  fun_Param_dict = eoParams.LEAF_initial_func_Params(exe_Param_dict)
+  #==========================================================================================================
+  # Obtain the names of a GEE Data Catalog ('COPERNICUS/S2_SR_HARMONIZED' or 'LANDSAT/LC08/C01/T1_SR') and
+  # a biophysical parameter (one of 'LAI', 'fCOVER', 'fAPAR' and 'Albedo').
+  #==========================================================================================================
+  SsrData     = Img.SSR_META_DICT[exe_Param_dict['sensor']]
+  year        = int(exe_Param_dict['year'])
+  ProductList = exe_Param_dict['prod_names']
+
+  # Produce porducts for eath tile specified in the list with 'tile_names' as key
+  for tile in exe_Param_dict['tile_names']:  
+    fun_Param_dict['tile_name'] = tile   # Add an element with 'tile_name' as key to 'fun_Param_dict'    
+
+    region = eoTG.PolygonDict.get(tile) if eoTG.is_valid_tile_name(tile) == True else eoTG.custom_RegionDict.get(tile)
+    region = eoTG.expandSquare(region, 0.02)
+
+    # Create a classification map image based on region and targeted year
+    print('\n<tile_LEAF_product> generate a global LC map.......')
+    ClassImg = eoAD.get_GlobLC(year, False).uint8().clip(region)
+
+    # Export a classification for a tile only once. 
+    if Is_export_required('parti', ProductList):
+      export_ClassImg(ClassImg, fun_Param_dict, region, task_list)
+
+    # Produce monthly porducts with the images acquired within the months in the vector corresponding to 'months' key
+    for month in exe_Param_dict['months']:
+      # Add an element with 'month' as key to 'fun_Param_dict'  
+      fun_Param_dict['month'] = month     
+
+      # Generate a mosaic image for a month with either S2 or LS8/9 data 
+      print('\n<LEAF_production> generate a mosaic for month', month)
+      mosaic = Mosaic.LEAF_Mosaic(fun_Param_dict, region, True)
+      print('\n\n<LEAF_production>The band names in LEAF mosaic = ', mosaic.bandNames().getInfo())
+      #return mosaic, ClassImg
+    
+      if Is_export_required('date', ProductList):
+        export_DateImg(mosaic, fun_Param_dict, region, task_list)
+
+      # Produce vegetation parameter maps and export them in a specified way (a compact image or separate images)      
+      out_style = str(fun_Param_dict['export_style']).lower()
+      if out_style.find('comp') > -1:
+        print('\n<LEAF_production> Call compact_params function .......')
+        out_params = compact_params(mosaic, SsrData, ClassImg)
+
+        # Export the 64-bits image to either GD or GCS
+        export_compact_params(fun_Param_dict, region, out_params, task_list)
+      else: # Create separate parameter maps
+        print('\n<LEAF_production> Call separate_params function .......')
+        #separate_params(fun_Param_dict, mosaic, region, SsrData, ClassImg, task_list)
+        SL2P_separate_params(fun_Param_dict, mosaic, region, SsrData, ClassImg, task_list)
+
+  return task_list
+
+
+
+
+
+#############################################################################################################
+# Description: Produces LEAF products for one customized spatial region
+# 
+# Revision history:  2023-Nov-26  Lixin Sun  Initial creation 
+#
+#############################################################################################################
+def custom_LEAF_production(exe_Param_dict, task_list):
+  '''Produces LEAF products for one or multiple tiles in CANADA
+
+    Args:
+       exe_Param_dict({}): A dictionary storing all input parameters for one execution;
+       task_list([]): a list for storing the exporting tasks.'''  
+  
+  fun_Param_dict = eoParams.LEAF_initial_func_Params(exe_Param_dict)
+  print('<custom_LEAF_production> func param dictionary:', ee.Dictionary(exe_Param_dict).getInfo())
+  #==========================================================================================================
+  # 
+  #==========================================================================================================
+  ProductList = exe_Param_dict['prod_names']  
+  region      = exe_Param_dict['custom_region']
+
+  SsrData     = Img.SSR_META_DICT[fun_Param_dict['sensor']]
+  year        = int(fun_Param_dict['year'])
+  start_date  = fun_Param_dict['start_date']
+  stop_date   = fun_Param_dict['stop_date']
+
+  ClassImg = eoAD.get_GlobLC(year, False).uint8().clip(region)
+
+  fun_Param_dict['tile_name'] = 'custom'   
+
+  # Export a classification for a tile only once. 
+  if Is_export_required('parti', ProductList):
+    export_ClassImg(ClassImg, fun_Param_dict, region, task_list)
+
+  if len(start_date) < 1 or len(stop_date) < 1:       
+    # Produce monthly porducts with the images acquired within the months in the vector corresponding to 'months' key
+    for month in exe_Param_dict['months']:
+        # Add an element with 'month' as key to 'fun_Param_dict'  
+        fun_Param_dict['month'] = month     
+
+        # Generate a mosaic image for a month with either S2 or LS8/9 data 
+        mosaic = Mosaic.LEAF_Mosaic(fun_Param_dict, region, True)
+        #return mosaic, ClassImg
+      
+        if Is_export_required('date', ProductList):
+          export_DateImg(mosaic, fun_Param_dict, region, task_list)
+
+        # Produce vegetation parameter maps and export them in a specified way (a compact image or separate images)      
+        out_style = str(fun_Param_dict['export_style']).lower()
+        if out_style.find('comp') > -1:
+          print('\n<custom_LEAF_production> Call compact_params function .......')
+          out_params = compact_params(mosaic, SsrData, ClassImg)
+
+          # Export the 64-bits image to either GD or GCS
+          export_compact_params(fun_Param_dict, region, out_params, task_list)
+        else: # Create separate parameter maps
+          print('\n<custom_LEAF_production> Call separate_params function .......')
+          #separate_params(fun_Param_dict, mosaic, region, SsrData, ClassImg, task_list)
+          SL2P_separate_params(fun_Param_dict, mosaic, region, SsrData, ClassImg, task_list)
+  else:
+    mosaic = Mosaic.LEAF_Mosaic(fun_Param_dict, region, True)
+
+    if Is_export_required('date', ProductList):
+      export_DateImg(mosaic, fun_Param_dict, region, task_list)
+    
+    print('\n<custom_LEAF_production> Call separate_params function .......')
+    #separate_params(fun_Param_dict, mosaic, region, SsrData, ClassImg, task_list)
+    SL2P_separate_params(fun_Param_dict, mosaic, region, SsrData, ClassImg, task_list)
+    
+  return task_list
+
+
+
+
+
+
+#############################################################################################################
 # Description: Produces monthly biophysical parameter maps for a number of tiles and months.
 #
 # Note:        This function involves two parameter dictionaries, "exe_Param_dict" and "fun_Param_dict".
@@ -1651,7 +1798,7 @@ def LEAF_production(ExeParamDict):
   '''Produces monthly biophysical parameter maps for a number of tiles and months.
 
      Args:
-       ExeParamDict({}): A Python dictionary storing input parameters for executing LEAF Production Tool.'''
+       ExeParamDict(Python Dictionary): A Python dictionary storing all input parameters for one execution.'''
 
   #==========================================================================================================
   # Standardize the given execution parameters
@@ -1659,74 +1806,18 @@ def LEAF_production(ExeParamDict):
   exe_Param_dict = eoParams.get_LEAF_params(ExeParamDict)
 
   #==========================================================================================================
-  # Create an initial/base "fun_Param_dict" dictionary from a subset of the elements in "ExeParamDict"
-  # dictionary. During the process of passing "fun_Param_dict" to 'LEAF_Mosaic', 'one_LEAF_Product' and
-  # 'export_ancillaries' functions, missing elements will be added later on.
-  #==========================================================================================================
-  fun_Param_dict = {'sensor':       exe_Param_dict['sensor'],
-                    'year':         exe_Param_dict['year'],
-                    'resolution':   exe_Param_dict['resolution'],
-                    'location':     exe_Param_dict['location'],
-                    'bucket':       exe_Param_dict['bucket'],
-                    'folder':       exe_Param_dict['folder'],
-                    'export_style': exe_Param_dict['export_style']}
-    
-  #==========================================================================================================
   # Three Loops through the combinations between the elements of the vectors with 'tile_names', 'months' and
   # 'prod_names' as keys in 'exe_Param_dict'.
   # Note that, for the same month, one mosaic can be reused for generating different products. 
   #==========================================================================================================
-  SsrData     = Img.SSR_META_DICT[exe_Param_dict['sensor']]
-  year        = int(exe_Param_dict['year'])
-  ProductList = exe_Param_dict['prod_names']
-  task_list   = []
+  task_list = []
 
-  # Produce porducts for eath tile specified in the list with 'tile_names' as key
-  for tile in exe_Param_dict['tile_names']:  
-    fun_Param_dict['tile_name'] = tile   # Add an element with 'tile_name' as key to 'fun_Param_dict'    
-
-    region = eoTG.PolygonDict.get(tile) if eoTG.is_valid_tile_name(tile) == True else eoTG.custom_RegionDict.get(tile)
-    region = eoTG.expandSquare(region, 0.02)
-    #cloud_rate = eoTG.get_tile_cloud_rate(tile) if eoTG.is_valid_tile_name(tile) == True else -100
-
-    # Create a classification map image based on region and targeted year
-    print('\n<LEAF_production> generate a global LC map.......')
-    #IsBiome  = True if ssr_code < Img.MAX_LS_CODE else False
-    ClassImg = eoAD.get_GlobLC(region, year, False).uint8()
-
-    # Export a classification for a tile only once. 
-    if Is_export_required('parti', ProductList):
-      export_ClassImg(ClassImg, fun_Param_dict, region, task_list)
-
-    # Produce monthly porducts with the images acquired within the months in the vector corresponding to 'months' key
-    for month in exe_Param_dict['months']:
-      # Add an element with 'month' as key to 'fun_Param_dict'  
-      fun_Param_dict['month'] = month     
-
-      # Generate a mosaic image for a month with either S2 or LS8/9 data 
-      print('\n<LEAF_production> generate a mosaic for month', month)
-      mosaic = Mosaic.LEAF_Mosaic(fun_Param_dict, region, True)
-      print('\n\n<LEAF_production>The band names in LEAF mosaic = ', mosaic.bandNames().getInfo())
-      #return mosaic
-    
-      if Is_export_required('date', ProductList):
-        export_DateImg(mosaic, fun_Param_dict, region, task_list)
-
-      # Produce vegetation parameter maps and export them in a specified way (a compact image or separate images)      
-      out_style = str(fun_Param_dict['export_style']).lower()
-      if out_style.find('comp') > -1:
-        print('\n<LEAF_production> Call compact_params function .......')
-        out_params = compact_params(mosaic, SsrData, ClassImg)
-
-        # Export the 64-bits image to either GD or GCS
-        export_compact_params(fun_Param_dict, region, out_params, task_list)
-      else: # Create separate parameter maps
-        print('\n<LEAF_production> Call separate_params function .......')
-        #separate_params(fun_Param_dict, mosaic, region, SsrData, ClassImg, task_list)
-        SL2P_separate_params(fun_Param_dict, mosaic, region, SsrData, ClassImg, task_list)
+  if ExeParamDict.get('custom_region') == None:    # 'custom region" has higher priority than 'tile_names'
+    tile_LEAF_production(exe_Param_dict, task_list)
+  else: 
+    custom_LEAF_production(exe_Param_dict, task_list)
 
   return task_list
-
 
 
 
@@ -1779,21 +1870,25 @@ def National_LEAF_production(ExeParamDict):
   return S2_region_params(fun_Param_dict, mosaic, region, SsrData, ClassImg, task_list)   
 
 
+
 '''
-###################################################################################################
-# 
-###################################################################################################
 params = {
-    'sensor': 'S2_SR',           # A string indicating sensor and data unit (e.g., 'S2_SR' or 'L8_SR')    
-    'year': 2023,                # An integer representing image acquisition year
-    'months': [7],               # A set of integers represening months (a negative value means whole summer)
-    'tile_names': ['tile55','tile42'],    # A list of tile name strings as per the CCRS' tile griding system
-    'prod_names': ['LAI','fAPAR','fCOVER','Albedo', 'QC'],   # ['LAI','fAPAR','fCOVER','Albedo', 'QC', 'date', 'partition']
-    'resolution': 20,            # The spatial resultion (in meter) of the exported products
-    'location': 'drive',         # The destination of exporting the products ('drive' or 'storage')     
-    'bucket': 'S2_leaf_2023',    # An unique bucket name in GCS (must have been created beforehand)
-    'folder': 'S2_leaf_2023'     # the folder name intended for exporting products in either GD or GCS    
+    'sensor': 'S2_SR',           # Image type string. 'S2_SR' or 'L8_SR' means using Sentinel2 or Landsat-8, respectively 
+    'year': 2023,                # An integer representing image acquisition year    
+    'months': [8],       # A list of integers represening monthes (a negative value means peak season)    
+    'prod_names': ['LAI', 'fAPAR','fCOVER','Albedo','date'],  # A list of parameter type strings
+    'tile_names': ['UK'],    # A list of tile names (defined using CCRS' tile griding system)    
+    'out_resolution': 20,            # Exporting spatial resolution in meter
+    'out_location': 'drive',         # Exporting location ('drive', 'storage' or 'asset') 
+    'bucket': 's2_leaf_2021_date', # An unique bucket name on Google Cloud Storage (must be created beforehand)
+    'folder': 'UK_S2_LEAF_2023',      # The directory name on Google Drive
+    'export_style': 'separate',     # Normally leave it as it is
+    'custom_region': ee.Geometry.Polygon([[0.96379,50.914],[0.97,50.91699], [1.373,51.143], [1.3924,51.16121], [1.3993,51.17487], [1.759,52.4823], 
+                            [1.73,52.632],[-0.761797,60.818],[-0.772,60.8295], [-0.84,60.8422],[-0.882,60.8457],[-0.8989,60.841],
+                            [-6.151,59.1008], [-8.6496,57.8312], [-8.650,57.8294], [-8.1819,54.4662], [-6.3583,49.8912], [-6.3481,49.8867],
+                            [-6.3453,49.885], [-5.2072,49.9610], [-5.2023,49.9615], [0.2375,50.7373], [0.2558,50.7402],[0.9637,50.9140]])
 }
 
-mosaic = LEAF_production(params)
+
+LEAF_production(params)
 '''

@@ -50,6 +50,7 @@ SSR_META_DICT = {
              'OFFSET': ee.Number(0),
              'ALL_BANDS': ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B8A', 'B9', 'B11', 'B12'],
              'OUT_BANDS': ['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B8A', 'B11', 'B12'], 
+             '10M_BANDS': ['B2', 'B3', 'B4', 'B8'],
              'SIX_BANDS': ['B2', 'B3', 'B4', 'B8A', 'B11', 'B12'],
              'NoA_BANDS': ['B4', 'B5', 'B6', 'B7', 'B8', 'B8A', 'B11', 'B12'],
              'GEE_NAME': 'COPERNICUS/S2_SR_HARMONIZED',
@@ -72,6 +73,7 @@ SSR_META_DICT = {
              'OFFSET': ee.Number(0),
              'ALL_BANDS': ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B8A', 'B9', 'B11', 'B12'],
              'OUT_BANDS': ['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B8A', 'B11', 'B12'], 
+             '10M_BANDS': ['B2', 'B3', 'B4', 'B8'],
              'SIX_BANDS': ['B2', 'B3', 'B4', 'B8A', 'B11', 'B12'],
              'NoA_BANDS': ['B4', 'B5', 'B6', 'B7', 'B8', 'B8A', 'B11', 'B12'],
              'GEE_NAME': 'COPERNICUS/S2_HARMONIZED',
@@ -271,8 +273,46 @@ MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'O
 
 
 
+
+#############################################################################################################
+# Description: This function returns sensor_code, tile_name and acquisition date according to a given 
+#              Image ID string.   
+# 
+# Samples: (1) Landsat image ID string:    LC08_034010_20230727    
+#          (2) Sentinel-2 image ID string: 20220806T173909_20220806T173907_T17WMU
+#
+# Revision history:  2023-Nov-20  Lixin Sun  Initial creation
+#
+#############################################################################################################
 def parse_ImgID(ImgID_str):
-  ID_str = ee.String(ImgID_str)
+  tokens = ImgID_str.split('_')
+  ssr_code = UNKNOWN_sensor
+  tile_name = ''
+  acq_date  = ''
+
+  if len(tokens) > 2:
+    # Determine the sensor type based on the first token
+    if tokens[0].find('LC') > -1:  # is a Landsat scene
+      if tokens[0].find('8'):
+        ssr_code = LS8_sensor
+      elif tokens[0].find('9'):
+        ssr_code = LS9_sensor
+      elif tokens[0].find('7'):
+        ssr_code = LS7_sensor  
+      elif tokens[0].find('5'):
+        ssr_code = LS5_sensor
+
+      # Determine tile name and acquisition date
+      tile_name = tokens[1] 
+      acq_date  = tokens[2]
+    else: # is a Sentinel-2 scene
+      ssr_code  = S2A_sensor
+      tile_name = tokens[2]
+      acq_date  = tokens[0][0:8]
+  
+  return ssr_code, tile_name, acq_date
+
+
 
 
 
@@ -413,19 +453,6 @@ def apply_gain_offset(Image, SsrData, MaxRef, all_bands):
 
 
 
-###################################################################################################
-# Description: This function returns the footprint geometry of an image
-#
-# Revision history:  2020-Mar-24  Lixin Sun  Initial creation
-#
-###################################################################################################    
-def ImgGeometry(image):
-  '''Returns the footprint of a given image'''
-  return ee.Geometry(image.get('system:footprint'))
-
-
-
-
 
 ###################################################################################################
 # Description: This function returns a list of standard band names to be used in a classification
@@ -446,14 +473,18 @@ def get_STD_classf_bands():
 #                    2021-May-10  Lixin Sun  Converted from Lixin's JavaScript code
 #
 ###################################################################################################
-def attach_Date(image):
+def attach_Date(inImg):
   '''Attaches an image acquisition date band to a given image
   Args:
-    image(ee.Image): A given ee.Image object.
-  '''
-  date     = ee.Date(image.date()).millis().divide(86400000)  #86,400,000 is the milliseconds of one day
-  date_img = ee.Image.constant(date).rename(pix_date).toUint16()
-  return image.addBands(date_img)
+    Img(ee.Image): A given ee.Image object.'''
+  
+  #86,400,000 is the milliseconds of one day
+  ImgDate  = ee.Date(inImg.date()) 
+  DOY_1st  = ee.Date.fromYMD(ImgDate.get('year'), 1, 1).millis().divide(86400000)
+  DOY      = ImgDate.millis().divide(86400000).subtract(DOY_1st)
+  
+  date_img = ee.Image.constant(DOY).rename(pix_date).toUint16()
+  return inImg.addBands(date_img)
 
 
 
@@ -607,80 +638,6 @@ def superpixel_img(inImage):
     seg_bands.append(band + '_mean')
 
   return seg_mosaic.select(seg_bands, all_bands)
-
-
-
-
-
-
-#############################################################################################################
-# Description: This function exports one biophysical parameter map to either GD or GCS.
-#
-# Revision history:  2022-Nov-14  Lixin Sun  Initial creation 
-#
-#############################################################################################################
-def export_one_map(fun_Param_dict, Region, inMap, task_list):
-  '''Exports one biophysical parameter map to one of three places: GD, GCS or GEE assets.
-
-     Args:
-       fun_Param_dict(dictionary): a dictionary storing other required running parameters;
-       Region(ee.Geometry): the spatial region of interest;
-       ParamMap(ee.Image): the parameter map to be exported;
-       task_list([]): a list storing the links to exporting tasks. '''
-  #==========================================================================================================
-  # Create the names of exporting folder anf files 
-  #==========================================================================================================
-  month        = int(fun_Param_dict['month'])
-  year_str     = str(fun_Param_dict['year'])   
-  tile_str     = str(fun_Param_dict['tile_name'])
-  scale_str    = str(fun_Param_dict['resolution'])
-  given_folder = str(fun_Param_dict['folder'])
-  prod_name    = str(fun_Param_dict['prod_name'])
-
-  tile_name    = tile_str.split('_')[0]
-  form_folder  = tile_name + '_' + year_str
-  exportFolder = form_folder if len(given_folder) < 2 else given_folder  
-
-  month_name   = get_MonthName(month)
-  filename  = tile_str + '_' + year_str
-  if month < 1 or month > 12:
-    filename = filename + '_' + prod_name + '_' + scale_str + 'm'
-  else:
-    filename = filename + '_' + month_name + '_' + prod_name + '_' + scale_str + 'm'
-
-  #==========================================================================================================
-  # Prepare initial export dictionary and output location 
-  #==========================================================================================================
-  export_dict = {'image': inMap,
-                 'description': filename,                 
-                 'scale': int(fun_Param_dict['resolution']),
-                 'crs': 'EPSG:3979',
-                 'maxPixels': 1e11,
-                 'region': ee.Geometry(Region)}  
-
-  #==========================================================================================================
-  # Export a biophysical parameter map to one of three places: GD, GCS or GEE Assets
-  #==========================================================================================================  
-  out_location = str(fun_Param_dict['location']).lower()
-
-  if out_location.find('drive') > -1:
-    print('<Image:export_one_map> Exporting biophysical map to Google Drive......')
-    export_dict['folder'] = exportFolder
-    export_dict['fileNamePrefix'] = filename
-    task_list.append(ee.batch.Export.image.toDrive(**export_dict).start())
-
-  elif out_location.find('storage') > -1:
-    print('<Image:export_one_map> Exporting biophysical map to Google Cloud Storage......')
-    export_dict['bucket'] = str(fun_Param_dict['bucket'])
-    export_dict['fileNamePrefix'] = exportFolder + '/' + filename
-    task_list.append(ee.batch.Export.image.toCloudStorage(**export_dict).start())
-
-  elif out_location.find('asset') > -1:
-    print('<Image:export_one_map> Exporting biophysical map to GEE Assets......')
-    asset_root = 'projects/ee-lsunott/assets/'
-    export_dict['assetId'] = asset_root + exportFolder + '/' + filename
-    task_list.append(ee.batch.Export.image.toAsset(**export_dict).start())
-
 
 
 

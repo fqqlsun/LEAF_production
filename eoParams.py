@@ -1,14 +1,11 @@
 #############################################################################################################
-# Automatically set searching path for eo****.py code
+# 
 # 
 # Revision history:  2022-Mar-29  Lixin Sun  Initial creation
 #
 #############################################################################################################
 import ee
 
-
-sensor_name = 'sensor'
-data_unit   = 'unit'
 
 #############################################################################################################
 # Description: Define a default execution parameter dictionary. 
@@ -17,21 +14,20 @@ data_unit   = 'unit'
 #
 #############################################################################################################
 DefaultParams = {
-    'sensor': 'S2_SR',           # A sensor type and data unit string (e.g., 'S2_Sr' or 'L8_SR')
-    'unit': 2,                   # A data unit code (1 or 2 for TOA or surface reflectance)    
+    'sensor': 'S2_SR',           # A sensor type and data unit string (e.g., 'S2_Sr' or 'L8_SR')    
     'year': 2019,                # An integer representing image acquisition year
     'nbYears': 1,                # positive int for annual product, or negative int for monthly product
     'months': [5,6,7,8,9,10],    # A list of integers represening one or multiple monthes     
     'tile_names': ['tile55'],    # A list of (sub-)tile names (defined using CCRS' tile griding system) 
     'prod_names': ['mosaic'],    #['mosaic', 'LAI', 'fCOVER', ]
-    'location': 'storage',       # Exporting location ('drive', 'storage' or 'asset') 
-    'resolution': 30,            # Exporting spatial resolution
-    'bucket': 's2_mosaic_2020',  # An unique bucket name on Google Cloud Storage
-    'folder': '',                # the folder name for exporting
-    'reducer': ee.Reducer.mean(),
-    'buff_radius': 10, 
-    'tile_scale': 4,
-    'export_style': 'separate'}
+    'out_location': 'drive',     # Exporting location ('drive', 'storage' or 'asset') 
+    'out_resolution': 30,        # Exporting spatial resolution
+    'GCS_bucket': '',            # An unique bucket name on Google Cloud Storage
+    'out_folder': '',            # the folder name for exporting
+    'export_style': 'separate',
+    'start_date': '',
+    'stop_date':  ''}
+
 
 
 
@@ -44,7 +40,7 @@ def get_DefaultParams():
 # Description: Obtain a parameter dictionary for LEAF tool
 #############################################################################################################
 def get_LEAF_params(inParams):
-  out_Params = set_Params(inParams)  # Modify default parameter dictionary with a given one
+  out_Params = modify_default_params(inParams)  # Modify default parameter dictionary with a given one
   out_Params['nbYears'] = -1         # Produce monthly products in most cases
   out_Params['unit']    = 2          # Always surface reflectance for LEAF production
 
@@ -56,7 +52,7 @@ def get_LEAF_params(inParams):
 # Description: Obtain a parameter dictionary for Mosaic tool
 #############################################################################################################
 def get_mosaic_params(inParams):
-  out_Params = set_Params(inParams)      # Modify default parameter dictionary with a given one
+  out_Params = modify_default_params(inParams)      # Modify default parameter dictionary with a given one
   out_Params['prod_names'] = ['mosaic']  # Of course, product name should be always 'mosaic'
 
   return out_Params  
@@ -67,10 +63,26 @@ def get_mosaic_params(inParams):
 # Description: Obtain a parameter dictionary for land cover classification tool
 #############################################################################################################
 def get_LC_params(inParams):
-  out_Params = set_Params(inParams)      # Modify default parameter dictionary with a given one
+  out_Params = modify_default_params(inParams)      # Modify default parameter dictionary with a given one
   out_Params['prod_names'] = ['mosaic']  # Of course, product name should be always 'mosaic'
 
   return out_Params 
+
+
+
+
+
+#############################################################################################################
+# Description: Obtain a parameter dictionary for land cover classification tool
+#############################################################################################################
+def LEAF_initial_func_Params(exe_Param_dict):
+  fun_Param_dict = modify_default_params(exe_Param_dict)
+
+  #fun_Param_dict.pop('months')
+  #fun_Param_dict.pop('tile_names')
+  #fun_Param_dict.pop('prod_names')
+
+  return fun_Param_dict
 
 
 
@@ -83,7 +95,7 @@ def get_LC_params(inParams):
 # Revision history:  2022-Mar-29  Lixin Sun  Initial creation
 #
 #############################################################################################################
-def set_Params(inParams):  
+def modify_default_params(inParams):  
   out_Params = DefaultParams
 
   # get the number of keys in the given dictionary

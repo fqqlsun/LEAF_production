@@ -5,6 +5,7 @@
 ######################################################################################################
 import ee 
 
+
 import eoTileGrids as eoTG
 
 
@@ -176,7 +177,7 @@ def get_CanLC(Year):
 #                    2023-Jan-10  Lixin Sun  Added "IsBiome" option, which determines if a biome map should 
 #                                            be returned.
 #############################################################################################################  
-def get_GlobLC(Region, Year, IsBiome):
+def get_GlobLC(Year, IsBiome):
   '''Returns a proper land cover mosaic based on a given region and year.
 
      Args:
@@ -197,10 +198,8 @@ def get_GlobLC(Region, Year, IsBiome):
   elif year > 2017:
     ccrs_LC = ee.Image('USGS/NLCD_RELEASES/2020_REL/NALCMS').rename(new_name)
  
-  ccrs_LC = ccrs_LC.selfMask() 
-
   #==========================================================================================================
-  # Create Global land cover image collection
+  # A function for mapping the class IDs of global land cover map to those of CCRS land cover map
   #==========================================================================================================
   def remap_classIDs(Image):
     img = Image.select("discrete_classification").uint8()
@@ -211,20 +210,18 @@ def get_GlobLC(Region, Year, IsBiome):
     return img.rename(new_name)
   
   #==========================================================================================================
-  # The given "Region" might already be expended from original region, but here it is necesary to reexpend it
+  # The given "Region" might already be expended from original region, but here it is necessary to reexpend it
   # so that it can completely cover reprojected output result.    
+  #==========================================================================================================  
+  global_LC = ee.Image('COPERNICUS/Landcover/100m/Proba-V-C3/Global/2019')  
+  global_LC = remap_classIDs(global_LC)  
+
   #==========================================================================================================
-  region    = eoTG.expandSquare(Region, 0.2)
-  global_LC = ee.ImageCollection("COPERNICUS/Landcover/100m/Proba-V/Global") \
-                .filterBounds(region) \
-                .map(lambda image: remap_classIDs(image)) \
-                .mosaic()
-  
-  #==========================================================================================================
-  # Merge two land cover maps together and then clip it
-  #==========================================================================================================
-  out_map = ccrs_LC.unmask(global_LC).clip(region)   
-  
+  # Merge two land cover maps together with CCRS' land cover map as basis and then clip it
+  #==========================================================================================================  
+  #out_map = ccrs_LC.unmask(value = global_LC, sameFootprint = False)   #.clip(region)
+  out_map = global_LC.where(ccrs_LC.gte(0), ccrs_LC)
+
   #==========================================================================================================
   # Biome is valid only when Random Forest model is used for extracting biophysical parameters
   # The mapping from CCRS land cover ID to SL2P land cover will be conducted in "makeIndexLayer" function,

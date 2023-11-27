@@ -100,6 +100,52 @@ def period_centre(StartD, StopD):
 
 
 
+
+
+######################################################################################################
+# Description: This function returns a time range based on a given centre date and time window size.
+# 
+# Revision history:  2023-Nov-20  Lixin Sun  Initial creation 
+#  
+######################################################################################################
+def time_range(MidDate, WinSize):
+  '''Returns a time range based on a given centre date and time window size.
+  Arg: 
+    MidDate(string or ee.Date): A given centre date or string;
+    WinSize(int): Stop date string.'''  
+  millis_per_day = ee.Number(86400000)
+  half_millis    = ee.Number(WinSize/2).multiply(millis_per_day)
+  centre         = ee.Date(MidDate)
+  #year   = centre.get('year')
+  centre_millis = centre.millis()
+  start_millis  = centre_millis.subtract(half_millis)
+  stop_millis   = centre_millis.add(half_millis)
+
+  return ee.Date(start_millis), ee.Date(stop_millis)
+
+
+
+
+
+######################################################################################################
+# Description: This function returns the time window size based on given start and stop dates.
+# 
+# Revision history:  2023-Nov-20  Lixin Sun  Initial creation 
+#  
+######################################################################################################
+def time_window_size(StartD, StopD):
+  '''Returns the middle date of a given time period. 
+  Arg: 
+    StartD(string or ee.Date): Start date string;
+    StopD(string or ee.Date): Stop date string.'''  
+  millis_per_day = ee.Number(86400000)
+
+  return ee.Date(StopD).millis().subtract(ee.Date(StartD).millis()).abs().divide(millis_per_day)
+
+
+
+
+
 ######################################################################################################
 # Description: This function creates a image collection acquired by a sensor over a geographical 
 #              region during a period of time.
@@ -141,7 +187,7 @@ def getCollection(SsrData, Region, StartDate, StopDate, CloudRate = -100):
   # (2) a given cloud coverage percentage/rate (CloudRate) 
   #===================================================================================================
   cloud_rate = Img.get_cloud_rate(SsrData, region) if CloudRate < 0 or CloudRate > 99.99 else CloudRate 
-
+  print('<getCollection> Used cloud rate = ', cloud_rate.getInfo())
   #===================================================================================================
   # "filterMetadata" Has been deprecated. But tried to use "ee.Filter.gte(property, value)", did 
   # not work neither.
@@ -243,7 +289,6 @@ def mask_collection(ImgColl, SsrData, CloudScore):
     
   else: # for Landsat data
     return ImgColl.map(lambda img: apply_mask(img))
-
 
 
 
