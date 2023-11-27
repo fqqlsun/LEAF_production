@@ -11,19 +11,19 @@ This python dictionary object includes EIGHT "key:value" pairs. Four of them are
 
 
 ### 1.3 Parameter Dictionary for Running the LEAF Production Tool
-To run the LEAF production tool, a number of parameters must be provided. To streamline the provision of these parameters, a Python dictionary is used as a parameter container. An illustration of the parameter dictionary is presented below:
+To run the LEAF production tool, a number of parameters must be provided. To streamline the provision of these parameters, a Python dictionary is used as a container. An illustration of a parameter dictionary is presented below:
 
 ![](/wiki_images/LEAF_param_dict.png)
 
 Specifically, the dictionary includes NINE “key:value” pairs, each of which is detailed as follows:
 
-(1) 'sensor': a string denoting a satellite sensor and data unit. The valid values for this key are 'L8_SR' and 'S2_SR', representing Landsat 8/9 and Sentinel-2 surface reflectance, respectively. 
+(1) 'sensor': a string denoting a satellite sensor and data unit. The valid values for this key currently are 'L8_SR' and 'S2_SR', representing Landsat 8/9 and Sentinel-2 surface reflectance data (for vegetation biophysical parameter estimation, the input images must be surface reflectance), respectively. 
 
 (2) 'year' : a 4-digits integer, identifying the year of the image acquisitions (e.g., 2020).
 
-(3) 'months' : a list of integers (1 to 12) representing the (summer) monthes of a year (e.g., [6, 7, 8] denote June, July and August). With a list of monthes, several monthly biophysical parameter products can be generated through one execution of the LEAF production tool. This list can also include only one negative integer. In this case, the biophysical parameter products corresponding to the peak season (June 15 to September 15) of a year (specified by 'year' key) will be produced.
+(3) 'months' : a list of integers (1 to 12) representing the monthes of a year (e.g., [6, 7, 8] denote June, July and August). With a list of monthes, several monthly biophysical parameter products can be generated through one execution of the LEAF production tool. This list can also include only one negative integer. In this case, the biophysical parameter products corresponding to the peak season (June 15 to September 15) of a year (specified by 'year' key) will be produced.
 
-(4) 'prod_names' : a list of biophysical parameter name strings, which could be a subset or all of 'LAI', 'fCOVER', 'Albedo' and 'fAPAR'.
+(4) 'prod_names' : a list of biophysical parameter name strings, which could be a subset or all of the elements in ['LAI', 'fCOVER', 'Albedo', 'fAPAR', 'QC', 'date', 'partition'].
 
 (5) 'tile_names' : a list of tile name strings. The regular spatial unit of the LEAF production tool is a tile, which is a 900km x 900km area and defined by the Canadian tile griding system. Providing a list of tile names means the biophysical parameter products for multiple tiles can be created within one execution of the LEAF production tool.
 
