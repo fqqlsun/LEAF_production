@@ -31,7 +31,7 @@ Specifically, the dictionary includes NINE “key:value” pairs, each of which 
 
 (7) 'out_location' : a string indicating the destination for exporting the products. An acceptable value for this key is 'drive' or 'storage', corresponding to Google Drive (GD) and Google Cloud Storage (GCS), respectively.
 
-(8) 'bucket' : a customized name string of a bucket on GCS. This parameter only is used when the exporting location is GCS (when value corresponding to 'location' is 'storage'). Note that a bucket with this name must exist on your GCS before exporting products. 
+(8) 'GCS_bucket' : a user-defined name string for a bucket on GCS. This parameter is used only when the exporting destination is GCS (when the value associated with 'out_location' is 'storage'). Note that a bucket with this specified name must exist on your GCS before exporting products. 
 
 (9) 'out_folder' : the folder name on GD or GCS for holding the exported biophysical parameter products. If you do not want the products for different tiles are exported in the same folder, just leave an empty string for this key. In this case, the LEAF production tool will automatically create separate folders for the products of different tiles using a tile name and the image acquisition year specified in the dictionary items with ‘tile_names’ and “year” as keys.
 
