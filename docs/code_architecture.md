@@ -15,7 +15,7 @@ To run the LEAF production tool, a number of parameters must be provided. To str
 
 ![](/wiki_images/LEAF_param_dict.png)
 
-Specifically, the dictionary includes ELEVEN “key:value” pairs (the last two are optional), each of which is detailed as follows:
+Specifically, the dictionary includes TWELVE “key:value” pairs (the last three are optional), each of which is detailed as follows:
 
 (1) 'sensor': a string denoting a satellite sensor and data unit. The valid values for this key currently are 'L8_SR' and 'S2_SR', representing Landsat 8/9 and Sentinel-2 surface reflectance data (for vegetation biophysical parameter estimation, the input images must be surface reflectance), respectively. 
 
@@ -34,6 +34,12 @@ Specifically, the dictionary includes ELEVEN “key:value” pairs (the last two
 (8) 'GCS_bucket' : a user-defined name string for a bucket on GCS. This parameter is used only when the exporting destination is GCS (when the value associated with 'out_location' is 'storage'). Note that a bucket with this specified name must exist on your GCS before exporting products. 
 
 (9) 'out_folder' : the folder name on GD or GCS for storing the exported biophysical parameter products. If you prefer not to have the products for different tiles exported to the same directory, just leave an empty string for this key. In this case, the LEAF production tool will automatically create separate folders for the products of different tiles using directory names formed based on tile name and image acquisition year.
+
+(11) 'custom_region': an "ee.Geometry" object that must be created with "ee.Geometry.Polygon()" function taking as input a list of Latitude and Longitude coordinates that delineate a user-defined region. This 'key: value' pair is mandatory only when a customized spatial region needs to be provided. Otherwise, DO NOT include it in this parameter dictionary, as it will overwrite the values for the 'tile_names' key. 
+
+(12) 'start_date': a string (e.g., '2022-06-15') for specifying the beginning image acquisition date of a user-defined time period. 
+
+(13) 'stop_date': a string (e.g., '2022-09-15') used to indicate the ending image acquisition date for a user-defined time period. Note that the string values for 'start_date' and 'stop_date' keys are also optional. They should only be supplied when a user-defined time period is required. Otherwise, OMIT these 'key:value' pairs from this parameter dictionary to prevent overwriting the values associated with 'months' key.
 
 Of the NINE items of an input parameter dictionary, six (with 'sensor', 'year', 'spatial_scale', 'location', 'bucket' and 'out_folder' as keys) require a single value, while the other three (with 'months', 'prod_name' and 'tile_names' as keys) need a list. Obviously, with the different combinations between the lists, various production scenarios can be carried out. For instance, to generate monthly (e.g., July and August) biophysical parameter maps for multiple tiles (e.g., 'tile41', 'tile42' and 'tile43'), two lists, [7, 8] and ['tile41', 'tile42', 'tile43'], should be specified for 'months' and 'tile_names' keys.
 
