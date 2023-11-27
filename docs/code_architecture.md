@@ -15,7 +15,7 @@ To run the LEAF production tool, a number of parameters must be provided. To str
 
 ![](/wiki_images/LEAF_param_dict.png)
 
-Specifically, the dictionary includes NINE “key:value” pairs, each of which is detailed as follows:
+Specifically, the dictionary includes ELEVEN “key:value” pairs (the last two are optional), each of which is detailed as follows:
 
 (1) 'sensor': a string denoting a satellite sensor and data unit. The valid values for this key currently are 'L8_SR' and 'S2_SR', representing Landsat 8/9 and Sentinel-2 surface reflectance data (for vegetation biophysical parameter estimation, the input images must be surface reflectance), respectively. 
 
