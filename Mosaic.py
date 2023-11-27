@@ -58,7 +58,7 @@ def get_time_score(image, midDate, ssr_code):
   #==================================================================================================
   ssr_code = int(ssr_code)
 
-  factor  = 25 if ssr_code > Img.MAX_LS_CODE else 64
+  factor  = 10 if ssr_code > Img.MAX_LS_CODE else 16
   one_img = image.select([0]).multiply(0).add(1)
 
   return one_img.divide((ee.Image(date_diff).divide(ee.Image(factor))).exp())
@@ -327,7 +327,7 @@ def score_collection(collection, SsrData, midDate, ExtraBandCode, modis_img = No
   # Note: doing mosaic without applying inherent masks will cause some water bodies cannot be 
   #       correctly identified by mosaic algorithm (whatever a mosaic algorithm is used).
   #==================================================================================================
-  masked_ImgColl = IS.mask_collection(collection, SsrData)
+  masked_ImgColl = IS.mask_collection(collection, SsrData, False)
   #print('\n\n<score_collection> band names:', masked_ImgColl.first().bandNames().getInfo())
   
   median_mosaic = masked_ImgColl.median()

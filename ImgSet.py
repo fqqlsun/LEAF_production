@@ -215,31 +215,33 @@ def getCollection(SsrData, Region, StartDate, StopDate, CloudRate = -100):
 #        different from most mask, where 1 and 0 represent invalid and valid pixels. 
 #
 # Revision history:  2023-Nov-09  Lixin Sun  Initial creation 
-#
+#                    2023-Nov-20  Lixin Sun  Added CloudScore input parameter.
 ######################################################################################################
-def mask_collection(ImgColl, SsrData):  
+def mask_collection(ImgColl, SsrData, CloudScore):  
   '''Returns a image collection acquired by a sensor over a geographical region during a period of time  
 
   Arg: 
-     SsrData(Dictionary): A Dictionary containing metadata associated with a sensor and data unit;
-     Region(ee.Geometry): A geospatial polygon of ROI;
-     start_date(string or ee.Date): The start acquisition date string (e.g., '2020-07-01');
-     stop_date(string or ee.Date): The stop acquisition date string (e.g., '2020-07-31');
-     CloudRate(float): a given cloud coverage rate.'''
+     ImgColl(ee.ImageCollection): a given image collection;
+     SsrData(Dictionary): a Dictionary containing metadata associated with a sensor and data unit;     
+     CloudScore(Boolean): a boolean variable indicating if to apply CloudScore+ mask to S2 image.'''
   
   ssr_code  = SsrData['SSR_CODE']
+
+  def apply_mask(image):
+      mask = IM.Img_VenderMask(image, SsrData, IM.CLEAR_MASK)
+      return image.updateMask(mask.Not()) 
   
   if ssr_code == Img.MOD_sensor: # for MODIS data
     return ImgColl
-  elif ssr_code > Img.MAX_LS_CODE: # for Sentinel-2 data   
-    thresh = 0.6    
-    return ImgColl.map(lambda img: img.updateMask(img.select('cs').gte(thresh)))
   
+  elif ssr_code > Img.MAX_LS_CODE: # for Sentinel-2 data
+    if CloudScore == True:
+      thresh = 0.6    
+      return ImgColl.map(lambda img: img.updateMask(img.select('cs').gte(thresh)))
+    else:
+      return ImgColl.map(lambda img: apply_mask(img))  
+    
   else: # for Landsat data
-    def apply_mask(image):
-      mask = IM.Img_VenderMask(image, SsrData, IM.CLEAR_MASK)
-      return image.updateMask(mask.Not()) 
-
     return ImgColl.map(lambda img: apply_mask(img))
 
 
