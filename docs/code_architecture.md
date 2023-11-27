@@ -23,11 +23,11 @@ Specifically, the dictionary includes NINE “key:value” pairs, each of which 
 
 (3) 'months' : a list of integers (1 to 12) representing the monthes of a year (e.g., [6, 7, 8] denote June, July and August). With a list of monthes, several monthly biophysical parameter products can be generated through one execution of the LEAF production tool. This list can also include only one negative integer. In this case, the biophysical parameter products corresponding to the peak season (June 15 to September 15) of a year (specified by 'year' key) will be produced.
 
-(4) 'prod_names' : a list of biophysical parameter name strings, which could be a subset or all of the elements in ['LAI', 'fCOVER', 'Albedo', 'fAPAR', 'QC', 'date', 'partition'].
+(4) 'prod_names' : a list of biophysical parameter name strings, which can be a subset or all of the elements in ['LAI', 'fCOVER', 'Albedo', 'fAPAR', 'QC', 'date', 'partition'].
 
-(5) 'tile_names' : a list of tile name strings. The regular spatial unit of the LEAF production tool is a tile, which is a 900km x 900km area and defined by the Canadian tile griding system. Providing a list of tile names means the biophysical parameter products for multiple tiles can be created within one execution of the LEAF production tool.
+(5) 'tile_names' : a set of strings representing tile names. The regular spatial unit of the LEAF production tool is a tile, defined by the Canadian tile griding system and covering a 900km x 900km area. Providing a list of tile names allows for the creation of biophysical parameter products for multiple tiles in a single execution of the LEAF production tool. Note that to generate biophysical parameter maps for a custom region, another "key:value" pair must be added into this parameter dictionary (refer to the details on 'custom_region' key). 
 
-(6) 'spatial_scale' : an integer defining the spatial resolution (in meter) of exported products.
+(6) 'spatial_scale' : an integer that defines the spatial resolution (in meter) of the exported products.
 
 (7) 'location' : a string specifying the location to export the products. The valid string for this parameter could be either 'drive' or 'storage', representing Google Drive (GD) and Google Cloud Storage (GCS), respectively.
 
