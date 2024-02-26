@@ -124,41 +124,44 @@ def get_CanLC(Year):
   # Choose a proper land cover image collection based on a given "Year"
   #==========================================================================================================
   year = int(Year)  
-  #ccrs_LC_assets  = 'projects/ccmeo-ag-000007/assets/CanadaLC2020_30m' 
-  ccrs_LC_assets  = 'projects/ee-lsunott/assets/CanadaLC2020_30m' 
-
-  if year > 2017:
-    #ccrs_LC_assets = 'projects/ccmeo-ag-000007/assets/CanLC2020'
-    ccrs_LC_assets  = 'projects/ee-lsunott/assets/CanadaLC2020_30m' 
+  new_name = 'partition'
+  
+  if year <= 2017:
+    ccrs_LC = ee.ImageCollection('users/rfernand387/NA_NALCMS_2015_tiles') \
+              .map(lambda image: image.rename(new_name)) \
+              .mosaic()
+    
+  elif year > 2017:
+    ccrs_LC = ee.Image('USGS/NLCD_RELEASES/2020_REL/NALCMS').rename(new_name)
 
   #==========================================================================================================
   # Create a CCRS land cover image
   #==========================================================================================================
-  return ee.Image(ccrs_LC_assets).rename('partirion')
+  return ee.Image(ccrs_LC)
   
 
 
 
 
 
-#############################################################################################################
+####################################################################################################################  
 # Description: This function returns a proper land cover mosaic based on a given region and year.
 #
 # The class mapping between CCRS land cover legend and SL2P class legend: 
 #
 #            CCRS class legend                     ==>     Biome                    ==>  SL2P class legend
-# ===========================================================================================================
-# C1: Temperate or sub-polar needleleaf forest     ==>     C7: needleleaf forest    ==>  C3: needleaf forest
-# C2: Sub-polar taiga needleleaf forest            ==>     C7: needleleaf forest    ==>  C3: needleaf forest
-# C3: Tropical broadleaf evergreen forest          ==>     C5: evergreen forest     ==>  C2: tropical forest
-# C4: Tropical broadleaf deciduous forest          ==>     C6: broadleaf forest     ==>  C2: tropical forest
-# C5: Temperate broadleaf deciduous forest         ==>     C6: broadleaf forest     ==>  C2: tropical forest
-# C6: Mixed forester                               ==>     C7: needleleaf forest    ==>  C11: forest
+# ==================================================================================================================
+# C1: Temperate or sub-polar needleleaf forest     ==>     C7: needleleaf forest    ==>  C3: needleaf model
+# C2: Sub-polar taiga needleleaf forest            ==>     C7: needleleaf forest    ==>  C3: needleaf model
+# C3: Tropical broadleaf evergreen forest          ==>     C5: evergreen forest     ==>  C2: broadleaf not in Canada
+# C4: Tropical broadleaf deciduous forest          ==>     C6: broadleaf forest     ==>  C2: broadleaf not in Canada
+# C5: Temperate broadleaf deciduous forest         ==>     C6: broadleaf forest     ==>  C2: broadleaf model
+# C6: Mixed forester                               ==>     C7: needleleaf forest    ==>  C11: mixed forest
 # C7: Tropical shrubland                           ==>     C2: shrubland            ==>  C8:     
-# C8: Temperate or sub-polar shrubland             ==>     C2: shrubland            ==>  C7:     
+# C8: Temperate or sub-polar shrubland             ==>     C2: shrubland            ==>  C7: broadleaf model    
 # C9: Tropical or sub-tropical grassland           ==>     C1: grassland            ==>  C4:     
 # C10: Tempearte or sub-polar grassland            ==>     C1: grassland            ==>  C6:     
-# C11: Sub-polar or polar shrubland-lichen-moss    ==>     C2: shrubland            ==>  C7:     
+# C11: Sub-polar or polar shrubland-lichen-moss    ==>     C2: shrubland            ==>  C7: broadleaf model    
 # C12: Sub-polar or polar grassland-lichen-moss    ==>     C1: grassland            ==>  C10:     
 # C13: Sub-polar or polar barren-lichen-moss       ==>     C1: grassland            ==>  C5:     
 # C14: Wetland                                     ==>     C2: shrubland            ==>  C4: wetland    
@@ -167,16 +170,16 @@ def get_CanLC(Year):
 # C17: Urban                                       ==>     C1: grassland            ==>  C0:     
 # C18: Water                                       ==>     no class                 ==>  C0:     
 # C19: Snow and Ice                                ==>     no class                 ==>  C0:     
-#============================================================================================================
-# CCRS legend: [1, 3, 4, 17, 7, 8, 5, 11, 9, 15, 13, 2, 14, 10, 12, 18, 16, 19, 6]
+#===================================================================================================================
+# CCRS legend: [1, 3, 4, 17, 7, 8, 5, 11, 9, 15, 13, 2, 14, 10, 12, 18, 16, 19, 6 ]
 # SL2P legend: [3, 2, 2, 0,  8, 7, 2, 7,  4, 1,  5,  3, 4,  6,  10, 0,  9,  0,  11]
-# Biome:       [7, 5, 6, 6,  2, 2, 6, 2,  1, 1,  1,  7, 2,  1,  1,  0   1,  0   7] 
+# Biome:       [7, 5, 6, 6,  2, 2, 6, 2,  1, 1,  1,  7, 2,  1,  1,  0   1,  0   7 ] 
 #
 # Revision history:  2022-Jul-05  Lixin Sun  Initial creation
 #                    2022-Sep-29  Lixin Sun  Fixed the issues related to the urban areas in CCRS 2020 LC map
 #                    2023-Jan-10  Lixin Sun  Added "IsBiome" option, which determines if a biome map should 
 #                                            be returned.
-#############################################################################################################  
+####################################################################################################################  
 def get_GlobLC(Year, IsBiome):
   '''Returns a proper land cover mosaic based on a given region and year.
 
@@ -185,19 +188,12 @@ def get_GlobLC(Year, IsBiome):
        Year(int or string): The target year;
        IsBiome(Boolean): Flag indicating if a biome map will be returned. Only when RF model is used'''
   #==========================================================================================================
-  # Choose a proper land cover image collection based on a given "Year"
+  # Choose a proper land cover image collection for Canada based on a given "Year"
   #==========================================================================================================
-  year = int(Year)
-  new_name = 'partition'
+  year     = int(Year)
+  new_name = 'partition'     
+  ccrs_LC  = get_CanLC(year)
 
-  if year <= 2017:
-    ccrs_LC = ee.ImageCollection('users/rfernand387/NA_NALCMS_2015_tiles') \
-              .map(lambda image: image.rename(new_name)) \
-              .mosaic()
-    
-  elif year > 2017:
-    ccrs_LC = ee.Image('USGS/NLCD_RELEASES/2020_REL/NALCMS').rename(new_name)
- 
   #==========================================================================================================
   # A function for mapping the class IDs of global land cover map to those of CCRS land cover map
   #==========================================================================================================
@@ -220,10 +216,10 @@ def get_GlobLC(Year, IsBiome):
   # Merge two land cover maps together with CCRS' land cover map as basis and then clip it
   #==========================================================================================================  
   #out_map = ccrs_LC.unmask(value = global_LC, sameFootprint = False)   #.clip(region)
-  out_map = global_LC.where(ccrs_LC.gte(0), ccrs_LC)
+  out_map = global_LC.where(ccrs_LC.gte(0), ccrs_LC)  
 
   #==========================================================================================================
-  # Biome is valid only when Random Forest model is used for extracting biophysical parameters
+  # Biome is valid only when Random Forest model is used for estimating biophysical parameters
   # The mapping from CCRS land cover ID to SL2P land cover will be conducted in "makeIndexLayer" function,
   # which is in "LEAFNets.py" 
   #==========================================================================================================
@@ -320,18 +316,26 @@ def get_GlobHeight():
 #############################################################################################################
 # Description: This function returns a global water mosaic.
 # 
-# Note: There is another global water map (called JRC Global Surface Water Mapping) in GEE. However it seems 
-#       that JRC and forest change water maps are highly consistent.      
-#
+# Note:        (1) In returned water map, land, temporary and permanent water are represented by 0, 1, 2, 
+#              respectively.
+#              (2) The value range of "occurrence" layer is between 0 and 100.
+# 
 # Revision history:  2022-Aug-25  Lixin Sun  Initial creation
-#                    2022-Sep-23  Lixin Sun  Ensure 1 and 0 represent water and land for every pixel
 #    
 #############################################################################################################  
 def get_GlobWater(OccThresh):
-  '''Returns a global water mosaic.
+  '''Returns a global water map.
      Args:
        OccThresh(int): A goven occurence threshold.'''
 
   JRC_water = ee.Image("JRC/GSW1_4/GlobalSurfaceWater")
+ 
+  binary_mask = JRC_water.select('occurrence').gt(OccThresh).add(1)  # 1 and 2 represent temporary and permanent water  
+  return binary_mask
 
-  return JRC_water.select('occurrence').unmask().gt(OccThresh)
+  water_map   = binary_mask.unmask().add(1)                          # 1, 2 and 3 represent land, temporary and permanent water 
+  
+  water_map   = water_map.where(water_map.eq(2), ee.Image.constant(0))   # 0, 1 and 3 represent temporary water, land and permanent water    
+  water_map   = water_map.where(water_map.eq(3), ee.Image.constant(2))   # 0, 1 and 2 represent temporary water, land and permanent water    
+  
+  return water_map.selfMask()

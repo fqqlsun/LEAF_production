@@ -1,5 +1,7 @@
 import ee 
 
+import GEEUtils as GU
+
 import numpy as np
 import pandas as pd
 import pickle
@@ -7,19 +9,6 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.tree import export_text
 pd.options.mode.chained_assignment = None  # default='warn'
 
-
-
-
-###################################################################################################
-# Description: This function returns a ee.Feature object that was generated with 'inKey' and its
-#              corresponding value in the given dictionary (inDict).
-# 
-# Revision history:  2023-Jan-19  Lixin Sun  Initial creation 
-#
-###################################################################################################
-def DictItem2Feature(inKey, inDict):
-  val = ee.Dictionary(inDict).get(inKey)
-  return ee.Feature(ee.Geometry.Point([0,0]), {'keys': inKey, 'value': val})
 
 
 
@@ -55,9 +44,10 @@ def uniqueValues(Image, Region, Thresh):
   #================================================================================================
   # Convert the histogram dictionary to a feature collection
   #================================================================================================
-  dict_keys    = ee.List(histogram.keys())  
-  histogram_FC = ee.FeatureCollection(dict_keys.map(lambda key: DictItem2Feature(key, histogram)))
-  
+  #dict_keys    = ee.List(histogram.keys())  
+  #histogram_FC = ee.FeatureCollection(dict_keys.map(lambda key: DictItem2Feature(key, histogram)))
+
+  histogram_FC = GU.Dict_to_FC(histogram)
   #================================================================================================
   # Filter the feature collection
   #================================================================================================

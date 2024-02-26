@@ -5,16 +5,23 @@ import math
 import eoAuxData as eoAD
 
 
+
 UNKNOWN_sensor = 0
 LS5_sensor     = 5
 LS7_sensor     = 7
 LS8_sensor     = 8
 LS9_sensor     = 9
+LS_sensor      = 19
 MAX_LS_CODE    = 20
 S2A_sensor     = 21
 S2B_sensor     = 22
+S1B_sensor     = 41
+S1B_sensor     = 42
 
-MOD_sensor     = 50
+
+MOD_sensor     = 50     # MODIS sensor
+HLS_sensor     = 100    # Harmonized Landsat and Sentinel-2
+
 
 TOA_ref        = 1
 sur_ref        = 2
@@ -39,6 +46,15 @@ neg_blu_score   = 'neg_blu_score'
 Texture_name    = 'texture'
 mosaic_ssr_code = 'ssr_code'
 PARAM_NDVI      = 'ndvi'
+
+
+
+# The integer code for the band types to be attached to images
+EXTRA_NONE  = 0
+EXTRA_ANGLE = 1
+EXTRA_NDVI  = 2
+EXTRA_CODE  = 3     # sensor code
+
 
 
 
@@ -88,6 +104,27 @@ SSR_META_DICT = {
              'NIR': 'B8A',
              'SW1': 'B11',
              'SW2': 'B12'},
+  'HLS_SR': {'NAME': 'HLS_SR',
+            'SSR_CODE': HLS_sensor,
+            'DATA_UNIT': sur_ref,
+            'GAIN': ee.Number(1),
+            'OFFSET': ee.Number(0),
+            'ALL_BANDS': ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
+            'OUT_BANDS': ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7'], 
+            'SIX_BANDS': ['B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
+            'NoA_BANDS': ['B4', 'B5', 'B6', 'B7'],
+            'GEE_NAME': 'NASA/HLS/HLSL30/v002',
+            "CLOUD": 'CLOUD_COVERAGE',
+            "SZA": 'MEAN_SUN_ZENITH_ANGLE',
+            "SAA": 'MEAN_SUN_AZIMUTH_ANGLE', 
+            "VZA": 'MEAN_VIEW_ZENITH_ANGLE',            
+            "VAA": 'MEAN_VIEW_AZIMUTH_ANGLE',
+            'BLU': 'B2',
+            'GRN': 'B3',
+            'RED': 'B4',
+            'NIR': 'B5',
+            'SW1': 'B6',
+            'SW2': 'B7'},
 
   'L8_SR': {'NAME': 'L8_SR',
             'SSR_CODE': LS8_sensor,
@@ -123,8 +160,8 @@ SSR_META_DICT = {
             'GEE_NAME': 'LANDSAT/LC09/C02/T1_L2',
             "CLOUD": 'CLOUD_COVER',
             "SZA": 'SUN_ELEVATION',
-            "VZA": 'SUN_ELEVATION',
             "SAA": 'SUN_AZIMUTH', 
+            "VZA": 'SUN_ELEVATION',            
             "VAA": 'SUN_AZIMUTH',
             'BLU': 'SR_B2',
             'GRN': 'SR_B3',
@@ -289,6 +326,7 @@ def parse_ImgID(ImgID_str):
   ssr_code = UNKNOWN_sensor
   tile_name = ''
   acq_date  = ''
+  valid_ID = True
 
   if len(tokens) > 2:
     # Determine the sensor type based on the first token
@@ -301,6 +339,8 @@ def parse_ImgID(ImgID_str):
         ssr_code = LS7_sensor  
       elif tokens[0].find('5'):
         ssr_code = LS5_sensor
+      else:
+        valid_ID = False
 
       # Determine tile name and acquisition date
       tile_name = tokens[1] 
@@ -310,15 +350,15 @@ def parse_ImgID(ImgID_str):
       tile_name = tokens[2]
       acq_date  = tokens[0][0:8]
   
-  return ssr_code, tile_name, acq_date
+  return ssr_code, tile_name, acq_date, valid_ID
 
 
 
 
 
 #############################################################################################################
-# Description: This function returns a key for retrieving a sensor data dictionary from "SSR_META_DICT" based
-#              on a sensor code and a data unit.
+# Description: This function returns a key string for retrieving a sensor data dictionary from 
+#              "SSR_META_DICT" based on given sensor code and data unit.
 #             
 # Revision history:  2022-Nov-20  Lixin Sun  Initial creation
 #
@@ -347,13 +387,12 @@ def get_SsrData_key(SsrCode, DataUnit):
 
 
 
-###################################################################################################
-# Description: This function returns a cloud coverage percentage based on a given region and 
-#              sensor type code.
+#############################################################################################################
+# Description: This function returns a cloud coverage percentage based on a given region and sensor data.
 #
 # Revision history:  2021-June-09  Lixin Sun  Initial creation
 #
-###################################################################################################
+#############################################################################################################
 def get_cloud_rate(SsrData, Region):
   '''Returns a cloud coverage percentage based on the given location and sensor type. 
      Args:
@@ -454,25 +493,13 @@ def apply_gain_offset(Image, SsrData, MaxRef, all_bands):
 
 
 
-###################################################################################################
-# Description: This function returns a list of standard band names to be used in a classification
-#
-# Revision history:  2021-Jun-30  Lixin Sun  Initial creation
-###################################################################################################
-def get_STD_classf_bands():
-  return ['green', 'red', 'nir', 'swir1', 'swir2', eoAD.NightLight_name, eoAD.RoadDensity_name]
-
-
-
-
-
-###################################################################################################
+#############################################################################################################
 # Description: This function attaches a date band to the given ee.Image object.
 #
 # Revision history:  2020-Juy-10  Lixin Sun  Initial creation
 #                    2021-May-10  Lixin Sun  Converted from Lixin's JavaScript code
 #
-###################################################################################################
+#############################################################################################################
 def attach_Date(inImg):
   '''Attaches an image acquisition date band to a given image
   Args:
@@ -489,7 +516,7 @@ def attach_Date(inImg):
 
 
 
-###################################################################################################
+#############################################################################################################
 # Description: This function adds three angle bands to a satellite SURFACE reflectance image
 #
 # Note:        This function is mainly used by LEAF tool
@@ -497,33 +524,70 @@ def attach_Date(inImg):
 # Revision history:  2021-May-19  Lixin Sun  Initial creation
 #                    2021-May-10  Lixin Sun  Converted from Lixin's JavaScript code
 #                    2022-Jun-22  Lixin Sun  Removed scaling factor
+#                    2023-Nov-30  Lixin Sun  Fixed a bug for Landsat SR case and added solution 
+#                                            for harminized Landsat Sentinel-2 images
 #
-###################################################################################################
-def attach_S2AngleBands(Image, SsrData):
+#############################################################################################################
+def attach_AngleBands(Image, SsrData):
   '''Attaches three angle bands to a satallite SURFACE REFLECTANCE image
   Args:    
     Image(ee.Image): A given Sentinel-2 surface reflectance image;
     SsrData(Dictionary): A Dictionary containing metadata associated with a sensor and data unit.'''  
-  rad     = ee.Number(math.pi/180.0)  
-
-  vza_rad = ee.Image.constant(Image.getNumber(SsrData['VZA']).multiply(rad))
-  sza_rad = ee.Image.constant(Image.getNumber(SsrData['SZA']).multiply(rad))
-
-  raa     = Image.getNumber(SsrData['SAA']).subtract(Image.getNumber(SsrData['VAA']))
-  raa_rad = ee.Image.constant(raa.multiply(rad))
+  rad      = ee.Number(math.pi/180.0)  
+  ssr_code = SsrData['SSR_CODE']
   
-  return (Image.addBands(vza_rad.cos().rename(['cosVZA'])) \
-               .addBands(sza_rad.cos().rename(['cosSZA'])) \
-               .addBands(raa_rad.cos().rename(['cosRAA'])))               
+  #================================================================================================
+  # Define a inner function for attaching imaging geometry angle bands to a S2 image
+  #================================================================================================
+  def attach_S2_angle_bands():
+    vza = Image.getNumber(SsrData['VZA'])
+    sza = Image.getNumber(SsrData['SZA'])    
+
+    vza_rad = ee.Image.constant(vza).multiply(rad)
+    sza_rad = ee.Image.constant(sza).multiply(rad)
+
+    raa     = Image.getNumber(SsrData['SAA']).subtract(Image.getNumber(SsrData['VAA']))
+    raa_rad = ee.Image.constant(raa.multiply(rad))
+    
+    return (Image.addBands(vza_rad.cos().rename(['cosVZA'])) \
+                 .addBands(sza_rad.cos().rename(['cosSZA'])) \
+                 .addBands(raa_rad.cos().rename(['cosRAA'])))               
+
+  #================================================================================================
+  # Define a inner function for attaching imaging geometry angle bands to a LS or HLS image
+  #================================================================================================ 
+  def attach_LS_HLS_angle_bands():
+    if ssr_code < MAX_LS_CODE:   # Landsat images
+      sza_rad = Image.select('SZA').multiply(0.01).multiply(rad)
+      vza_rad = Image.select('VZA').multiply(0.01).multiply(rad)
+      saa     = Image.select('SAA').multiply(0.01)
+      vaa     = Image.select('VAA').multiply(0.01) 
+      raa_rad = saa.subtract(vaa).multiply(rad)
+    else:  # HLS images
+      sza_rad = Image.select('SZA').multiply(rad)
+      vza_rad = Image.select('VZA').multiply(rad)
+      saa     = Image.select('SAA')
+      vaa     = Image.select('VAA') 
+      raa_rad = saa.subtract(vaa).multiply(rad)
+
+    return (Image.addBands(vza_rad.cos().rename(['cosVZA'])) \
+                 .addBands(sza_rad.cos().rename(['cosSZA'])) \
+                 .addBands(raa_rad.cos().rename(['cosRAA'])))               
   
+  ee_ssr_code = ee.Number(ssr_code)
+  condition   = ee_ssr_code.lt(MAX_LS_CODE).Or(ee_ssr_code.eq(HLS_sensor))
+
+  return ee.Algorithms.If(condition, attach_LS_HLS_angle_bands(), attach_S2_angle_bands())
 
 
-###################################################################################################
+
+
+#############################################################################################################
 # Description: This function attach a NDVI band to a given image.
 #  
 # Revision history:  2022-Aug-10  Lixin Sun  Initial creation
 #
-###################################################################################################
+#############################################################################################################
 def attach_NDVIBand(Image, SsrData):
   '''Attaches three angle bands to a satallite SURFACE REFLECTANCE image
   Args:
@@ -541,12 +605,12 @@ def attach_NDVIBand(Image, SsrData):
 
 
 
-###################################################################################################
+#############################################################################################################
 # Description: This function returns a month name string according to a month number integer.
 #  
 # Revision history:  2022-Aug-10  Lixin Sun  Initial creation
 #
-###################################################################################################
+#############################################################################################################
 def get_MonthName(month_numb):
   month = int(month_numb)
 
@@ -559,12 +623,12 @@ def get_MonthName(month_numb):
 
 
 
-###################################################################################################
+#############################################################################################################
 # Description: This function normalizes the spectral values with the sum of corresponding spectrum. 
 #
 # Revision history:  2022-Jun-10  Lixin Sun  Initial creation
 #
-###################################################################################################
+#############################################################################################################
 def normalize_pixValues(Image, ValScale):
   '''Attaches three angle bands to a satallite SURFACE REFLECTANCE image
   Args:
@@ -583,13 +647,13 @@ def normalize_pixValues(Image, ValScale):
 
 
 
-###################################################################################################
+#############################################################################################################
 # Description: This function creates a spectral angle map based on two given ee.Image objects
 #              covering the same ground area. 
 #
 # Revision history:  2022-Jun-10  Lixin Sun  Initial creation
 #
-###################################################################################################
+#############################################################################################################
 def CVA_SAM(Image1, Image2, ValScale):
   '''Attaches three angle bands to a satallite SURFACE REFLECTANCE image
   Args:
@@ -622,12 +686,12 @@ def CVA_SAM(Image1, Image2, ValScale):
 
 
 
-###################################################################################################
+#############################################################################################################
 # Description: This function returns a superpixel ee.Image object corresponding to a give image
 #
 # Revision history:  2022-Apr-01  Lixin Sun  Initial creation
 #
-###################################################################################################
+#############################################################################################################
 def superpixel_img(inImage): 
   all_bands = inImage.bandNames().getInfo()
 

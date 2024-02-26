@@ -76,6 +76,65 @@ def mask_from_MODIS(Image, SsrData, MODIS_mosaic):
 
 
 
+#############################################################################################################
+# Description: Returns a clear-sky mask (1 indicates cloud/cloud shadow) for a given Sentinel-2 image
+#
+# Revision history:  2023-Dec-02  Lixin Sun  Created for usable in the "map" function
+# 
+#############################################################################################################
+def S2_ClearMask(inImg, inUnit):
+  # For Sentinel-2, only two bands, 'QA60' and 'SCL', include mask information  
+  qa  = inImg.select(['QA60']).uint16()
+
+  scl = ee.Image.constant(0)
+  scl = scl.where(ee.Number(inUnit).eq(2), inImg.select(['SCL']))
+
+  cloud  = ee.Image.constant(1 << 10)   # Opaque clouds
+  cirrus = ee.Image.constant(1 << 11)   # Cirrus clouds
+
+  mask = qa.bitwiseAnd(cloud).Or(qa.bitwiseAnd(cirrus))
+  return mask.Or(scl.eq(3)).Or(scl.eq(8)).Or(scl.eq(9)).Or(scl.eq(10))
+
+  
+
+#############################################################################################################
+# Description: Returns a clear-sky mask (1 indicates cloud/cloud shadow) for a given Landsat image
+#
+# Revision history:  2023-Dec-02  Lixin Sun  Created for usable in the "map" function
+# 
+#############################################################################################################
+def LS_ClearMask(inImg):
+  # For Landsat series images, only 'QA_PIXEL' band includes mask information  
+  qa = inImg.select(['QA_PIXEL']).uint16()
+  dilated = ee.Image.constant(1 << 1)
+  cirrus  = ee.Image.constant(1 << 2)
+  cloud   = ee.Image.constant(1 << 3)
+  shadow  = ee.Image.constant(1 << 4)
+  
+  return qa.bitwiseAnd(dilated).Or(qa.bitwiseAnd(cirrus)).Or(qa.bitwiseAnd(cloud)).Or(qa.bitwiseAnd(shadow))
+      
+
+
+#############################################################################################################
+# Description: Returns a clear-sky mask (1 indicates cloud/cloud shadow) for a given HLS image
+#
+# Revision history:  2023-Dec-02  Lixin Sun  Created for usable in the "map" function
+# 
+#############################################################################################################
+def HLS_ClearMask(inImg):
+  # For a harminized Landsat Sentinel image, only 'Fmask' band includes mask information  
+  qa = inImg.select(['Fmask']).uint8()            
+  cloud  = ee.Image.constant(1 << 1)
+  AdjCS  = ee.Image.constant(1 << 2)
+  shadow = ee.Image.constant(1 << 3) 
+  AOT    = ee.Image.constant(1 << 7)
+
+  return qa.bitwiseAnd(cloud).Or(qa.bitwiseAnd(shadow))  #.Or(qa.bitwiseAnd(AdjCS)).Or(qa.bitwiseAnd(AOT))
+  #return qa.bitwiseAnd(cloud).Or(qa.bitwiseAnd(AdjCS)).Or(qa.bitwiseAnd(shadow)).Or(qa.bitwiseAnd(AOT))
+
+
+
+
 
 #############################################################################################################
 # Description: This function extracts a type of mask from the specific bands in a given image. The masks were
@@ -87,7 +146,8 @@ def mask_from_MODIS(Image, SsrData, MODIS_mosaic):
 #
 # Revision history:  2022-Jun-22  Lixin Sun  Initial creation
 #                    2023-Jan-11  Lixin Sun  Added MODIS sensor code option and MODIS mosaic image.
-#  
+#                    2023-Nov-30  Lixin Sun  Added mask option for harmonized Landsat and Sentinel-2 images
+#
 #############################################################################################################
 def Img_VenderMask(Image, SsrData, MaskType, MODIS_mosaic = None):
   '''This function extracts a specified mask from the intrinsic QA band of a given Landsat image.
@@ -117,82 +177,54 @@ def Img_VenderMask(Image, SsrData, MaskType, MODIS_mosaic = None):
           .Or(qa.bitwiseAnd(cloud)).Or(qa.bitwiseAnd(snow)).Or(qa.bitwiseAnd(cloud2)).Or(qa.bitwiseAnd(snow2))
     
     return mask
-  elif ssr_code > Img.MAX_LS_CODE:  # For Sentinel-2 image
-    # For Sentinel-2, only two bands, 'QA60' and 'SCL', include mask information  
-    qa  = Image.select(['QA60']).uint16()
-    scl = Image.select(['SCL']) if data_unit == 2 else qa.multiply(0)
-  
+  elif ssr_code > Img.MAX_LS_CODE and ssr_code < Img.MOD_sensor:  # For Sentinel-2 image
     if mask_type == CLEAR_MASK:
-      cloud  = ee.Image.constant(1 << 10)   # Opaque clouds
-      cirrus = ee.Image.constant(1 << 11)   # Cirrus clouds
-
-      mask = qa.bitwiseAnd(cloud).Or(qa.bitwiseAnd(cirrus))
-      mask = mask.Or(scl.eq(3)).Or(scl.eq(8)).Or(scl.eq(9)).Or(scl.eq(10))
-
-      if MODIS_mosaic != None:        
-        modis_mask = mask_from_MODIS(Image, SsrData, MODIS_mosaic)
-        mask = mask.And(modis_mask)
-      
-      return mask
-    elif mask_type == WATER_MASK:
-      return scl.eq(6)
-    elif mask_type == SNOW_MASK:
-      return scl.eq(11)
-    elif mask_type == SATU_MASK:
-      return scl.eq(1)
+      return S2_ClearMask(Image, data_unit)
     else:
-      return qa.multiply(ee.Image(0))
-  else:   # For both BOA and TOA reflectance data of Landsat 5/7/8/9
-    # For Landsat, only one band, 'QA_PIXEL', includes mask information
-    '''
-      =================================================
-       TOA reflectance of LS 5/7/8/9
-      =================================================
-      Bit 1: Dilated Cloud
-        0: Cloud is not dilated or no cloud
-        1: cloud dilation
-      Bit 2: Unused
-      Bit 3: Cloud
-        0: Cloud confidence is not high
-        1: High confidence cloud
-      Bit 4: Cloud Shadow
-        0: Cloud Shadow Confidence is not high
-        1: High confidence cloud shadow
+      scl = ee.Image.constant(0)
+      scl = scl.where(ee.Number(data_unit).eq(2), Image.select(['SCL']))
 
-      =================================================
-       BOA reflectance of LS 5/7/8/9
-      =================================================
-      Bit 1: Dilated Cloud
-      Bit 2: Cirrus (high confidence)
-      Bit 3: Cloud
-      Bit 4: Cloud Shadow
-    '''
-    qa = Image.select(['QA_PIXEL']).uint16()
-    dilated = ee.Image.constant(1 << 1)
-    cirrus  = ee.Image.constant(1 << 2)
-    cloud   = ee.Image.constant(1 << 3)
-    shadow  = ee.Image.constant(1 << 4)
-    snow    = ee.Image.constant(1 << 5)
-    water   = ee.Image.constant(1 << 7)
-
+      if mask_type == WATER_MASK:
+        return scl.eq(6)
+      elif mask_type == SNOW_MASK:
+        return scl.eq(11)
+      elif mask_type == SATU_MASK:
+        return scl.eq(1)
+      else:
+        return ee.Image.constant(0)
+      
+  elif ssr_code < Img.MAX_LS_CODE:   # For both BOA and TOA reflectance data of Landsat 5/7/8/9
+    # For Landsat, only 'QA_PIXEL' band includes mask information
     if mask_type == CLEAR_MASK:
-      mask = qa.bitwiseAnd(dilated).Or(qa.bitwiseAnd(cirrus)).Or(qa.bitwiseAnd(cloud)).Or(qa.bitwiseAnd(shadow))
-      
-      if MODIS_mosaic != None:        
-        modis_mask = mask_from_MODIS(Image, SsrData, MODIS_mosaic)
-        mask = mask.And(modis_mask)
-
-      return mask
-    elif mask_type == WATER_MASK:
-      return qa.bitwiseAnd(water)   # Bit 7: Water
-    elif mask_type == SNOW_MASK:
-      return qa.bitwiseAnd(snow)    # Bit 5: Snow
-    #elif mask_type == SATU_MASK:
-      #sa = Image.select(['QA_RADSAT']).uint8()
-      #return sa.bitwiseAnd(127)
-      #return sa.multiply(0)
+      return LS_ClearMask(Image)
+    
     else:
-      return qa.multiply(0)
+      qa = Image.select(['QA_PIXEL']).uint16()
+      if mask_type == WATER_MASK:
+        water = ee.Image.constant(1 << 7)
+        return qa.bitwiseAnd(water)   # Bit 7: Water
+      elif mask_type == SNOW_MASK:
+        snow = ee.Image.constant(1 << 5)
+        return qa.bitwiseAnd(snow)    # Bit 5: Snow
+      elif mask_type == SATU_MASK:
+        sa = Image.select(['QA_RADSAT']).uint8()
+        mask = sa.bitwiseOr(0)
+        return mask.where(mask.gt(0), ee.Image.constant(1))
+        
+  elif ssr_code == Img.HLS_sensor:    
+    if mask_type == CLEAR_MASK:
+      return HLS_ClearMask(Image)
+    else:
+      qa = Image.select(['Fmask']).uint8()            
+      if mask_type == WATER_MASK:
+        water = ee.Image.constant(1 << 5)
+        return qa.bitwiseAnd(water)   # Bit 7: Water
+      elif mask_type == SNOW_MASK:
+        snow   = ee.Image.constant(1 << 4)
+        return qa.bitwiseAnd(snow)    # Bit 5: Snow        
+      else:
+        return ee.Image.constant(0)    
+    
 
 
 
@@ -435,6 +467,11 @@ def Img_ValidMask(Image, SsrData, MaxRef):
   satur_mask = Img_VenderMask(Image, SsrData, SATU_MASK)
   value_mask = Img_ValueMask (Image, SsrData, MaxRef)
 
+  #print('clear_mask bands = ', clear_mask.bandNames().getInfo())
+  #print('satue_mask bands = ', satur_mask.bandNames().getInfo())
+  #print('value_mask bands = ', value_mask.bandNames().getInfo())
+
+
   return clear_mask.Or(satur_mask).Or(value_mask).rename(['ValidMask'])
   #return clear_mask.Or(value_mask).rename(['ValidMask'])
 
@@ -472,3 +509,17 @@ def Can_land_mask(Year, mask_water):
   mask = mask.focalMin(kernel = box, iterations = 1).focalMax(kernel = box, iterations = 1)
 
   return mask.unmask()
+
+
+
+
+##############################################################################################################
+# Description: This function extracts a water map from Global water map based on boundary of a given image.
+#
+##############################################################################################################
+def WaterMask(img):
+  GL_water = eoAD.get_GlobWater(10)
+  GL_water = GL_water.where(GL_water.gt(0), ee.Image.constant(1))
+
+  water_mask = img.select([0]).multiply(0)
+  return water_mask.add(GL_water)
