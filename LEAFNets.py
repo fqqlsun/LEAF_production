@@ -1522,21 +1522,34 @@ def Is_export_required(InquireStr, ProductList):
 # Revision history:  2023-Nov-26  Lixin Sun  Initial creation 
 #
 #############################################################################################################
-def apply_SL2P(inRegion, inStart, inStop, exe_param_dict, task_list = None):
+def apply_SL2P(inRegion, inStart, inStop, exe_Params, task_list):
   '''Produces LEAF products for one or multiple tiles in CANADA
 
     Args:
       inRegion(ee.Geometry): A given spatial region
       inStart(string or ee.Date): The start date of a specified time window
       inStop(string or ee.Date): The stop date of a specified time window
-      func_Param_dict({}): A dictionary containing all input parameters for one execution;
+      exe_Params(Dictionary): A dictionary containing all input parameters for one execution;
       task_list([]): a list for storing the exporting tasks.'''  
   
-  SsrData     = Img.SSR_META_DICT[exe_param_dict['sensor']]
-  year        = int(exe_param_dict['year'])
-  SceneID     = exe_param_dict['scene_ID']        # An optional ID of a single scene/granule 
-  ProductList = exe_param_dict['prod_names']      # A list of products to be generated
+  #==========================================================================================================
+  # Obtain some required parameters
+  #==========================================================================================================
+  SsrData     = Img.SSR_META_DICT[exe_Params['sensor']]
+  year        = int(exe_Params['year'])
+  SceneID     = exe_Params['scene_ID']      # An optional ID of a single scene/granule 
+  ProductList = exe_Params['prod_names']    # A list of products to be generated
+  
+  #==========================================================================================================
+  # Obtain a global Land cover classification map and export it as necessary 
+  #==========================================================================================================
+  ClassImg = eoAD.get_GlobLC(year, False).uint8().clip(inRegion)
+  if Is_export_required('parti', ProductList):
+    export_ClassImg(ClassImg, exe_Params, inRegion, task_list)
 
+  #==========================================================================================================
+  # If scene_ID is provided, ontain its footprint as ROI
+  #==========================================================================================================
   if len(SceneID) > 5: 
     # Obtain the specified single scene and its footprint
     ssr_code, tile_str, refer_date_str, valid_ID = Img.parse_ImgID(SceneID)  # parse the given image ID string
@@ -1546,22 +1559,18 @@ def apply_SL2P(inRegion, inStart, inStop, exe_param_dict, task_list = None):
       image  = Img.apply_gain_offset(image, SsrData, 1, False)  # convert SR to range between 0 and 1
       image  = Img.attach_AngleBands(image, SsrData)            # attach three imaging angle bands
       region = ee.Image(image).geometry()
-  
-  else: # need to generate a mosaic based on the given spatial region and time window 
-    region = inRegion    
-    mosaic = Mosaic.LEAF_Mosaic(SsrData, region, inStart, inStop, True)   
+      
+      SL2P_separate_params(exe_Params, image, region, SsrData, ClassImg, task_list)
+
+  else: 
+    mosaic = Mosaic.LEAF_Mosaic(SsrData, inRegion, inStart, inStop, True)   
     print("<apply_SL2P> The band names in mosiac image = ", mosaic.bandNames().getInfo())
+    
+    SL2P_separate_params(exe_Params, mosaic, inRegion, SsrData, ClassImg, task_list)
+
     if Is_export_required('date', ProductList):
-      export_DateImg(mosaic, exe_param_dict, region, task_list)
+      export_DateImg(mosaic, exe_Params, inRegion, task_list)
         
-  #==========================================================================================================
-  # Export the classification map as needed. 
-  #==========================================================================================================
-  ClassImg = eoAD.get_GlobLC(year, False).uint8().clip(region)
-  if Is_export_required('parti', ProductList):
-    export_ClassImg(ClassImg, exe_param_dict, region, task_list)
-  
-  SL2P_separate_params(exe_param_dict, mosaic, region, SsrData, ClassImg, task_list)
 
 
 
@@ -1573,31 +1582,45 @@ def apply_SL2P(inRegion, inStart, inStop, exe_param_dict, task_list = None):
 # Revision history:  2023-Nov-26  Lixin Sun  Initial creation 
 #
 #############################################################################################################
-def tile_LEAF_production(exe_param_dict, task_list):
+def tile_LEAF_production(exe_Params, task_list):
   '''Produces LEAF products for one or multiple tiles in CANADA
 
     Args:
-       exe_param_dict(dictionary): A dictionary storing all necessary parameters for an execution;
+       exe_Params(dictionary): A dictionary storing all necessary parameters for an execution;
        task_list([]): a list for storing the exporting tasks.'''  
   
+  #==========================================================================================================
+  # Validate some input parameters
+  #==========================================================================================================
+  all_keys  = exe_Params.keys()    
+  all_valid = True if 'tile_names' in all_keys and 'months' in all_keys else False
+  
+  if all_valid == False:
+    print('<tile_composite> !!!!!!!! Required parameters are not available !!!!!!!!')
+    return task_list
+  
+  #==========================================================================================================
   # get the image acquisition year 
-  year = int(exe_param_dict['year'])
+  #==========================================================================================================
+  year = int(exe_Params['year'])
 
+  #==========================================================================================================
   # Produce porducts for eath tile specified in the list of "exe_param_dict['tile_names']"
-  for tile in exe_param_dict['tile_names']:  
-    exe_param_dict['tile_name'] = tile   # Add an element with 'tile_name' as key to 'exe_param_dict'    
+  #==========================================================================================================
+  for tile in exe_Params['tile_names']:  
+    exe_Params['tile_name'] = tile   # Add an element with 'tile_name' as key to 'exe_param_dict'    
 
     region = eoTG.PolygonDict.get(tile)
     region = eoTG.expandSquare(region, 0.02)
 
     # Produce monthly (or seasonal) porducts 
-    for month in exe_param_dict['months']:
+    for month in exe_Params['months']:
       # Add an element with 'month' as key to 'exe_param_dict'  
-      exe_param_dict['month'] = month     
+      exe_Params['month'] = month     
       start, stop = IS.month_range(year, month) if month > 0 and month < 13 else IS.summer_range(year)
 
       # Produce vegetation parameter maps and export them in a specified way (a compact image or separate images)      
-      out_style = str(exe_param_dict['export_style']).lower()
+      out_style = str(exe_Params['export_style']).lower()
       if out_style.find('comp') > -1:
         print('\n<tile_LEAF_production> Generate and export biophysical maps in one file .......')
         #out_params = compact_params(mosaic, SsrData, ClassImg)
@@ -1608,7 +1631,7 @@ def tile_LEAF_production(exe_param_dict, task_list):
       else: 
         # Produce and export monthly or seasonal biophysical parameetr maps
         print('\n<tile_LEAF_production> Generate and export separate biophysical maps......')        
-        apply_SL2P(region, start, stop, exe_param_dict, task_list)    
+        apply_SL2P(region, start, stop, exe_Params, task_list)    
         
   return task_list
 
@@ -1627,38 +1650,31 @@ def tile_LEAF_production(exe_param_dict, task_list):
 # Revision history:  2023-Nov-26  Lixin Sun  Initial creation 
 #
 #############################################################################################################
-def custom_LEAF_production(exe_param_dict):
+def custom_LEAF_production(exe_Params, task_list):
   '''Produces LEAF products for one or multiple tiles in CANADA
 
     Args:
-       exe_param_dict({}): A dictionary storing all input parameters for one execution;
+       exe_Params(dictionary): A dictionary storing all input parameters;
        task_list([]): a list for storing the exporting tasks.'''  
   
   #==========================================================================================================
-  # 
+  # Validate some input parameters
   #==========================================================================================================
-  region     = exe_param_dict['custom_region']  
-  start_date = exe_param_dict['start_date']    # customized start date
-  stop_date  = exe_param_dict['stop_date']     # customized stop date
-
-  exe_param_dict['tile_name'] = 'custom_region'
+  is_valid = True if eoParams.is_custom_region(exe_Params) or eoParams.is_custom_window(exe_Params) else False
   
-  if len(start_date) < 1 or len(stop_date) < 1: 
-    # there is no valid customized time window, so produce monthly or seasonal products over a user-defined region
-    for month in exe_param_dict['months']:
-      # Add an element with 'month' as key to 'fun_Param_dict'  
-      exe_param_dict['month'] = month
+  if is_valid == False:
+    print('<custom_LEAF_production> !!!!!!!! Required parameters are not available !!!!!!!!')
+    return task_list
+  
+  #==========================================================================================================
+  # Generate vegetation biophysical parameter maps 
+  #==========================================================================================================
+  region      = eoParams.get_spatial_region(exe_Params)
+  start, stop = eoParams.get_time_window(exe_Params)
 
-      # Generate a mosaic image for a month with either S2 or LS8/9 data 
-      year = int(exe_param_dict['year'])
-      start, stop = IS.month_range(year, month) if month > 0 and month < 13 else IS.summer_range(year)      
-      apply_SL2P(region, start, stop, exe_param_dict)
-    
-  else:
-    # there is a valid customized time window, so generate product based on customized time window
-    apply_SL2P(region, start_date, stop_date, exe_param_dict)
-
-
+  exe_Params['tile_name'] = 'custom_region'
+  
+  apply_SL2P(region, start, stop, exe_Params, task_list)
 
 
 
@@ -1699,7 +1715,7 @@ def custom_LEAF_production(exe_param_dict):
 #                                            of the compact image. 
 #
 #############################################################################################################
-def LEAF_production(inExeParamDict):
+def LEAF_production(inExeParams):
   '''Produces monthly biophysical parameter maps for a number of tiles and months.
 
      Args:
@@ -1708,29 +1724,36 @@ def LEAF_production(inExeParamDict):
   #==========================================================================================================
   # Standardize the given execution parameters
   #==========================================================================================================
-  exe_param_dict = eoParams.get_LEAF_params(inExeParamDict)
+  exe_Params = eoParams.get_LEAF_params(inExeParams)
 
   #==========================================================================================================
-  # Three Loops through the combinations between the elements of the vectors with 'tile_names', 'months' and
-  # 'prod_names' as keys in 'exe_Param_dict'.
-  # Note that, for the same month, one mosaic can be reused for generating different products. 
+  # Deal with three scenarios: customized spatial region, customized compositing period and regular tile 
   #==========================================================================================================
   task_list = []
 
-  if exe_param_dict.get('custom_region') == None and len(exe_param_dict.get('scene_ID')) < 2:    
-    #'custom region" has higher priority than 'tile_names'
-    print('\n<LEAF_production> Calling LEAF production for tiles......')
-    tile_LEAF_production(exe_param_dict, task_list)
+  if eoParams.is_custom_region(exe_Params) == True:   
+    # There is a customized spatial region specified in Parameter dictionary 
+    print('\n<Mosaic_production> Calling custom_composite function......')
+    custom_LEAF_production(exe_Params, task_list)
+    
+  elif eoParams.is_custom_window(exe_Params) == True:
+    # There is a customized compositing period specified in Parameter dictionary 
+    print('\n<Mosaic_production> Calling custom_composite function......')
+    custom_LEAF_production(exe_Params, task_list)
 
-    return task_list
   else: 
-    print('\n<LEAF_production> Calling LEAF production for user-defined region......')
-    custom_LEAF_production(exe_param_dict)
+    # There is neither customized region nor customized compositing period defined in Parameter dictionary 
+    print('\n<Mosaic_production> Calling tile_composite function......')
+    tile_LEAF_production(exe_Params, task_list)  
+    
+  return task_list
 
 
 
 
-'''
+
+
+
 
 Ottawa_region = ee.Geometry.Polygon([[-75.96625073107825,45.260057944138275], [-75.73210461291418,45.260057944138275],
                                      [-75.73210461291418,45.39136958969806],  [-75.96625073107825,45.39136958969806], 
@@ -1739,19 +1762,18 @@ Ottawa_region = ee.Geometry.Polygon([[-75.96625073107825,45.260057944138275], [-
 exe_params = {
     'sensor': 'S2_SR',         # Image type string. 'S2_SR' or 'L8_SR' means using Sentinel2 or Landsat-8, respectively 
     'year': 2023,              # An integer representing image acquisition year    
-    'months': [9],             # A list of integers represening monthes (a negative value means peak season)    
+    'months': [8],             # A list of integers represening monthes (a negative value means peak season)    
     'prod_names': ['LAI', 'fAPAR','fCOVER','Albedo'],  # A list of parameter type strings
-    'tile_names': ['tile14'],        # A list of tile names (defined using CCRS' tile griding system)    
-    'spatial_scale': 200,                 # Exporting spatial resolution in meter
+    'tile_names': ['tile55'],            # A list of tile names (defined using CCRS' tile griding system)    
+    'spatial_scale': 10,                 # Exporting spatial resolution in meter
     'out_location': 'drive',             # Exporting location ('drive', 'storage' or 'asset') 
     'GCS_bucket': 's2_leaf_2021_date',   # An unique bucket name on Google Cloud Storage (must be created beforehand)
     'out_folder': 'Ottawa_S2_LEAF_2023', # The directory name on Google Drive
     'export_style': 'separate',          # Normally leave it as it is
-    #'custom_region': Ottawa_region,
+    'custom_region': Ottawa_region,
     #'start_date': '2023-07-15',
     #'stop_date': '2023-08-15',
     #'scene_ID': 'LC08_016029_20230814'
 }
 
 LEAF_production(exe_params)
-'''

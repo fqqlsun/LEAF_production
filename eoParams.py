@@ -1,3 +1,8 @@
+import ee 
+
+import ImgSet as IS
+import eoTileGrids as eoTG
+
 
 #############################################################################################################
 # Description: Define a default execution parameter dictionary. 
@@ -12,16 +17,18 @@ DefaultParams = {
     'nbYears': 1,                # positive int for annual product, or negative int for monthly product
     'months': [5,6,7,8,9,10],    # A list of integers represening one or multiple monthes     
     'tile_names': ['tile55'],    # A list of (sub-)tile names (defined using CCRS' tile griding system) 
-    'prod_names': ['mosaic'],    #['mosaic', 'LAI', 'fCOVER', ]
+    'prod_names': ['mosaic'],    # ['mosaic', 'LAI', 'fCOVER', ]
     'out_location': 'drive',     # Exporting location ('drive', 'storage' or 'asset') 
-    'spatial_scale': 30,        # Exporting spatial resolution
+    'spatial_scale': 30,         # Exporting spatial resolution
     'GCS_bucket': '',            # An unique bucket name on Google Cloud Storage
     'out_folder': '',            # the folder name for exporting
     'export_style': 'separate',
     'start_date': '',
-    'stop_date':  '',
-    'scene_ID':'',
-    'projection': 'EPSG:3979'}
+    'end_date':  '',
+    'scene_ID': '',
+    'projection': 'EPSG:3979',
+    'CloudScore': False
+}
 
 
 
@@ -42,8 +49,8 @@ def get_LEAF_params(inParams):
 # Description: Obtain a parameter dictionary for Mosaic tool
 #############################################################################################################
 def get_mosaic_params(inParams):
-  out_Params = update_default_params(inParams)      # Modify default parameter dictionary with a given one
-  out_Params['prod_names'] = ['mosaic']  # Of course, product name should be always 'mosaic'
+  out_Params = update_default_params(inParams)  # Modify default parameter dictionary with a given one
+  out_Params['prod_names'] = ['mosaic']         # Of course, product name should be always 'mosaic'
 
   return out_Params  
 
@@ -53,12 +60,10 @@ def get_mosaic_params(inParams):
 # Description: Obtain a parameter dictionary for land cover classification tool
 #############################################################################################################
 def get_LC_params(inParams):
-  out_Params = update_default_params(inParams)      # Modify default parameter dictionary with a given one
-  out_Params['prod_names'] = ['mosaic']  # Of course, product name should be always 'mosaic'
+  out_Params = update_default_params(inParams) # Modify default parameter dictionary with a given one
+  out_Params['prod_names'] = ['mosaic']        # Of course, product name should be always 'mosaic'
 
   return out_Params 
-
-
 
 
 
@@ -80,6 +85,89 @@ def update_default_params(inParams):
   # For each key in the given dictionary, modify corresponding "key:value" pair
   for ikey in inKeys:
     out_Params[ikey] = inParams.get(ikey)
+  
+  # Ensure "CloudScore" is False if sensor type is not Sentinel-2 data
+  sensor_type = out_Params['sensor'].lower()
+  if sensor_type.find('s2') < 0:
+    out_Params['CloudScore'] = False 
 
   # return modified parameter dictionary 
   return out_Params
+
+
+
+#############################################################################################################
+# Description: This function tells if there is a customized region defined in parameter dictionary.
+# 
+# Revision history:  2024-Feb-27  Lixin Sun  Initial creation
+#
+#############################################################################################################
+def is_custom_region(inParams):
+  all_keys = inParams.keys()
+
+  if 'custom_region' in all_keys:
+    return True
+  elif 'scene_ID' in all_keys: 
+    return True if len(inParams['scene_ID']) > 5 else False
+  else:
+    return False 
+
+
+
+#############################################################################################################
+# Description: This function tells if there is a customized time window defined in parameter dictionary.
+# 
+# Revision history:  2024-Feb-27  Lixin Sun  Initial creation
+#
+#############################################################################################################
+def is_custom_window(inParams):
+  all_keys = inParams.keys()
+
+  if 'start_date' in all_keys and 'end_date' in all_keys:
+    return True if len(inParams['start_date']) > 5 and len(inParams['end_date']) > 5 else False
+  else:
+    return False 
+
+
+
+#############################################################################################################
+# Description: This function returns a valid spatial region defined in parameter dictionary.
+# 
+# Revision history:  2024-Feb-27  Lixin Sun  Initial creation
+#
+#############################################################################################################
+def get_spatial_region(inParams):
+  all_keys = inParams.keys()
+
+  if 'custom_region' in all_keys:
+    return inParams['custom_region']
+  elif 'tile_name' in all_keys:
+    tile   = inParams['tile_name']    
+    return eoTG.PolygonDict.get(tile)
+  else:
+    tile   = inParams['tile_names'][0]
+    return eoTG.PolygonDict.get(tile)
+
+
+
+
+#############################################################################################################
+# Description: This function returns a valid time window defined in parameter dictionary.
+# 
+# Revision history:  2024-Feb-27  Lixin Sun  Initial creation
+#
+#############################################################################################################
+def get_time_window(inParams):
+  all_keys = inParams.keys()
+
+  if 'start_date' in all_keys and 'end_date' in all_keys:
+    year = inParams['year']
+    return ee.Date(inParams['start_date']).update(year), ee.Date(inParams['end_date']).update(year)
+  elif 'month' in all_keys:
+    return IS.month_range(inParams['year'], inParams['month'])
+  elif 'nbYears' in all_keys:
+    nYears = inParams['nbYears']
+    year   = inParams['year']
+    return IS.summer_range(year) if nYears < 0 else IS.month_range(year, inParams['months'][0])
+  else:
+    return IS.month_range(inParams['year'], inParams['months'][0])

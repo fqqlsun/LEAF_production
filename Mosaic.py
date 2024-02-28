@@ -13,8 +13,7 @@ import Image as Img
 import ImgMask as IM
 import ImgSet as IS
 import eoTileGrids as eoTG
-import eoAuxData as eoAD
-
+import eoParams
 
 
 #veg_NDVI_thresh = 0.4
@@ -58,158 +57,12 @@ def get_time_score(image, midDate, ssr_code):
   ssr_code = int(ssr_code)  
 
   STD = 12 if ssr_code > Img.MAX_LS_CODE else 16
-  '''
-  STD = 5
-  if TWinSize <= 10:
-    STD = 2.4
-  elif TWinSize <= 35:
-    STD = 10
-  elif TWinSize <= 95:
-    STD = 15
-  else:
-    STD = 20
-  '''
   
   one_img = ee.Image.constant(1)
   factor  = ee.Image(date_diff).divide(ee.Image.constant(STD)).pow(ee.Image.constant(2))
 
   return one_img.divide((ee.Image.constant(0.5).multiply(factor)).exp())
 
-
-
-
-
-#############################################################################################################
-# Description: This function returns a reference mosaic image that will be used in HybridTIC
-#
-# Revision history:  2023-Nov-24  Lixin Sun  Initial creation
-#
-#############################################################################################################
-'''
-def get_refer_mosaic_median(masked_ImgColl, SsrData, Start, Stop, replace_thresh = 0.1):
-  #==========================================================================================================
-  # Rescale each image in the given image collection
-  #==========================================================================================================
-  ready_ImgColl = masked_ImgColl.map(lambda img: Img.apply_gain_offset(img, SsrData, 100, False)) 
-
-  #==========================================================================================================
-  # Generate a "refer_maxNBR" and a "whole_median" mosaic image
-  #==========================================================================================================
-  WinSize = IS.time_window_size(Start, Stop).getInfo()
-  
-  if WinSize < 35:
-    refer_median = ready_ImgColl.median()
-
-    median_blu  = refer_median.select(SsrData['BLU'])
-    median_red  = refer_median.select(SsrData['RED'])
-    median_nir  = refer_median.select(SsrData['NIR'])
-    median_sw2  = refer_median.select(SsrData['SW2'])
-    median_NDVI = median_nir.subtract(median_red).divide(median_nir.add(median_red))
-  
-    model_blu   = median_red.multiply(0.5).add(1).max(median_sw2.multiply(0.25))
-    replace_cond = model_blu.lt(median_blu).And(median_NDVI.gt(0.45))  
-    corrected_blu = median_blu.where(replace_cond, model_blu).rename(SsrData['BLU'])
-
-    month_refer   = refer_median.addBands(srcImg=corrected_blu, overwrite = True)
-    return ee.Image(month_refer)
-  
-  else:  
-    #--------------------------------------------------------------------------------------------------------
-    # When the compositing period is larger than one month 
-    #--------------------------------------------------------------------------------------------------------
-    midDate = IS.period_centre(Start, Stop)              # Determine the central date of a time window 
-    month_start, month_stop = IS.time_range(midDate, 31) # Determine the start and stop dates of a month
-  
-    month_ImgColl = ready_ImgColl.filterDate(month_start, month_stop) # get a subset of image collection      
-    month_median  = month_ImgColl.median()
-    whole_median  = ready_ImgColl.median()
-  
-    #--------------------------------------------------------------------------------------------------------
-    # fill the gaps in monthly median mosaic
-    #--------------------------------------------------------------------------------------------------------
-    month_refer = month_median.unmask(whole_median)
-    
-    #--------------------------------------------------------------------------------------------------------
-    # Replace the non-vegetated pixels in monthly median mosaic with corresponding non-vegetated pixels in
-    # whole median mosaic, which normally have better quality
-    #--------------------------------------------------------------------------------------------------------
-    month_red  = month_refer.select(SsrData['RED'])
-    month_nir  = month_refer.select(SsrData['NIR'])
-    month_NDVI = month_nir.subtract(month_red).divide(month_nir.subtract(month_red)) 
-
-    whole_red  = whole_median.select(SsrData['RED'])
-    whole_nir  = whole_median.select(SsrData['NIR'])
-    whole_NDVI = whole_nir.subtract(whole_red).divide(whole_nir.subtract(whole_red)) 
-    
-    replace_cond = month_NDVI.lt(0.45).And(whole_NDVI.lt(0.45))    
-    month_refer  = month_refer.where(replace_cond, whole_median)
-    
-    #--------------------------------------------------------------------------------------------------------
-    # Apply model blue values to vegetated pixels    
-    #--------------------------------------------------------------------------------------------------------
-    month_blu = month_refer.select(SsrData['BLU'])
-    month_sw2 = month_refer.select(SsrData['SW2'])
- 
-    model_blu = month_red.multiply(0.5).add(1).max(month_sw2.multiply(0.25))
-    replace_cond = model_blu.lt(month_blu).And(month_NDVI.gt(0.45))
-  
-    corrected_blu = month_blu.where(replace_cond, model_blu).rename(SsrData['BLU'])
-
-    month_refer = month_refer.addBands(srcImg=corrected_blu, overwrite = True)
-
-    return ee.Image(month_refer)
-'''
-
-
-
-#############################################################################################################
-# Description: This function returns a reference mosaic image that will be used in HybridTIC
-#
-# Revision history:  2023-Nov-24  Lixin Sun  Initial creation
-#
-#############################################################################################################
-'''  
-def period_refer_mosaic_NDVI(maskedImgColl, SsrData):  
-  #==========================================================================================================
-  # Create a mosaic image based on median
-  #==========================================================================================================
-  ready_ImgColl = maskedImgColl.map(lambda img: Img.apply_gain_offset(img, SsrData, 100, False))  
-  refer_median  = ready_ImgColl.median()
-
-  #==========================================================================================================
-  # Create a mosaic image using MaxNDVI criteria and then rescale the value range to [0, 100]
-  #==========================================================================================================
-  maxIVR_mosaic = coll_MaxIVR_mosaic(maskedImgColl, SsrData, refer_median)
-  maxIVR_mosaic = Img.apply_gain_offset(maxIVR_mosaic, SsrData, 100, False)
-
-  maxIVR_mosaic_blu = maxIVR_mosaic.select(SsrData['BLU'])
-  maxIVR_mosaic_red = maxIVR_mosaic.select(SsrData['RED'])
-  maxIVR_mosaic_nir = maxIVR_mosaic.select(SsrData['NIR'])
-  maxIVR_mosaic_sw2 = maxIVR_mosaic.select(SsrData['SW2'])
-
-  maxIVR_NDVI   = maxIVR_mosaic_nir.subtract(maxIVR_mosaic_red).divide(maxIVR_mosaic_nir.add(maxIVR_mosaic_red))
-  veg_model_blu = maxIVR_mosaic_red.multiply(0.5).max(maxIVR_mosaic_sw2.multiply(0.25))
-  
-  maxIVR_mosaic_blu = maxIVR_mosaic_blu.where(maxIVR_NDVI.gt(0.3), veg_model_blu)
-  
-  #==========================================================================================================
-  # Create another mosaic image based on median
-  #==========================================================================================================
-  median_blu = refer_median.select(SsrData['BLU'])  
-  median_nir = refer_median.select(SsrData['NIR'])
-
-  #==========================================================================================================
-  # Create replace conditions for both vegetated and non-vegetated targets
-  #==========================================================================================================
-  replace_cond = median_nir.gt(median_blu).And(maxIVR_mosaic_blu.lt(median_blu))
-
-  #==========================================================================================================
-  # Correct the blue band values of median mosaic for both vegetated and non-vegetated pixels
-  #========================================================================================================== 
-  corrected_blu = median_blu.where(replace_cond, maxIVR_mosaic_blu)
-  
-  return refer_median.addBands(srcImg=corrected_blu, overwrite = True)
-'''
 
 
 
@@ -393,143 +246,7 @@ def get_spec_score(blu, grn, red, nir, sw1, sw2, refer_blu, refer_nir):
 
   return score.where(max_VIS.gt(max_IR), water_score)
 
-
-
-
-
   
-
-  #==================================================================================================
-  # Calculate water score (the following water score does not work well)
-  #==================================================================================================
-  max_SW       = sw1.max(sw2)
-  max_VIS      = blu.max(red)
-  nir_sw_ratio = nir.add(1).divide(max_SW.add(1))  # This ratio is useful for excluding ice/snow
-  
-  numerator    = ee.Image.constant(10).subtract(max_SW.add(max_VIS)) 
-  denominator  = nir_sw_ratio.add(blu_pen).add(nir_pen)
-
-  water_score  = numerator.divide(denominator)
-
-  return land_score.where(nir.lt(blu), water_score)
-  
-  #non_veg_score = ee.Image.constant(10).divide(blu_diff.add(nir_diff).add(0.0001))  
-  #ndvi = nir.subtract(red).divide(nir.add(red))
-  #return veg_score.where(ndvi.lt(veg_NDVI_thresh), non_veg_score)
-
-
-
-
-
-######################################################################################################
-# Description: This function creates a score image assuming all the pixels are land.
-#   
-# Note:        The value ranges of all the input spectral bands must be within [0, 100]  
-#
-# Revision history:  2023-Aug-25  Lixin Sun  Initial creation
-#
-######################################################################################################
-def get_land_score(blu, grn, red, nir, sw1, sw2, med_blu, med_nir):
-  nir_pen = med_nir.subtract(nir).abs().exp()
-  blu_pen = med_blu.subtract(blu).abs().exp()
-  
-  score   = nir.divide(blu.add(blu_pen).add(nir_pen).add(nir.subtract(2)))   #.multiply(0.1)
-  #score  = blu.add(1).divide(blu.add(blu_pen).add(nir_pen))
-
-  #==================================================================================================
-  # Apply bottom line for spectral values of vegetated pixels
-  #==================================================================================================  
-  min_VIS   = blu.min(grn).min(red) 
-  min_IR    = nir.min(sw1).min(sw2) 
-  neg_score = score.abs().multiply(-1)
-  
-  condition = min_IR.lt(0).Or(min_VIS.lt(min_IR.divide(30.0)))
-  score     = score.where(condition, neg_score)  
-
-  #==================================================================================================
-  # For some pixels, even their NDVI values are bigger than 0.5, but if they have the following band
-  # relationships, they are not valided pixels, so should get negative scores:
-  # (1) blue is higher than green
-  # (2) red is higher than green for more 1%  
-  # (3) SWIR2 is bigger than SWIR1
-  #==================================================================================================
-  ndvi    = nir.subtract(red).divide(nir.add(red))
-  bad_veg = ndvi.gt(0.5).And(blu.gt(grn).Or(sw2.gt(sw1)))
-  score   = score.where(bad_veg, neg_score)
-
-  return ee.Image(score)
-
-
-
-
-
-######################################################################################################
-# Description: This function creates a score image assuming all the pixels are land.
-#   
-# Note:        The value ranges of all the input spectral bands must be within [0, 100]  
-#
-# Revision history:  2023-Aug-25  Lixin Sun  Initial creation
-#
-######################################################################################################
-def get_water_score(blu, grn, red, nir, sw1, sw2, medBlue):  
-  max_SW       = sw1.max(sw2)
-  nir_sw_ratio = nir.add(1).divide(max_SW.add(1))  # This ratio is useful for excluding ice/snow
-  shadow_pen   = medBlue.subtract(blu).abs().exp()
-  numerator    = ee.Image.constant(4).subtract(max_SW) 
-  denominator  = nir_sw_ratio.add(shadow_pen).add(4)
-
-  score  = numerator.divide(denominator)
-
-  #==================================================================================================
-  # Apply bottom line for spectral values of vegetated pixels
-  #==================================================================================================
-  #min_VIS = blu.min(grn).min(red)
-  mean_VIS = blu.add(grn).add(red).divide(3.0)
-  min_IR   = nir.min(sw1).min(sw2)
-  score    = score.where(mean_VIS.lt(0).Or(min_IR.lt(-1.5)), score.abs().multiply(-10))
-
-  return ee.Image(score)
-
-
-
-
-
-######################################################################################################
-# Description: This function creates a spectral score map for a given mosaic image
-#
-# Note:        This function assumes the value range of the mosaic image is between 0 and 100
-#
-# Revision history:  2020-Dec-22  Lixin Sun  Initial creation
-#
-######################################################################################################
-def mosaic_score_map(mosaic, SsrData):
-  '''Return a pixel score image corresponding to a given image
-  
-  Args:      
-      mosaic(ee.Image): A given mosaic ee.Image object;
-      SsrData(Dictionary): A Dictionary containing metadata associated with a sensor and data unit.'''
-
-  #==================================================================================================
-  # Create separate references for each of the SIX critical bands
-  #==================================================================================================
-  blu = mosaic.select(SsrData['BLU'])
-  grn = mosaic.select(SsrData['GRN'])
-  red = mosaic.select(SsrData['RED'])
-  nir = mosaic.select(SsrData['NIR'])
-  sw1 = mosaic.select(SsrData['SW1'])
-  sw2 = mosaic.select(SsrData['SW2'])
-  
-  #==================================================================================================
-  # Calculate scores for vagetated targets only and set scores for pixels with NDVI < 0.3 to zero
-  #==================================================================================================  
-  land_score  = get_land_score(blu, grn, red, nir, sw2) 
-
-  zero_score = sw2.multiply(ee.Image(0.0)) #.add(cld_score.divide(ee.Image(200)))
-  NDVI_img   = nir.subtract(red).divide(nir.add(red))
-
-  return land_score.where(NDVI_img.lt(ee.Image(0.3)), zero_score)
-
-
 
 
 
@@ -879,80 +596,6 @@ def coll_Hybrid_mosaic(inImgColl, SsrData, StartD, StopD, ExtraBandCode, CS_plus
 
 
 
-
-#############################################################################################################
-# Description: This function creates a median surface reflectance reference mosaic using all available 
-#              medium resolution satellite images.
-# 
-# Revision history:  2023-Dec-06  Lixin Sun  initial creation
-#  
-#############################################################################################################
-def median_SR_refer(inRegion, inStart, inStop, base_sensor):
-  def extract_opi_bands(Img, SsrData):
-    return Img.select([SsrData['BLU'], SsrData['GRN'], SsrData['RED'], SsrData['NIR'],SsrData['SW1'], SsrData['SW2']]) \
-              .rename(['blue', 'green', 'red', 'nir', 'swir1', 'swir2'])
-
-  target_year = ee.Date(inStart).get('year').getInfo()
-  L7_SsrData  = Img.SSR_META_DICT['L7_SR']
-  L8_SsrData  = Img.SSR_META_DICT['L8_SR']
-  L9_SsrData  = Img.SSR_META_DICT['L9_SR']
-  S2_SsrData  = Img.SSR_META_DICT['S2_SR']  
-
-  L7_coll = ee.ImageCollection(L7_SsrData['GEE_NAME']).filterBounds(inRegion).filterDate(inStart, inStop)
-  L8_coll = ee.ImageCollection(L8_SsrData['GEE_NAME']).filterBounds(inRegion).filterDate(inStart, inStop)
-  
-  masked_L7_coll = IS.mask_collection(L7_coll, L7_SsrData, False).map(lambda img: extract_opi_bands(img, L7_SsrData))
-  masked_L8_coll = IS.mask_collection(L8_coll, L8_SsrData, False).map(lambda img: extract_opi_bands(img, L8_SsrData))
-  
-  if target_year >= 2022:  # using LS-8/9 and S2A/B    
-    L9_coll = ee.ImageCollection(L9_SsrData['GEE_NAME']).filterBounds(inRegion).filterDate(inStart, inStop)
-    S2_coll = ee.ImageCollection(S2_SsrData['GEE_NAME']).filterBounds(inRegion).filterDate(inStart, inStop)
-
-    masked_L9_coll = IS.mask_collection(L9_coll, L9_SsrData, False).map(lambda img: extract_opi_bands(img, L9_SsrData))
-    masked_S2_coll = IS.mask_collection(S2_coll, S2_SsrData, False).map(lambda img: extract_opi_bands(img, S2_SsrData))
-
-    S2_median = masked_S2_coll.median()
-    LS_median = masked_L8_coll.merge(masked_L9_coll).median()
-    
-    if base_sensor < Img.MAX_LS_CODE:
-      median = LS_median.unmask(S2_median)  
-      replace_cond = LS_median.select('blue').gt(S2_median.select('blue').add(0.05))
-      return median.where(replace_cond, S2_median)
-    else:
-      median = S2_median.unmask(LS_median)
-      replace_cond =S2_median.select('blue').gt(LS_median.select('blue').add(0.05))
-      return median.where(replace_cond, LS_median)
-  
-  elif target_year > 2019 and target_year < 2022:  # using LS-8/7 and S2A/B
-    S2_coll = ee.ImageCollection(S2_SsrData['GEE_NAME']).filterBounds(inRegion).filterDate(inStart, inStop)
-
-    masked_S2_coll = IS.mask_collection(S2_coll, S2_SsrData, False).map(lambda img: extract_opi_bands(img, S2_SsrData))
-
-    S2_median = masked_S2_coll.median()
-    LS_median = masked_L8_coll.median()
-
-    if base_sensor < Img.MAX_LS_CODE:
-      median = LS_median.unmask(S2_median)  
-      replace_cond = LS_median.select('blue').gt(S2_median.select('blue').add(0.05))
-      return median.where(replace_cond, S2_median)
-    else:
-      median = S2_median.unmask(LS_median)
-      replace_cond =S2_median.select('blue').gt(LS_median.select('blue').add(0.05))
-      return median.where(replace_cond, LS_median)
-  
-  else:  # # using LS-8/7
-    L8_median = masked_L8_coll.median()
-    L7_median = masked_L7_coll.median()
-    
-    median = L8_median.unmask(L7_median)  
-    replace_cond = L8_median.select('blue').gt(L7_median.select('blue').add(0.05))
-    return median.where(replace_cond, L7_median)
-  
-
-
-
-
-
 #############################################################################################################
 # Description: This function creates a median reference mosaic using historical Landsat-8 images acquired
 #              within specified time window and spatial region.
@@ -1015,7 +658,8 @@ def LEAF_Mosaic(inSsrData, region, inStart, inStop, SL2P_algo):
   #           for "HomoPeriodMosaic" function should be "False" for now (Feb. 10, 2024) 
   #==========================================================================================================
   ssr_code = inSsrData['SSR_CODE']
-  year     = ee.Date(inStart).get('year').getInfo()
+  print(ee.Date(inStart).getInfo())
+  #year     = ee.Date(inStart).get('year').getInfo()
 
   mosaic = HomoPeriodMosaic(inSsrData, region, year, -1, inStart, inStop, Img.EXTRA_ANGLE, False)
 
@@ -1179,31 +823,6 @@ def HomoPeriodMosaic(SsrData, Region, TargetY, NbYs, StartD, StopD, ExtraBandCod
     mosaic = MergeMosaics(mosaic, mosaic_before, SsrData, SsrData, 3.0)
     return mosaic.addBands(ssr_code_img)
 
-
-
-
-##########################################################################################################
-# Description: This function creates an mosaic image for a region using the images acquired during one to 
-#              three peak seasons (from June 15 to September 15).
-#
-# Revision history:  2021-Jul-07  Lixin Sun  Initial creation using JavaScript
-#                    
-##########################################################################################################
-def HomoPeakMosaic(Ssrdata, Region, TargetY, NbYs, ExtraBandCode):
-  '''Creates a mosaic image for a region using the images acquired during one, two or three
-     peak-growing seasons (from June 15 to September 15). 
-     
-  Args:
-      SsrData(Dictionary): A Dictionary containing metadata associated with a sensor and data unit;
-      Region(ee.Geometry): A spatial region of a ROI;
-      TargetYear(int): An integer representing a targeted year (e.g., 2020);
-      NbYears(int): The number of peak seasons (1, 2 or 3);
-      ExtraBandCode(int): A integer representing the band type to be attached to image.'''  
-
-  # Get a peak season mosaic for targeted year
-  start, stop = IS.summer_range(TargetY)
-  
-  return HomoPeriodMosaic(Ssrdata, Region, TargetY, int(NbYs), start, stop, ExtraBandCode, False)
 
 
 
@@ -1411,51 +1030,6 @@ def attach_LSAngleBands(LS_sr_img, LS_toa_img_coll):
 
 
 #############################################################################################################
-# Description: This function creates a mosaic image containing only SIX standard bands (blue, green, red,
-#              NIR, SWIR1 and SWIR2)
-#
-# Revision history:  2021-Jul-01  Lixin Sun  Initial creation
-#                    2021-Nov-22  Lixin Sun  Converted from JavaScript code
-#
-#############################################################################################################
-def STD_bands_mosaic(inParams):
-  '''This function creates a mosaic image containing only SIX standard bands (blue, green, red, NIR, SWIR1 and SWIR2).
-     
-     Args:
-       inParams(Dictionary): A dictionary containing all required parameters. 
-  '''
-  #===================================================================================================
-  # Create a required (annual) mosaic. Note Classification only needs annual mosaic 
-  #===================================================================================================
-  mosaic_name = inParams['tile_names'][0]
-  if eoTG.is_valid_tile_name(mosaic_name) == True:
-    region = eoTG.PolygonDict.get(mosaic_name)      
-  else:
-    region = eoTG.custom_RegionDict.get(mosaic_name)
-
-  ssr_data  = Img.SSR_META_DICT[inParams['sensor']]
-  targ_year = int(inParams['year'])
-  nb_years  = int(inParams['nbYears'])
-
-  #mosaic    = eoMosaic.HomoPeakMosaic(ssr_code, data_unit, region, targ_year, nb_years, eoMosaic.EXTRA_NONE)
-  mosaic    = HomoPeakMosaic(ssr_data, region, targ_year, nb_years, Img.EXTRA_NONE)
-  #===================================================================================================
-  # Apply gain and offset to the mosaic image
-  #===================================================================================================
-  mosaic = Img.apply_gain_offset(mosaic, ssr_data, 100, True)
-  
-  #===================================================================================================
-  # Extract SIX standard bands and then rename them
-  #===================================================================================================
-  six_core_bands = ee.List(ssr_data['SIX_BANDS'])
-
-  return mosaic.select(six_core_bands, Img.STD_6_BANDS)
-
-
-
-
-
-#############################################################################################################
 # Description: This function exports a given mosaic image to a specified location (either Google Drive or
 #              Google Cloud Storage). The filenames of the exported images will be automatically generated 
 #              based on tile name, image acquisition time and spatial resolution.
@@ -1463,25 +1037,26 @@ def STD_bands_mosaic(inParams):
 # Revision history:  2022-Mar-30  Lixin Sun  Initial creation 
 #
 #############################################################################################################
-def export_mosaic(fun_Param_dict, mosaic, SsrData, Region, task_list):
+def export_mosaic(exe_Params, mosaic, SsrData, Region, task_list):
   '''Exports one set of LEAF products to either Google Drive or Google Cloud Storage
 
      Args:
-       fun_Param_dict(dictionary): a dictionary storing other required running parameters;
+       fun_Params(dictionary): a dictionary storing other required running parameters;
        mosaic(ee.Image): the mosaic image to be exported;
        SsrData(Dictionary): A dictionary containing all info on a sensor type;
        Region(ee.Geometry): the spatial region of interest;
        task_list([]): a list storing the links to exporting tasks.'''
+  
   #==========================================================================================================
   # Obtain some parameters from the given parameter dictionary
   #==========================================================================================================
-  print('\n\n<export_mosaic> fun_Param_dict = ', fun_Param_dict)
-  year_str     = str(fun_Param_dict['year'])   
-  nb_years     = int(fun_Param_dict['nbYears'])
-  tile_str     = str(fun_Param_dict['tile_name'])
-  Scale        = int(fun_Param_dict['resolution'])
-  given_folder = str(fun_Param_dict['folder'])
-  out_location = str(fun_Param_dict['location']).lower()
+  print('\n\n<export_mosaic> exe_Params = ', exe_Params)
+  year_str     = str(exe_Params['year'])   
+  nb_years     = int(exe_Params['nbYears'])
+  tile_str     = str(exe_Params['tile_name'])
+  Scale        = int(exe_Params['spatial_scale'])
+  given_folder = str(exe_Params['out_folder'])
+  out_location = str(exe_Params['out_location']).lower()
 
   #==========================================================================================================
   # Create an exporting folder name or use a given one
@@ -1492,9 +1067,10 @@ def export_mosaic(fun_Param_dict, mosaic, SsrData, Region, task_list):
   #==========================================================================================================
   # Create prefix filenames for peak or monthly mosaic band images 
   #==========================================================================================================
+  custom_window = eoParams.is_custom_window(exe_Params)
   filePrefix = form_folder
-  if nb_years < 0:  # monthly mosaic
-    month      = int(fun_Param_dict['month'])
+  if nb_years < 0 and custom_window == False:  # monthly mosaic
+    month      = int(exe_Params['month'])
     month_name = Img.get_MonthName(month)
     filePrefix = filePrefix + '_' + month_name
   
@@ -1504,13 +1080,12 @@ def export_mosaic(fun_Param_dict, mosaic, SsrData, Region, task_list):
   # Export LEAF products to a Google Drive directory 
   #========================================================================================================== 
   export_dict = {'scale': Scale,
-                 'crs': 'EPSG:3979',
+                 'crs': exe_Params['projection'],
                  'maxPixels': 1e11,
                  'region': ee.Geometry(Region)}
   
   # Determine the bands to be exported according to specified spatial resolution 
-  #out_band_names = SsrData['OUT_BANDS'] if Scale >=20 else SsrData['10M_BANDS']
-  out_band_names = ['B12']
+  out_band_names = SsrData['OUT_BANDS'] if Scale >=20 else SsrData['10M_BANDS']
 
   if out_location.find('drive') > -1:  # Export to Google Drive
     print('<export_mosaic> Exporting to Google Drive......')  
@@ -1526,7 +1101,7 @@ def export_mosaic(fun_Param_dict, mosaic, SsrData, Region, task_list):
     
   elif out_location.find('storage') > -1:  # Exporting to Google Cloud Storage
     print('<export_mosaic> Exporting to Google Cloud Storage......')  
-    export_dict['bucket'] = str(fun_Param_dict['bucket'])    
+    export_dict['bucket'] = str(exe_Params['bucket'])    
     for item in out_band_names:
       filename  = filePrefix + '_' + item + '_' + str(Scale) + 'm'
       
@@ -1571,8 +1146,8 @@ def HLS_PeriodMosaic(DataUnit, Region, targetY, NbYs, StartD, StopD, ExtraBandCo
       NbYs(int): The number of years
       StartD(ee.Date or string): The start date string (e.g., '2020-06-01') or ee.Date object;
       StopD(ee.Date or string): The end date string (e.g., '2020-06-30') or ee.Date object;
-      ExtraBandCode(int): A integer code representing band type to be attached additionaly.
-  '''
+      ExtraBandCode(int): A integer code representing band type to be attached additionaly.'''
+  
   #================================================================================================
   # Determine a proper time period based on a given target year and an initial period 
   #================================================================================================
@@ -1620,70 +1195,161 @@ def HLS_PeriodMosaic(DataUnit, Region, targetY, NbYs, StartD, StopD, ExtraBandCo
 
 
 
+#############################################################################################################
+# Description: This function generates and export composite images for one or multiple tiles within CANADA.
+# 
+# Revision history:  2024-Feb-27  Lixin Sun  Initial creation 
+#
+#############################################################################################################
+def tile_composite(exe_Params, ExtraBandCode, task_list):
+  '''Produces LEAF products for one or multiple tiles in CANADA
+
+    Args:
+       exe_Params(dictionary): A dictionary storing all necessary parameters for an execution;
+       ExtraBandCode(Int): An integer indicating if to attach exttra bands and which kind of extra bands; 
+       task_list([]): a list for storing the exporting tasks.'''  
+  
+  #==========================================================================================================
+  # Validate some input parameters
+  #==========================================================================================================
+  all_keys  = exe_Params.keys()    
+  all_valid = True if 'tile_names' in all_keys and 'months' in all_keys else False
+  
+  if all_valid == False:
+    print('<tile_composite> !!!!!!!! Required parameters are not available !!!!!!!!')
+    return task_list
+  
+  #==========================================================================================================
+  # get some required parameters
+  #==========================================================================================================
+  ssr_data = Img.SSR_META_DICT[exe_Params['sensor']]
+  year     = int(exe_Params['year'])
+  nYears   = int(exe_Params['nbYears'])
+  cloud_score = exe_Params['CloudScore']
+
+  #==========================================================================================================
+  # Produce composite images for eath tile and month/peak season
+  #==========================================================================================================
+  for tile in exe_Params['tile_names']:  
+    exe_Params['tile_name'] = tile   # Add an element with 'tile_name' as key to 'exe_param_dict'    
+
+    region = eoTG.PolygonDict.get(tile)
+    region = eoTG.expandSquare(region, 0.02)
+
+    # Produce monthly (or seasonal) porducts 
+    for month in exe_Params['months']:
+      # Add an element with 'month' as key to 'exe_param_dict'  
+      exe_Params['month'] = month     
+      start, stop = IS.month_range(year, month) if month > 0 and month < 13 else IS.summer_range(year)
+      
+      if month > 0 and month < 13:
+        exe_Params['nbYears'] = -10
+
+      # Produce and export monthly or seasonal biophysical parameetr maps
+      print('\n<tile_composite> Generate and export composite images......')        
+      mosaic = HomoPeriodMosaic(ssr_data, region, year, nYears, start, stop, ExtraBandCode, cloud_score)
+      mosaic = Img.apply_gain_offset(mosaic, ssr_data, 100, False)
+
+      # Export spectral mosaic images
+      export_mosaic(exe_Params, mosaic, ssr_data, region, task_list)
+        
+  return task_list
+
+
+
+
+#############################################################################################################
+# Description: This function generate a composite image for a customized spatial region or compositing period
+# 
+# Note: The following three situations will lead to this function is will be called:
+#       (1) A ee.Geometry.Polygon object that defines a customized spatial region
+#       (2) an user-defined compositing period is specified
+#
+# Revision history:  2024-Feb-27  Lixin Sun  Initial creation 
+#
+#############################################################################################################
+def custom_composite(exe_Params, ExtraBandCode, task_list):
+  '''Produces LEAF products for one or multiple tiles in CANADA
+
+    Args:
+       exe_Params(Dictionary): A dictionary storing all input parameters for one execution;
+       ExtraBandCode(Int): An integer indicating if to attach exttra bands and which kind of extra bands; 
+       task_list([]): a list for storing the exporting tasks.'''  
+  
+  #==========================================================================================================
+  # Validate some input parameters
+  #==========================================================================================================
+  is_valid = True if eoParams.is_custom_region(exe_Params) or eoParams.is_custom_window(exe_Params) else False
+  
+  if is_valid == False:
+    print('<custom_composite> !!!!!!!! Required parameters are not available !!!!!!!!')
+    return task_list
+  
+  #==========================================================================================================
+  # 
+  #==========================================================================================================
+  ssr_data = Img.SSR_META_DICT[exe_Params['sensor']]
+  year     = int(exe_Params['year'])
+  nYears   = int(exe_Params['nbYears'])
+  cloud_score = exe_Params['CloudScore']
+  
+  region      = eoParams.get_spatial_region(exe_Params)
+  start, stop = eoParams.get_time_window(exe_Params)
+
+  exe_Params['tile_name'] = 'custom_region'
+
+  # Produce composite images
+  print('\n<custom_composite> Generate and export composite images......')        
+  mosaic = HomoPeriodMosaic(ssr_data, region, year, nYears, start, stop, ExtraBandCode, cloud_score)
+  mosaic = Img.apply_gain_offset(mosaic, ssr_data, 100, False)
+
+  # Export composite images
+  export_mosaic(exe_Params, mosaic, ssr_data, region, task_list)
+    
+
+
+
 
 #############################################################################################################
 # Description: The start/main function for operationally producing tile mosaic maps using Landsat or 
 #              Sentinel2 data
 #
 # Revision history:  2021-Oct-28  Lixin Sun  Initial creation 
-#                    2021-Nov-19  Lixin Sun  Modified so that customized spatial regions can also be handled
-#                                            in the same way as regular tiles.
+#                    2024-Feb-27  Lixin Sun  Modified so that customized spatial region or compositing period
+#                                            can be handled.
 #############################################################################################################
-def Mosaic_production(exe_Param_dict, ExtraBandCode):
+def Mosaic_production(exe_Params, MixSensor, ExtraBandCode):
   '''Produces various mosaic products for one or more tiles using Landsat or Sentinel2 images
      Args:
-       Param_dict(Dictionary): A dictionary storing required parameters;
+       exe_Params(Dictionary): A dictionary storing required parameters;
        MixSensor(Boolean): Indicate if to utilize mixed image data;
        ExtraBandCode(int): A integer(EXTRA_NONE, EXTRA_ANGLE, EXTRA_NDVI) representing extra bands to be attached to each image.'''
+  
   #==========================================================================================================
-  # Create an initial "fun_Param_dict" dictionary, which will contain one combination of the elements of the
-  # 'exe_Param_dict' dictionary and iteratively be paased directly to 'LEAF_Mosaic', 'one_LEAF_Product' and
-  # 'export_ancillaries' functions, as well as subsequently their subroutines.
+  # Standardize parameter dictionary for composite generation
   #==========================================================================================================
-  fun_Param_dict = {'sensor':     exe_Param_dict['sensor'],
-                    'year':       exe_Param_dict['year'],
-                    'nbYears':    exe_Param_dict['nbYears'],
-                    'resolution': exe_Param_dict['resolution'],
-                    'location':   exe_Param_dict['location'],
-                    'bucket':     exe_Param_dict['bucket'],
-                    'folder':     exe_Param_dict['folder']}
+  mosaic_params = eoParams.get_mosaic_params(exe_Params)
 
   #==========================================================================================================
-  # Start to generate required mosaic images and then export them to specific location
-  #==========================================================================================================  
-  ssr_data = Img.SSR_META_DICT[exe_Param_dict['sensor']]
-  year     = int(exe_Param_dict['year'])
-  nYears   = int(exe_Param_dict['nbYears'])    
-
-  task_list = []  
+  # Deal with three scenarios: customized spatial region, customized compositing period and regular tile 
   #==========================================================================================================
-  # Loop through each tile
-  #==========================================================================================================
-  for tile_name in exe_Param_dict['tile_names']:
-    fun_Param_dict['tile_name'] = tile_name
+  task_list = []
 
-    # Create a mosaic region ee.Geometry object 
-    if eoTG.is_valid_tile_name(tile_name) == True:
-      region = eoTG.PolygonDict.get(tile_name)      
-    else:
-      region = eoTG.custom_RegionDict.get(tile_name)
+  if eoParams.is_custom_region(mosaic_params) == True:   
+    # There is a customized spatial region specified in Parameter dictionary 
+    print('\n<Mosaic_production> Calling custom_composite function......')
+    custom_composite(mosaic_params, ExtraBandCode, task_list)
+    
+  elif eoParams.is_custom_window(mosaic_params) == True:
+    # There is a customized compositing period specified in Parameter dictionary 
+    print('\n<Mosaic_production> Calling custom_composite function......')
+    custom_composite(mosaic_params, ExtraBandCode, task_list)
 
-    if nYears > 0:  # Create a peak-season mosaic for a specific region/tile and year      
-      mosaic = HomoPeakMosaic(ssr_data, region, year, nYears, ExtraBandCode)
-      mosaic = Img.apply_gain_offset(mosaic, ssr_data, 100, False)
-
-      # Export spectral mosaic images  
-      export_mosaic(fun_Param_dict, mosaic, ssr_data, region, task_list)
-    else:  # Create a monthly mosaic for a specific region/tile and year
-      for month in exe_Param_dict['months']:
-        fun_Param_dict['month'] = month
-        start, stop = IS.month_range(year, month)
-        mosaic = HomoPeriodMosaic(ssr_data, region, year, nYears, start, stop, ExtraBandCode)
-        mosaic = Img.apply_gain_offset(mosaic, ssr_data, 100, False)
-
-        # Export spectral mosaic images
-        export_mosaic(fun_Param_dict, mosaic, ssr_data, region, task_list)   
-      
+  else: 
+    # There is neither customized region nor customized compositing period defined in Parameter dictionary 
+    print('\n<Mosaic_production> Calling tile_composite function......')
+    tile_composite(mosaic_params, ExtraBandCode, task_list)  
+    
   return task_list
 
 
@@ -1745,37 +1411,60 @@ def MixMosaic_production(exe_Param_dict, ExtraBandCode):
 
 
 
+'''
+To run the Mosaic Tool, a set of parameters must be supplied. To simplify parameter provision, a Python dictionary is utilized as a container, capable of holding 11 “key:value” pairs (the last three are optional), each detailed as follows:
+   
+(1) Value for 'sensor' key: a string denoting the sensor type and data unit. Currently, valid values include 'L8_SR', 'S2_SR', 'L8_TOA' and 'S2_TOA', which denote Landsat 8/9 and Sentinel-2 surface reflectance and TOA reflectance data, respectively. 
 
+(2) Value for 'year' key: a 4-digits integr representing the acquisition year (e.g., 2020) of the daily images used in compositing.
+
+(3) Value for 'months' key: a list of integers specifying the months of a year (e.g., [6, 7] for June and July). With a list of month numbers, multiple monthly composite images can be generated through a single execution of the Mosaic Tool. To generate a composite image for a peak season 
+(June 15 to September 15) of a year (defined by the value of the 'year' key), just include a negative integer in this list.
+
+(4) Value for 'tile_names' key: a set of strings representing the names of grid tiles, each covering a 900km x 900km area. Providing a list of tile names allows the creation of composite images for multiple tiles through a single execution of the Mosaic Tool. 
+    To generate a composite image for a customized region, an additional "key:value" pair must be included in this parameter dictionary (refer to the value specification for 'custom_region' key. 
+
+(5) Value for 'spatial_scale' key: an integer (e.g., 30 and 20 for Landsat and Sentinel-2 composites, respectively) defining the spatial resolution (in meters) for exporting resultant composite images.
+
+(6) Value for 'out_location' key: a string specifying the destination location for exporting resultant composite images. Valid values for this key are 'drive' or 'storage', indicating Google Drive (GD) or Google Cloud Storage (GCS), respectively.
+
+(7) Value for 'GCS_bucket' key: a string indicating a bucket name on GCS. This parameter is necessary only when the exporting destination is GCS ('storage' for 'out_location' key). Note that the specified bucket must exist on your GCS before exporting. 
+
+(8) Value for 'out_folder' key: the folder name on GD or GCS for exporting composites. If you prefer not to export all the composites to the same directory, leave an empty string for this key. In this case, the Tool will automatically create separate folders for the composites of different tiles according to tile name and acquisition year.
+
+(9) Value for 'custom_region' key: an "ee.Geometry" object created with the "ee.Geometry.Polygon()" function, taking a list of Latitude and Longitas coordinates as inputs. This 'key:value' pair is required only when a customized region has to be defined. Otherwise, DO NOT include this 'key:value' pair in parameter dictionary, as it will overwrite the values for the 'tile_names' key. 
+
+(10) Value 'start_date' key: a string (e.g., '2022-06-15') for specifying the start date of a customized compositing period. 
+
+(11) Value for 'end_date' key: a string (e.g., '2022-09-15') for specifying the end date of a custmoized compositing period. Please be aware that the strings for 'start_date' and 'end_date' keys should be omitted from this parameter dictionary unless a user-defined compositing period needs to be specified.
+
+Among the 11 input parameters, two keys ('months' and 'tile_names') require list inputs. With different combinations between these two lists, various scenarios for composite production can be carried out. For instance, providing [7, 8] and ['tile41', 'tile42', 'tile43']) to 'months' and 'tile_names' keys, respectively, will result in the creation of three composites for each of July and August.
+'''
+
+
+'''
 #============================================================================================
 # Define a parameter dictionary
 #============================================================================================
-'''
+user_region = ee.Geometry.Polygon([[-76.12016546887865,45.183832177265906], [-75.38339483899584,45.170763450281996],
+                                   [-75.39026129407397,45.5639242833682], [-76.10505926770678,45.56776998764525], 
+                                   [-76.12016546887865,45.183832177265906]])
+
 params =  {
-    'sensor': 'S2_SR',           # A sensor type string (e.g., 'S2_SR' or 'L8_SR')
-    'unit': 2,                   # A data unit code (1 or 2 for TOA or surface reflectance)   
-    'year': 2022,                # An integer representing image acquisition year
-    'nbYears': 1,                # positive int for annual product, or negative int for monthly product
-    'month': 7,    # A list of integers represening one or multiple monthes     
-    'tile_name': 'tile55',    # A list of (sub-)tile names (defined using CCRS' tile griding system) 
-    'prod_name': 'LAI',    #['mosaic', 'LAI', 'fCOVER', ]
-    'location': 'drive',       # Exporting location ('drive', 'storage' or 'asset') 
-    'resolution': 30,            # Exporting spatial resolution
-    'bucket': 's2_mosaic_2020',  # An unique bucket name on Google Cloud Storage
-    'folder': 'tile55_2020_l8_200m_leaf'   # the folder name for exporting
+    'sensor': 'S2_SR',            # A sensor type string (e.g., 'S2_SR' or 'L8_SR')
+    'year': 2022,                 # An integer representing image acquisition year
+    'nbYears': -1,                 # positive int for annual product, or negative int for monthly product
+    'months': [7],                # A list of integers represening one or multiple monthes     
+    'tile_names': ['tile55'],     # A list of (sub-)tile names (defined using CCRS' tile griding system) 
+    'out_location': 'drive',      # Exporting location ('drive', 'storage' or 'asset') 
+    'spatial_scale': 10,          # Exporting spatial resolution
+    'GCS_bucket': 's2_mosaic_2020',   # An unique bucket name on Google Cloud Storage
+    'out_folder': 'test_mosaic_tool', # the folder name for exporting
+    'custom_region': user_region, # A given user-defined region. Only include this 'key:value' pair as necessary
+    'start_date': '2022-06-15',   # A string for specifying the start date of a customized compositing period.
+    'end_date': '2022-09-15',     # A string for specifying the end date of a customized compositing period.
 }
 
-year   = params['year']
-region = eoTG.PolygonDict.get(params['tile_name']);  #includes bigger full tiles
-start  = ee.Date('2022-06-01')
-stop   = ee.Date('2022-06-30')
 
-#import eoS1Mosaic
-#S1_mosaic = eoS1Mosaic.S1_mosaic(year, 1, start, stop, region)
-#print('bands in S1 mosaic', S1_mosaic.bandNames().getInfo())
-
-SsrData = Img.SSR_META_DICT[params['sensor']]
-S2_mosaic = HomoPeriodMosaic(SsrData, region, year, 1, start, stop, Img.EXTRA_NONE, False)
-S2_mosaic = Img.apply_gain_offset(S2_mosaic, SsrData, 100, False)
-
-print('bands in S2 image = ', S2_mosaic.bandNames().getInfo())
+Mosaic_production(params, False, Img.EXTRA_NONE)
 '''
