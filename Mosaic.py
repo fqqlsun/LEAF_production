@@ -657,9 +657,8 @@ def LEAF_Mosaic(inSsrData, region, inStart, inStop, SL2P_algo):
   #       (2) Generating pixel masks using CloudScore could sometimes cause problem. So the last parameter
   #           for "HomoPeriodMosaic" function should be "False" for now (Feb. 10, 2024) 
   #==========================================================================================================
-  ssr_code = inSsrData['SSR_CODE']
-  print(ee.Date(inStart).getInfo())
-  #year     = ee.Date(inStart).get('year').getInfo()
+  ssr_code = inSsrData['SSR_CODE']  
+  year     = ee.Date(inStart).get('year').getInfo()
 
   mosaic = HomoPeriodMosaic(inSsrData, region, year, -1, inStart, inStop, Img.EXTRA_ANGLE, False)
 
@@ -1050,10 +1049,10 @@ def export_mosaic(exe_Params, mosaic, SsrData, Region, task_list):
   #==========================================================================================================
   # Obtain some parameters from the given parameter dictionary
   #==========================================================================================================
-  print('\n\n<export_mosaic> exe_Params = ', exe_Params)
+  #print('\n\n<export_mosaic> exe_Params = ', exe_Params)
   year_str     = str(exe_Params['year'])   
   nb_years     = int(exe_Params['nbYears'])
-  tile_str     = str(exe_Params['tile_name'])
+  region_str   = str(exe_Params['tile_name'])
   Scale        = int(exe_Params['spatial_scale'])
   given_folder = str(exe_Params['out_folder'])
   out_location = str(exe_Params['out_location']).lower()
@@ -1061,20 +1060,20 @@ def export_mosaic(exe_Params, mosaic, SsrData, Region, task_list):
   #==========================================================================================================
   # Create an exporting folder name or use a given one
   #==========================================================================================================
-  form_folder  = tile_str + '_' + year_str
+  form_folder  = region_str + '_' + year_str
   exportFolder = form_folder if len(given_folder) < 2 else given_folder  
 
   #==========================================================================================================
   # Create prefix filenames for peak or monthly mosaic band images 
   #==========================================================================================================
   custom_window = eoParams.is_custom_window(exe_Params)
-  filePrefix = form_folder
+
   if nb_years < 0 and custom_window == False:  # monthly mosaic
-    month      = int(exe_Params['month'])
-    month_name = Img.get_MonthName(month)
-    filePrefix = filePrefix + '_' + month_name
-  
-  filePrefix = filePrefix + '_' + SsrData['NAME']
+    period_str = Img.get_MonthName(int(exe_Params['month']))    
+  else:
+    period_str = exe_Params['start_date'] + '_to_' + exe_Params['end_date']
+    
+  filePrefix = region_str + '_' + period_str + '_' + SsrData['NAME']
 
   #==========================================================================================================
   # Export LEAF products to a Google Drive directory 
@@ -1090,10 +1089,10 @@ def export_mosaic(exe_Params, mosaic, SsrData, Region, task_list):
   if out_location.find('drive') > -1:  # Export to Google Drive
     print('<export_mosaic> Exporting to Google Drive......')  
     export_dict['folder'] = exportFolder
-    for item in out_band_names:
-      filename  = filePrefix + '_' + item + '_' + str(Scale) + 'm'
+    for band in out_band_names:
+      filename  = filePrefix + '_' + band + '_' + str(Scale) + 'm'
 
-      export_dict['image']          = mosaic.select(item).multiply(ee.Image(100)).uint16()
+      export_dict['image']          = mosaic.select(band).multiply(ee.Image(100)).uint16()
       export_dict['description']    = filename
       export_dict['fileNamePrefix'] = filename
 
@@ -1102,11 +1101,11 @@ def export_mosaic(exe_Params, mosaic, SsrData, Region, task_list):
   elif out_location.find('storage') > -1:  # Exporting to Google Cloud Storage
     print('<export_mosaic> Exporting to Google Cloud Storage......')  
     export_dict['bucket'] = str(exe_Params['bucket'])    
-    for item in out_band_names:
-      filename  = filePrefix + '_' + item + '_' + str(Scale) + 'm'
+    for band in out_band_names:
+      filename  = filePrefix + '_' + band + '_' + str(Scale) + 'm'
       
-      export_dict['image'] = mosaic.select(item).multiply(ee.Image(100)).uint16()
-      export_dict['description'] = filename
+      export_dict['image']          = mosaic.select(band).multiply(ee.Image(100)).uint16()
+      export_dict['description']    = filename
       export_dict['fileNamePrefix'] = filename
 
       task_list.append(ee.batch.Export.image.toCloudStorage(**export_dict).start())
@@ -1115,12 +1114,12 @@ def export_mosaic(exe_Params, mosaic, SsrData, Region, task_list):
     print('<export_mosaic> Exporting to Google Earth Assets......')
     asset_root = 'projects/ee-lsunott/assets/'
 
-    for item in out_band_names:
-      filename  = filePrefix + '_' + item + '_' + str(Scale) + 'm'
+    for band in out_band_names:
+      filename  = filePrefix + '_' + band + '_' + str(Scale) + 'm'
       
-      export_dict['image'] = mosaic.select(item).multiply(ee.Image(100)).uint16()
+      export_dict['image']       = mosaic.select(band).multiply(ee.Image(100)).uint16()
       export_dict['description'] = filename
-      export_dict['assetId'] = asset_root + exportFolder + '/' + filename
+      export_dict['assetId']     = asset_root + exportFolder + '/' + filename
 
       task_list.append(ee.batch.Export.image.toAsset(**export_dict).start())
   

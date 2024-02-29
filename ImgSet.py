@@ -48,7 +48,7 @@ def month_range(Year, Month):
   start_date = ee.Date.fromYMD(year, month, ee.Number(1))
   stop_date  = ee.Date.fromYMD(year, month, month_end(month))
 
-  return start_date, stop_date  #Start and stop ee.Dates
+  return start_date, stop_date  
 
 
 

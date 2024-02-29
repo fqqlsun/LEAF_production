@@ -27,6 +27,7 @@ DefaultParams = {
     'end_date':  '',
     'scene_ID': '',
     'projection': 'EPSG:3979',
+    'prod_way': '',              # The way of generating products, 'tile' or 'customized'
     'CloudScore': False
 }
 
@@ -121,12 +122,12 @@ def is_custom_region(inParams):
 #
 #############################################################################################################
 def is_custom_window(inParams):
-  all_keys = inParams.keys()
+  start_len = len(inParams['start_date'])
+  end_len   = len(inParams['end_date'])
 
-  if 'start_date' in all_keys and 'end_date' in all_keys:
-    return True if len(inParams['start_date']) > 5 and len(inParams['end_date']) > 5 else False
-  else:
-    return False 
+  return True if start_len > 7 and end_len > 7 else False
+
+
 
 
 
@@ -160,9 +161,11 @@ def get_spatial_region(inParams):
 def get_time_window(inParams):
   all_keys = inParams.keys()
 
-  if 'start_date' in all_keys and 'end_date' in all_keys:
+  if is_custom_window(inParams) == True:
     year = inParams['year']
-    return ee.Date(inParams['start_date']).update(year), ee.Date(inParams['end_date']).update(year)
+    start_str = inParams['start_date']
+    end_str   = inParams['end_date']
+    return ee.Date(start_str).update(year), ee.Date(end_str).update(year)
   elif 'month' in all_keys:
     return IS.month_range(inParams['year'], inParams['month'])
   elif 'nbYears' in all_keys:
