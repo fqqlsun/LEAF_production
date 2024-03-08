@@ -53,6 +53,8 @@ def month_range(Year, Month):
 
 
 
+
+
 ######################################################################################################
 # Description: This function creates starting and stoping ee.Dates for a summer 
 #
@@ -215,10 +217,10 @@ def getCollection(SsrData, Region, StartDate, StopDate, ExtraBandCode, CloudRate
     # Attach a "Cloud Score+" band to each image in Sentinel-2 image collection
     # Note: This function is unstable for now (Feb. 10, 2024)
     #-------------------------------------------------------------------------------------------
-    #csPlus = ee.ImageCollection('GOOGLE/CLOUD_SCORE_PLUS/V1/S2_HARMONIZED') \
-    #           .filterBounds(region).filterDate(start, stop)
+    csPlus = ee.ImageCollection('GOOGLE/CLOUD_SCORE_PLUS/V1/S2_HARMONIZED') \
+               .filterBounds(region).filterDate(start, stop)
     
-    #coll   = coll.map(lambda img: img.linkCollection(csPlus, ['cs']))
+    coll   = coll.map(lambda img: img.linkCollection(csPlus, ['cs']))
 
   elif ssr_code < Img.MAX_LS_CODE: 
     # for Landsat data

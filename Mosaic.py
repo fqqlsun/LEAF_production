@@ -78,10 +78,12 @@ def period_refer_mosaic(maskedImgColl, SsrData):
      maskedImgColl(ee.ImageCollection): A given image collection with mask applied to each image;
      SsrData(dictionary): A given dictionary containing some meta data about a sensor.'''
   #==========================================================================================================
-  # Create a median mosaic image
+  # Convert the value range to between 0 and 100 and then create a median mosaic image
   #==========================================================================================================
   ready_ImgColl = maskedImgColl.map(lambda img: Img.apply_gain_offset(img, SsrData, 100, False))  
   refer_median  = ready_ImgColl.median()
+
+  #print('<period_refer_mosaic> The bands in median mosaic:', refer_median.bandNames().getInfo())
 
   #==========================================================================================================
   # Extract required separate bands and calculate NDVI and modeled blue band image
@@ -92,14 +94,15 @@ def period_refer_mosaic(maskedImgColl, SsrData):
   sw2 = refer_median.select(SsrData['SW2'])
 
   NDVI      = nir.subtract(red).divide(nir.add(red))
-  model_blu = sw2.multiply(0.3)  
+  model_blu = sw2.multiply(0.25)
 
   #==========================================================================================================
   # Correct the blue band values of median mosaic for the pixels with NDVI values larger than 0.3
   #========================================================================================================== 
   replace_cond  = model_blu.lt(blu).And(NDVI.gt(0.3))
   corrected_blu = blu.where(replace_cond, model_blu)
-  
+  #print('<period_refer_mosaic> The band namd of modeled blue:', corrected_blu.bandNames().getInfo())
+
   return refer_median.addBands(srcImg=corrected_blu, overwrite = True)
 
 
@@ -221,8 +224,7 @@ def get_maxNBR_score(blu, red, nir, sw1, sw2):
 #
 ######################################################################################################
 def get_spec_score(blu, grn, red, nir, sw1, sw2, refer_blu, refer_nir):
-  #refer_blu = refer_blu.where(refer_blu.gt(refer_nir), sw1.max(sw2).multiply(4))
-  
+    
   #===================================================================================================
   # Create penalties for both the blue and NIR bands 
   # Note: Original blue values should be used in penalty calculation
@@ -231,22 +233,37 @@ def get_spec_score(blu, grn, red, nir, sw1, sw2, refer_blu, refer_nir):
   nir_pen = nir.subtract(refer_nir).abs()
 
   #==================================================================================================
-  # Modified blue values should be used in ratio calculation
+  # Calculate scores assuming all the pixels are water
   #==================================================================================================  
   max_VIS = blu.max(grn)
-  max_IR  = sw1.max(sw2).max(ee.Image.constant(0.01))
-
-  water_score = ee.Image.constant(15).subtract(max_VIS).divide(max_IR)
+  min_VIS = blu.min(grn).min(red)
+  max_SW  = sw1.max(sw2).max(0.01)
+  max_IR  = max_SW.max(nir).max(0.01)
+  #water_score = ee.Image.constant(15).subtract(max_VIS).divide(max_SW)
+  water_score = max_VIS.divide(max_IR)
 
   #==================================================================================================
-  # Modified blue values should be used in ratio calculation
+  # Calculate scores assuming all the pixels are land
   #==================================================================================================
-  blu   = sw2.multiply(0.25).max(red.multiply(0.5).add(0.8)).max(blu)  
-  score = ee.Image(nir.divide(blu.add(blu_pen).add(nir_pen)))
+  STD_blu    = sw2.multiply(0.25).max(red.multiply(0.5).add(0.8)).max(blu)  
+  land_score = ee.Image(nir.divide(STD_blu.add(blu_pen).add(nir_pen)))  
+    
+  land_score = land_score.where(nir.gt(4.0).And(min_VIS.lt(sw2.divide(10.0))), ee.Image.constant(-10000.0))
 
-  return score.where(max_VIS.gt(max_IR), water_score)
+  #==================================================================================================
+  # Replace the land scores with water scores for producing regular composite 
+  #==================================================================================================
+  #STD_sw1  = sw1.max(0.01)
+  #mNDWI    = grn.subtract(STD_sw1).divide(grn.add(STD_sw1))  
 
-  
+  #return land_score.where(min_VIS.gt(nir).And(mNDWI.gt(0.35)).Or(max_spec.lt(1.0)), water_score)
+
+  #==================================================================================================
+  # Replace the land scores with water scores for detecting dynamic water 
+  #==================================================================================================  
+  return land_score.where(max_VIS.gt(max_IR), water_score)
+
+
 
 
 
@@ -570,7 +587,7 @@ def coll_Hybrid_mosaic(inImgColl, SsrData, StartD, StopD, ExtraBandCode, CS_plus
   median = Img.apply_gain_offset(median, SsrData, 100, False)
   '''
   #==================================================================================================
-  # Create a curent median mosaic image
+  # Apply default (OR CloudScore) masks to each image in the given collection
   #==================================================================================================  
   masked_ImgColl = IS.mask_collection(inImgColl, SsrData, CS_plus) 
   #print('<coll_mosaic> Bands in the first masked image:', masked_ImgColl.first().bandNames().getInfo())
@@ -768,10 +785,10 @@ def HomoPeriodMosaic(SsrData, Region, TargetY, NbYs, StartD, StopD, ExtraBandCod
   stop  = ee.Date(StopD).update(TargetY)    
   
   # Generate an image collection and then apply masks to each image in the collection 
-  ImgColl_target        = IS.getCollection(SsrData, Region, start, stop, ExtraBandCode)
-  masked_ImgColl_target = IS.mask_collection(ImgColl_target, SsrData, CS_plus)
+  ImgColl_target = IS.getCollection(SsrData, Region, start, stop, ExtraBandCode)
+  #masked_ImgColl_target = IS.mask_collection(ImgColl_target, SsrData, CS_plus)
 
-  mosaic_target  = coll_Hybrid_mosaic(masked_ImgColl_target, SsrData, start, stop, ExtraBandCode, CS_plus)  
+  mosaic_target  = coll_Hybrid_mosaic(ImgColl_target, SsrData, start, stop, ExtraBandCode, CS_plus)  
   
   #print('bands in mosaic = ', mosaic_target.bandNames().getInfo())
   if nb_years <= 1:
@@ -786,9 +803,9 @@ def HomoPeriodMosaic(SsrData, Region, TargetY, NbYs, StartD, StopD, ExtraBandCod
     
     # Prepare an image collection and then apply masks to each image in the collection 
     ImgColl_before        = IS.getCollection(SsrData, Region, start, stop, ExtraBandCode)
-    masked_ImgColl_before = IS.mask_collection(ImgColl_before, SsrData, CS_plus)
+    #masked_ImgColl_before = IS.mask_collection(ImgColl_before, SsrData, CS_plus)
 
-    mosaic_before = coll_Hybrid_mosaic(masked_ImgColl_before, SsrData, start, stop, ExtraBandCode, CS_plus)
+    mosaic_before = coll_Hybrid_mosaic(ImgColl_before, SsrData, start, stop, ExtraBandCode, CS_plus)
 
     # Merge the two mosaic images into one and return it  
     mosaic = MergeMosaics(mosaic_target, mosaic_before, SsrData, SsrData, 3.0)
@@ -802,9 +819,9 @@ def HomoPeriodMosaic(SsrData, Region, TargetY, NbYs, StartD, StopD, ExtraBandCod
     
     # Prepare an image collection and then apply masks to each image in the collection 
     ImgColl_after        = IS.getCollection(SsrData, Region, start, stop, ExtraBandCode)
-    masked_ImgColl_after = IS.mask_collection(ImgColl_after, SsrData, CS_plus)
+    #masked_ImgColl_after = IS.mask_collection(ImgColl_after, SsrData, CS_plus)
 
-    mosaic_after = coll_Hybrid_mosaic(masked_ImgColl_after, SsrData, start, stop, ExtraBandCode, CS_plus)
+    mosaic_after = coll_Hybrid_mosaic(ImgColl_after, SsrData, start, stop, ExtraBandCode, CS_plus)
 
     mosaic = MergeMosaics(mosaic_target, mosaic_after, SsrData, SsrData, 3.0)
 
@@ -815,9 +832,9 @@ def HomoPeriodMosaic(SsrData, Region, TargetY, NbYs, StartD, StopD, ExtraBandCod
     
     # Prepare an image collection and then apply masks to each image in the collection 
     ImgColl_before        = IS.getCollection(SsrData, Region, start, stop, ExtraBandCode)
-    masked_ImgColl_before = IS.mask_collection(ImgColl_before, SsrData, CS_plus)
+    #masked_ImgColl_before = IS.mask_collection(ImgColl_before, SsrData, CS_plus)
 
-    mosaic_before = coll_Hybrid_mosaic(masked_ImgColl_before, SsrData, start, stop, ExtraBandCode, CS_plus)
+    mosaic_before = coll_Hybrid_mosaic(ImgColl_before, SsrData, start, stop, ExtraBandCode, CS_plus)
     
     mosaic = MergeMosaics(mosaic, mosaic_before, SsrData, SsrData, 3.0)
     return mosaic.addBands(ssr_code_img)
@@ -1445,8 +1462,10 @@ Among the 11 input parameters, two keys ('months' and 'tile_names') require list
 #============================================================================================
 # Define a parameter dictionary
 #============================================================================================
-user_region = ee.Geometry.Polygon([[-76.12016546887865,45.183832177265906], [-75.38339483899584,45.170763450281996],
-                                   [-75.39026129407397,45.5639242833682], [-76.10505926770678,45.56776998764525], 
+user_region = ee.Geometry.Polygon([[-76.12016546887865,45.183832177265906], 
+                                   [-75.38339483899584,45.170763450281996],
+                                   [-75.39026129407397,45.5639242833682], 
+                                   [-76.10505926770678,45.56776998764525], 
                                    [-76.12016546887865,45.183832177265906]])
 
 params =  {
