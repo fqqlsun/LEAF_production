@@ -617,7 +617,7 @@ def get_MonthName(month_numb):
   if month > 0 and month < 13:
     return MONTH_NAMES[month-1]
   else:
-    return 'Mone'
+    return 'season'
 
 
 

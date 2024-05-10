@@ -440,6 +440,42 @@ def Img_SnowMask(Image, SsrData, MaxRef):
   return data_mask.Or(intrin_mask)
 
 
+
+
+#############################################################################################################
+# Description: This function creates a snow/ice pixel mask (1 => snow/ice) for a given image containing 
+#              spectral bands with standard names, such as blue, green, red, NIR, SWIR1 and SWIR2.
+#
+# Revision history:  2024-Apr-15  Lixin Sun  Initial creation
+# 
+#############################################################################################################
+def STDImg_SnowCloudMask(inSTD_Img, MaxRef):
+  '''Creates a snow/ice pixel mask (1 => snow/ice) for an image.
+
+     Args:
+       inSTD_Img(ee.Image): a given ee.Image object containing spectral bands with standard names;
+       MaxRef(int): a maximum reflectance value (1 or 100).'''
+    
+  blu = inSTD_Img.select('blue')
+  grn = inSTD_Img.select('green')
+  red = inSTD_Img.select('green')
+  nir = inSTD_Img.select('nir')
+  sw1 = inSTD_Img.select('swir1')
+  sw2 = inSTD_Img.select('swir2')  
+
+  max_SV = blu.max(grn)
+  max_SW = sw1.max(sw2)
+
+  ndwi = max_SV.subtract(max_SW).divide(max_SV.add(max_SW))
+  
+  nir_thresh = 10 if MaxRef > 10 else 0.1
+  snow_mask = ee.Image(ndwi.gt(0.5).And(nir.gt(nir_thresh)))
+
+  HOT        = blu.subtract(red.multiply(0.5).add(8))
+  cloud_mask = ee.Image(HOT.gt(0).And(max_SV.gt(20)))
+
+  return snow_mask.where(cloud_mask.gt(0), cloud_mask)
+  
  
 
 

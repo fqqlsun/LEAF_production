@@ -46,9 +46,9 @@ def month_range(Year, Month):
   month = ee.Algorithms.If(month.lt(ee.Number(1)).Or(month.gt(ee.Number(12))), ee.Number(7), month)
 
   start_date = ee.Date.fromYMD(year, month, ee.Number(1))
-  stop_date  = ee.Date.fromYMD(year, month, month_end(month))
+  end_date   = ee.Date.fromYMD(year, month, month_end(month))
 
-  return start_date, stop_date  
+  return start_date, end_date  
 
 
 
@@ -166,21 +166,21 @@ def time_window_size(StartD, StopD):
 #                    2023-Nov-09  Lixin Sun  Attach a "Cloud Score+" band to each image in a 
 #                                            Sentinel-2 image collection.
 ######################################################################################################
-def getCollection(SsrData, Region, StartDate, StopDate, ExtraBandCode, CloudRate = -100):  
+def getCollection(SsrData, Region, StartDate, EndDate, ExtraBandCode, CloudRate = -100):  
   '''Returns a image collection acquired by a sensor over a geographical region during a period of time  
 
   Arg: 
      SsrData(Dictionary): A Dictionary containing metadata associated with a sensor and data unit;
      Region(ee.Geometry): A geospatial polygon of ROI;
-     start_date(string or ee.Date): The start acquisition date string (e.g., '2020-07-01');
-     stop_date(string or ee.Date): The stop acquisition date string (e.g., '2020-07-31');
+     StartDate(string or ee.Date): The start acquisition date string (e.g., '2020-07-01');
+     EndDate(string or ee.Date): The stop acquisition date string (e.g., '2020-07-31');
      CloudRate(float): a given cloud coverage rate.'''
   
   print('<getCollection> SsrData info:', SsrData)
   # Cast the input parameters into proper formats  
   region = ee.Geometry(Region)
   start  = ee.Date(StartDate)
-  stop   = ee.Date(StopDate)
+  end    = ee.Date(EndDate)
   year   = int(start.get('year').getInfo())
   print('\n<getCollection> The year of time window = ', year) 
 
@@ -190,7 +190,7 @@ def getCollection(SsrData, Region, StartDate, StopDate, ExtraBandCode, CloudRate
   # (1) based on sensor type and the centre of the given spatial region
   # (2) a given cloud coverage percentage/rate (CloudRate) 
   #===================================================================================================
-  cloud_rate = Img.get_cloud_rate(SsrData, region) if CloudRate < 0 or CloudRate > 99.99 else CloudRate 
+  cloud_rate = Img.get_cloud_rate(SsrData, region) if CloudRate < 0 or CloudRate > 99.99 else ee.Number(CloudRate)
   print('<getCollection> Used cloud rate = ', cloud_rate.getInfo())
 
   #===================================================================================================
@@ -202,11 +202,11 @@ def getCollection(SsrData, Region, StartDate, StopDate, ExtraBandCode, CloudRate
   data_unit = SsrData['DATA_UNIT'] 
 
   if ssr_code == Img.MOD_sensor: # for MODIS data
-    coll = ee.ImageCollection(CollName).filterBounds(region).filterDate(start, stop) 
+    coll = ee.ImageCollection(CollName).filterBounds(region).filterDate(start, end) 
   elif ssr_code > Img.MAX_LS_CODE and ssr_code < Img.MOD_sensor: 
     # for Sentinel-2 data   
     # Note: Limiting SZA < 70.0 could lead to an empty image coolection for some Canadian Northen regions 
-    coll = ee.ImageCollection(CollName).filterBounds(region).filterDate(start, stop) \
+    coll = ee.ImageCollection(CollName).filterBounds(region).filterDate(start, end) \
                .filterMetadata(SsrData['CLOUD'], 'less_than', cloud_rate) \
                .filterMetadata('system:asset_size', 'greater_than', 1000000) # Added on Feb 13, 2024
                #.filterMetadata(SsrData['SZA'], 'less_than', 70.0) \
@@ -218,7 +218,7 @@ def getCollection(SsrData, Region, StartDate, StopDate, ExtraBandCode, CloudRate
     # Note: This function is unstable for now (Feb. 10, 2024)
     #-------------------------------------------------------------------------------------------
     csPlus = ee.ImageCollection('GOOGLE/CLOUD_SCORE_PLUS/V1/S2_HARMONIZED') \
-               .filterBounds(region).filterDate(start, stop)
+               .filterBounds(region).filterDate(start, end)
     
     coll   = coll.map(lambda img: img.linkCollection(csPlus, ['cs']))
 
@@ -226,11 +226,11 @@ def getCollection(SsrData, Region, StartDate, StopDate, ExtraBandCode, CloudRate
     # for Landsat data
     if year < 2022 or ssr_code < Img.LS_sensor:
       # For one single Landsat sensor
-      coll = ee.ImageCollection(CollName).filterBounds(region).filterDate(start, stop).filterMetadata(SsrData['CLOUD'], 'less_than', cloud_rate) 
+      coll = ee.ImageCollection(CollName).filterBounds(region).filterDate(start, end).filterMetadata(SsrData['CLOUD'], 'less_than', cloud_rate) 
 
       if ExtraBandCode == Img.EXTRA_ANGLE and data_unit == Img.sur_ref: 
         toa_ssr_data = Img.SSR_META_DICT['L8_TOA']
-        toa_coll     = ee.ImageCollection(toa_ssr_data['GEE_NAME']).filterBounds(region).filterDate(start, stop).filterMetadata(toa_ssr_data['CLOUD'], 'less_than', cloud_rate) 
+        toa_coll     = ee.ImageCollection(toa_ssr_data['GEE_NAME']).filterBounds(region).filterDate(start, end).filterMetadata(toa_ssr_data['CLOUD'], 'less_than', cloud_rate) 
         
         coll = coll.map(lambda img: img.linkCollection(toa_coll, ['SZA', 'SAA', 'VZA', 'VAA']))
 
@@ -239,15 +239,15 @@ def getCollection(SsrData, Region, StartDate, StopDate, ExtraBandCode, CloudRate
         L8_sr_ssr_data = Img.SSR_META_DICT['L8_SR']
         L9_sr_ssr_data = Img.SSR_META_DICT['L9_SR']
 
-        L8_sr_coll     = ee.ImageCollection(L8_sr_ssr_data['GEE_NAME']).filterBounds(region).filterDate(start, stop).filterMetadata(L8_sr_ssr_data['CLOUD'], 'less_than', cloud_rate)         
-        L9_sr_coll     = ee.ImageCollection(L9_sr_ssr_data['GEE_NAME']).filterBounds(region).filterDate(start, stop).filterMetadata(L9_sr_ssr_data['CLOUD'], 'less_than', cloud_rate) 
+        L8_sr_coll     = ee.ImageCollection(L8_sr_ssr_data['GEE_NAME']).filterBounds(region).filterDate(start, end).filterMetadata(L8_sr_ssr_data['CLOUD'], 'less_than', cloud_rate)         
+        L9_sr_coll     = ee.ImageCollection(L9_sr_ssr_data['GEE_NAME']).filterBounds(region).filterDate(start, end).filterMetadata(L9_sr_ssr_data['CLOUD'], 'less_than', cloud_rate) 
         
         if ExtraBandCode == Img.EXTRA_ANGLE:
           L8_toa_ssr_data = Img.SSR_META_DICT['L8_TOA']
           L9_toa_ssr_data = Img.SSR_META_DICT['L9_TOA']
         
-          L8_toa_coll = ee.ImageCollection(L8_toa_ssr_data['GEE_NAME']).filterBounds(region).filterDate(start, stop).filterMetadata(L8_toa_ssr_data['CLOUD'], 'less_than', cloud_rate) 
-          L9_toa_coll = ee.ImageCollection(L9_toa_ssr_data['GEE_NAME']).filterBounds(region).filterDate(start, stop).filterMetadata(L9_toa_ssr_data['CLOUD'], 'less_than', cloud_rate) 
+          L8_toa_coll = ee.ImageCollection(L8_toa_ssr_data['GEE_NAME']).filterBounds(region).filterDate(start, end).filterMetadata(L8_toa_ssr_data['CLOUD'], 'less_than', cloud_rate) 
+          L9_toa_coll = ee.ImageCollection(L9_toa_ssr_data['GEE_NAME']).filterBounds(region).filterDate(start, end).filterMetadata(L9_toa_ssr_data['CLOUD'], 'less_than', cloud_rate) 
 
           L8_sr_coll = L8_sr_coll.map(lambda img: img.linkCollection(L8_toa_coll, ['SZA', 'SAA', 'VZA', 'VAA']))
           L9_sr_coll = L9_sr_coll.map(lambda img: img.linkCollection(L9_toa_coll, ['SZA', 'SAA', 'VZA', 'VAA']))
@@ -257,14 +257,14 @@ def getCollection(SsrData, Region, StartDate, StopDate, ExtraBandCode, CloudRate
         L8_toa_ssr_data = Img.SSR_META_DICT['L8_TOA']
         L9_toa_ssr_data = Img.SSR_META_DICT['L9_TOA']
         
-        L8_toa_coll = ee.ImageCollection(L8_toa_ssr_data['GEE_NAME']).filterBounds(region).filterDate(start, stop) 
-        L9_toa_coll = ee.ImageCollection(L9_toa_ssr_data['GEE_NAME']).filterBounds(region).filterDate(start, stop) 
+        L8_toa_coll = ee.ImageCollection(L8_toa_ssr_data['GEE_NAME']).filterBounds(region).filterDate(start, end) 
+        L9_toa_coll = ee.ImageCollection(L9_toa_ssr_data['GEE_NAME']).filterBounds(region).filterDate(start, end) 
 
         coll = L8_toa_coll.merge(L9_toa_coll)
 
   elif ssr_code == Img.HLS_sensor:  # For harmonized Landsat and Sentinel-2
     coll = ee.ImageCollection(CollName).filterBounds(region) \
-                                       .filterDate(start, stop) \
+                                       .filterDate(start, end) \
                                        .filterMetadata(SsrData['CLOUD'], 'less_than', cloud_rate) \
                                        #.filterMetadata(SsrData['SZA'], 'less_than', 70.0) 
 

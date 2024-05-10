@@ -339,3 +339,39 @@ def get_GlobWater(OccThresh):
   water_map   = water_map.where(water_map.eq(3), ee.Image.constant(2))   # 0, 1 and 2 represent temporary water, land and permanent water    
   
   return water_map.selfMask()
+
+
+
+
+#############################################################################################################
+# Description: This function returns a global map that labels permanent land and permanent water, and with
+#              temporary water pixels masked.
+#
+# Note:        (1) In returned map, permanent land and water pixels are labelled with 1 and 2, respectively,
+#                  and rest pixels are masked out.
+#              (2) The value range of "occurrence" layer is between 0 and 100.
+# 
+# Revision history:  2023-Aug-25  Lixin Sun  Initial creation
+#    
+#############################################################################################################  
+def get_water_land_map(OccThresh):
+  '''Returns a global water map.
+     Args:
+       OccThresh(int): A goven occurence threshold.'''
+
+  JRC_water = ee.Image("JRC/GSW1_4/GlobalSurfaceWater")
+  ESA_LC    = ee.ImageCollection('ESA/WorldCover/v200').max()
+
+  zero_img  = ESA_LC.multiply(0)
+  land_mask = zero_img.where(ESA_LC.neq(80), ee.Image.constant(1))
+
+  binary_mask = JRC_water.select('occurrence').gt(OccThresh).add(1)  # 1 and 2 represent temporary and permanent water  
+
+  water_map   = binary_mask.unmask().add(1)    # Values 1, 2 and 3 represent land, temporary and permanent water 
+  water_map   = water_map.where(land_mask.lt(1).And(water_map.eq(1)), ee.Image.constant(0))
+
+  water_map   = water_map.where(water_map.eq(2), ee.Image.constant(0))   # 0, 1 and 3 represent temporary water, permanent land and water    
+  water_map   = water_map.where(water_map.eq(3), ee.Image.constant(2))   # 0, 1 and 2 represent temporary water, permanent land and water    
+  
+  return water_map.updateMask(ESA_LC)
+

@@ -13,6 +13,7 @@ import Image as Img
 import ImgMask as IM
 import ImgSet as IS
 import eoTileGrids as eoTG
+import eoAuxData as eoAD
 import eoParams
 
 
@@ -99,7 +100,7 @@ def period_refer_mosaic(maskedImgColl, SsrData):
   #==========================================================================================================
   # Correct the blue band values of median mosaic for the pixels with NDVI values larger than 0.3
   #========================================================================================================== 
-  replace_cond  = model_blu.lt(blu).And(NDVI.gt(0.3))
+  replace_cond  = model_blu.lt(blu).And(NDVI.gt(0.3)).And(sw2.gt(blu))
   corrected_blu = blu.where(replace_cond, model_blu)
   #print('<period_refer_mosaic> The band namd of modeled blue:', corrected_blu.bandNames().getInfo())
 
@@ -223,45 +224,34 @@ def get_maxNBR_score(blu, red, nir, sw1, sw2):
 # Revision history:  2023-Aug-25  Lixin Sun  Initial creation
 #
 ######################################################################################################
-def get_spec_score(blu, grn, red, nir, sw1, sw2, refer_blu, refer_nir):
+def get_spec_score(blu, grn, red, nir, sw1, sw2, refer_blu, refer_nir, water_map):
     
-  #===================================================================================================
-  # Create penalties for both the blue and NIR bands 
-  # Note: Original blue values should be used in penalty calculation
-  #===================================================================================================
-  blu_pen = blu.subtract(refer_blu).abs().exp()
-  nir_pen = nir.subtract(refer_nir).abs()
-
   #==================================================================================================
   # Calculate scores assuming all the pixels are water
-  #==================================================================================================  
-  max_VIS = blu.max(grn)
-  min_VIS = blu.min(grn).min(red)
-  max_SW  = sw1.max(sw2).max(0.01)
-  max_IR  = max_SW.max(nir).max(0.01)
-  #water_score = ee.Image.constant(15).subtract(max_VIS).divide(max_SW)
-  water_score = max_VIS.divide(max_IR)
+  #==================================================================================================    
+  max_SV = blu.max(grn).max(0.01)
+  max_SW = sw1.max(sw2).max(0.01)
+  max_IR = max_SW.max(nir).max(0.01)
+
+  water_score = max_SV.divide(max_IR)
+  water_score = water_score.where(refer_blu.lt(blu), water_score.multiply(-1))
 
   #==================================================================================================
   # Calculate scores assuming all the pixels are land
   #==================================================================================================
-  STD_blu    = sw2.multiply(0.25).max(red.multiply(0.5).add(0.8)).max(blu)  
+  blu_pen = blu.subtract(refer_blu).abs().exp()
+  nir_pen = nir.subtract(refer_nir).abs()
+  STD_blu = sw2.multiply(0.25).max(red.multiply(0.5).add(0.8)).max(blu)  
+
   land_score = ee.Image(nir.divide(STD_blu.add(blu_pen).add(nir_pen)))  
     
-  land_score = land_score.where(nir.gt(4.0).And(min_VIS.lt(sw2.divide(10.0))), ee.Image.constant(-10000.0))
-
-  #==================================================================================================
-  # Replace the land scores with water scores for producing regular composite 
-  #==================================================================================================
-  #STD_sw1  = sw1.max(0.01)
-  #mNDWI    = grn.subtract(STD_sw1).divide(grn.add(STD_sw1))  
-
-  #return land_score.where(min_VIS.gt(nir).And(mNDWI.gt(0.35)).Or(max_spec.lt(1.0)), water_score)
-
   #==================================================================================================
   # Replace the land scores with water scores for detecting dynamic water 
   #==================================================================================================  
-  return land_score.where(max_VIS.gt(max_IR), water_score)
+  #zero_img   = nir.multiply(0)
+  #water_mask = zero_img.where(water_map.eq(0).Or(water_map.eq(2)), ee.Image.constant(1))  
+
+  return land_score.where(water_map.eq(2).Or(water_map.eq(0).And(max_SV.gt(max_IR)).And(max_SW.lt(3.0))), water_score)
 
 
 
@@ -380,14 +370,15 @@ def attach_NLCD_score(maskedImg, SsrData, ready_median_mosaic):
 # Revision history:  2020-Dec-22  Lixin Sun  Initial creation
 #
 ######################################################################################################
-def attach_Hybrid_score(maskedImg, midDate, SsrData, ready_refer_mosaic):
+def attach_Hybrid_score(maskedImg, midDate, SsrData, ready_refer_mosaic, water_map):
   '''Attach a score image to a given image.
   
   Args:      
       maskedImg(ee.Image): A given ee.Image object with mask applied;
       midDate(ee.Date): The centre date of a compositing time period;
       SsrData(Dictionary): A Dictionary containing metadata associated with a sensor and data unit;      
-      ready_refer_mosaic(ee.Image): A given reference image that has been rescaled and masked.'''
+      ready_refer_mosaic(ee.Image): A given reference image that has been rescaled and masked;
+      water_map(ee.Image): A given permanent water and permanent land map.'''
   
   #==================================================================================================
   # Rescale the pixel values to range between 0 and 100
@@ -413,7 +404,7 @@ def attach_Hybrid_score(maskedImg, midDate, SsrData, ready_refer_mosaic):
   sw2 = readyImg.select(SsrData['SW2'])
 
   #land_score = ee.Image(get_land_score(blu, grn, red, nir, sw1, sw2, MedBlue, MedNIR))
-  spec_score = ee.Image(get_spec_score(blu, grn, red, nir, sw1, sw2, refer_blu, refer_nir))  
+  spec_score = ee.Image(get_spec_score(blu, grn, red, nir, sw1, sw2, refer_blu, refer_nir, water_map))  
     
   #return maskedImg.addBands(spec_score.rename([Img.pix_score]))
 
@@ -463,13 +454,18 @@ def score_collection(masked_img_coll, SsrData, midDate, ExtraBandCode, CS_plus, 
      ExtraBandCode(int): The integer code representing band type to be added additionally;
      CS_plus(Boolean): A flag indicating if to apply CloudScore+ mask;
      rescaled_refer_mosaic(ee.Image): A given rescaled reference image.'''
-  
   #print('<score_collection> band names of 1st image = ', collection.first().bandNames().getInfo())
   #print('<score_collection> the given collection = ', collection.size().getInfo())  
   #==================================================================================================
+  # Obtain a global permanent water and land map
+  # 0,1 and 2 in the map represent temporary water, permanent land and permanent water, respectively
+  #==================================================================================================
+  water_map = eoAD.get_water_land_map(90).unmask()
+  
+  #==================================================================================================
   # Attach a score and an acquisition date bands to each image in the image collection
   #==================================================================================================  
-  scored_ImgColl = masked_img_coll.map(lambda img: attach_Hybrid_score(img, midDate, SsrData, rescaled_refer_mosaic)) \
+  scored_ImgColl = masked_img_coll.map(lambda img: attach_Hybrid_score(img, midDate, SsrData, rescaled_refer_mosaic, water_map)) \
                                   .map(lambda img: Img.attach_Date(img))  
   
   #==================================================================================================
@@ -802,7 +798,7 @@ def HomoPeriodMosaic(SsrData, Region, TargetY, NbYs, StartD, StopD, ExtraBandCod
     stop     = stop.update(PrevYear)
     
     # Prepare an image collection and then apply masks to each image in the collection 
-    ImgColl_before        = IS.getCollection(SsrData, Region, start, stop, ExtraBandCode)
+    ImgColl_before = IS.getCollection(SsrData, Region, start, stop, ExtraBandCode)
     #masked_ImgColl_before = IS.mask_collection(ImgColl_before, SsrData, CS_plus)
 
     mosaic_before = coll_Hybrid_mosaic(ImgColl_before, SsrData, start, stop, ExtraBandCode, CS_plus)
@@ -1067,12 +1063,13 @@ def export_mosaic(exe_Params, mosaic, SsrData, Region, task_list):
   # Obtain some parameters from the given parameter dictionary
   #==========================================================================================================
   #print('\n\n<export_mosaic> exe_Params = ', exe_Params)
-  year_str     = str(exe_Params['year'])   
-  nb_years     = int(exe_Params['nbYears'])
-  region_str   = str(exe_Params['tile_name'])
+  year_str     = str(exe_Params['year'])     
   Scale        = int(exe_Params['spatial_scale'])
   given_folder = str(exe_Params['out_folder'])
   out_location = str(exe_Params['out_location']).lower()
+
+  region_str   = str(exe_Params['region_str'])
+  period_str   = str(exe_Params['time_str'])
 
   #==========================================================================================================
   # Create an exporting folder name or use a given one
@@ -1082,14 +1079,7 @@ def export_mosaic(exe_Params, mosaic, SsrData, Region, task_list):
 
   #==========================================================================================================
   # Create prefix filenames for peak or monthly mosaic band images 
-  #==========================================================================================================
-  custom_window = eoParams.is_custom_window(exe_Params)
-
-  if nb_years < 0 and custom_window == False:  # monthly mosaic
-    period_str = Img.get_MonthName(int(exe_Params['month']))    
-  else:
-    period_str = exe_Params['start_date'] + '_to_' + exe_Params['end_date']
-    
+  #==========================================================================================================  
   filePrefix = region_str + '_' + period_str + '_' + SsrData['NAME']
 
   #==========================================================================================================
@@ -1218,7 +1208,7 @@ def HLS_PeriodMosaic(DataUnit, Region, targetY, NbYs, StartD, StopD, ExtraBandCo
 #
 #############################################################################################################
 def tile_composite(exe_Params, ExtraBandCode, task_list):
-  '''Produces LEAF products for one or multiple tiles in CANADA
+  '''Produces composite images for one or multiple tiles in CANADA
 
     Args:
        exe_Params(dictionary): A dictionary storing all necessary parameters for an execution;
@@ -1229,37 +1219,36 @@ def tile_composite(exe_Params, ExtraBandCode, task_list):
   # Validate some input parameters
   #==========================================================================================================
   all_keys  = exe_Params.keys()    
-  all_valid = True if 'tile_names' in all_keys and 'months' in all_keys else False
+  all_valid = True if 'tile_names' in all_keys and 'months' in all_keys and 'year' in all_keys else False
   
   if all_valid == False:
-    print('<tile_composite> !!!!!!!! Required parameters are not available !!!!!!!!')
+    print('<tile_composite> Required parameters are not available!!!')
     return task_list
   
   #==========================================================================================================
   # get some required parameters
   #==========================================================================================================
-  ssr_data = Img.SSR_META_DICT[exe_Params['sensor']]
-  year     = int(exe_Params['year'])
-  nYears   = int(exe_Params['nbYears'])
+  ssr_data    = Img.SSR_META_DICT[exe_Params['sensor']]
+  year        = int(exe_Params['year'])
+  nYears      = int(exe_Params['nbYears'])
   cloud_score = exe_Params['CloudScore']
 
   #==========================================================================================================
   # Produce composite images for eath tile and month/peak season
   #==========================================================================================================
   for tile in exe_Params['tile_names']:  
-    exe_Params['tile_name'] = tile   # Add an element with 'tile_name' as key to 'exe_param_dict'    
+    exe_Params['current_tile'] = tile
+    exe_Params['region_str']   = tile
 
     region = eoTG.PolygonDict.get(tile)
     region = eoTG.expandSquare(region, 0.02)
 
     # Produce monthly (or seasonal) porducts 
     for month in exe_Params['months']:
-      # Add an element with 'month' as key to 'exe_param_dict'  
-      exe_Params['month'] = month     
-      start, stop = IS.month_range(year, month) if month > 0 and month < 13 else IS.summer_range(year)
+      exe_Params['current_month'] = month  
+      exe_Params['time_str'] = Img.get_MonthName(month)
       
-      if month > 0 and month < 13:
-        exe_Params['nbYears'] = -10
+      start, stop = eoParams.get_time_window(exe_Params)
 
       # Produce and export monthly or seasonal biophysical parameetr maps
       print('\n<tile_composite> Generate and export composite images......')        
@@ -1285,7 +1274,7 @@ def tile_composite(exe_Params, ExtraBandCode, task_list):
 #
 #############################################################################################################
 def custom_composite(exe_Params, ExtraBandCode, task_list):
-  '''Produces LEAF products for one or multiple tiles in CANADA
+  '''Produces composite images for a region, such as a region/tiles
 
     Args:
        exe_Params(Dictionary): A dictionary storing all input parameters for one execution;
@@ -1293,34 +1282,83 @@ def custom_composite(exe_Params, ExtraBandCode, task_list):
        task_list([]): a list for storing the exporting tasks.'''  
   
   #==========================================================================================================
-  # Validate some input parameters
+  # Ensure that either the time window or spatial region has been customized
   #==========================================================================================================
-  is_valid = True if eoParams.is_custom_region(exe_Params) or eoParams.is_custom_window(exe_Params) else False
-  
-  if is_valid == False:
-    print('<custom_composite> !!!!!!!! Required parameters are not available !!!!!!!!')
+  custom_region = eoParams.is_custom_region(exe_Params)
+  custom_window = eoParams.is_custom_window(exe_Params)
+
+  if custom_region == False and custom_window == False:
+    print('<custom_composite> No customized parameter has been provided!!!')
     return task_list
   
   #==========================================================================================================
   # 
   #==========================================================================================================
-  ssr_data = Img.SSR_META_DICT[exe_Params['sensor']]
-  year     = int(exe_Params['year'])
-  nYears   = int(exe_Params['nbYears'])
-  cloud_score = exe_Params['CloudScore']
+  ssr_data    = Img.SSR_META_DICT[exe_Params['sensor']]
+  year        = int(exe_Params['year'])
+  nYears      = int(exe_Params['nbYears'])
+  cloud_score = exe_Params['CloudScore']  
   
-  region      = eoParams.get_spatial_region(exe_Params)
-  start, stop = eoParams.get_time_window(exe_Params)
+  if custom_region == True and custom_window == False:
+    # The case of only one customized spatial region and multiple months
+    region      = eoParams.get_spatial_region(exe_Params)
+    exe_Params['current_tile']  = ''
+    exe_Params['region_str']    = 'custom'    
+    
+    nb_months = len(exe_Params['months'])
+    if nb_months < 1:
+      print('<custom_composite> No month was specified!!!')      
+      return 
+    
+    for month in exe_Params['months']:
+      # Add an element with 'month' as key to 'exe_param_dict'  
+      exe_Params['current_month'] = month        
+      exe_Params  = eoParams.set_time_str(exe_Params, False)
+      start, stop = eoParams.get_time_window(exe_Params)     
 
-  exe_Params['tile_name'] = 'custom_region'
+      print('\n<custom_composite> Generate and export composite images......')        
+      mosaic = HomoPeriodMosaic(ssr_data, region, year, nYears, start, stop, ExtraBandCode, cloud_score)
+      mosaic = Img.apply_gain_offset(mosaic, ssr_data, 100, False)
 
-  # Produce composite images
-  print('\n<custom_composite> Generate and export composite images......')        
-  mosaic = HomoPeriodMosaic(ssr_data, region, year, nYears, start, stop, ExtraBandCode, cloud_score)
-  mosaic = Img.apply_gain_offset(mosaic, ssr_data, 100, False)
+      # Export composite images
+      export_mosaic(exe_Params, mosaic, ssr_data, region, task_list) 
 
-  # Export composite images
-  export_mosaic(exe_Params, mosaic, ssr_data, region, task_list)
+  elif custom_region == False and custom_window == True:
+    # The case of only one time window and multiple tiles
+    start, stop = eoParams.get_time_window(exe_Params)
+
+    nb_tiles = len(exe_Params['tile_names'])
+    exe_Params['current_month'] = -1
+
+    if nb_tiles < 1:
+      print('<custom_composite> No tile was specified!!!')      
+      return 
+    
+    for tile in exe_Params['tile_names']:
+      # Add an element with 'month' as key to 'exe_param_dict'  
+      exe_Params['current_tile'] = tile
+      exe_Params = eoParams.set_region_str(exe_Params, False)
+      region     = eoParams.get_spatial_region(exe_Params)
+
+      print('\n<custom_composite> Generate and export composite images......')        
+      mosaic = HomoPeriodMosaic(ssr_data, region, year, nYears, start, stop, ExtraBandCode, cloud_score)
+      mosaic = Img.apply_gain_offset(mosaic, ssr_data, 100, False)
+
+      # Export composite images
+      export_mosaic(exe_Params, mosaic, ssr_data, region, task_list) 
+
+  else:
+    # The case of one time window and one spatial region are available
+    start, stop = eoParams.get_time_window(exe_Params)
+    region      = eoParams.get_spatial_region(exe_Params)
+
+    # Produce composite images
+    print('\n<custom_composite> Generate and export composite images......')        
+    mosaic = HomoPeriodMosaic(ssr_data, region, year, nYears, start, stop, ExtraBandCode, cloud_score)
+    mosaic = Img.apply_gain_offset(mosaic, ssr_data, 100, False)
+
+    # Export composite images
+    export_mosaic(exe_Params, mosaic, ssr_data, region, task_list)
     
 
 
@@ -1351,15 +1389,10 @@ def Mosaic_production(exe_Params, MixSensor, ExtraBandCode):
   #==========================================================================================================
   task_list = []
 
-  if eoParams.is_custom_region(mosaic_params) == True:   
+  if eoParams.is_custom_region(mosaic_params) == True or eoParams.is_custom_window(mosaic_params) == True:   
     # There is a customized spatial region specified in Parameter dictionary 
     print('\n<Mosaic_production> Calling custom_composite function......')
-    custom_composite(mosaic_params, ExtraBandCode, task_list)
-    
-  elif eoParams.is_custom_window(mosaic_params) == True:
-    # There is a customized compositing period specified in Parameter dictionary 
-    print('\n<Mosaic_production> Calling custom_composite function......')
-    custom_composite(mosaic_params, ExtraBandCode, task_list)
+    custom_composite(mosaic_params, ExtraBandCode, task_list)    
 
   else: 
     # There is neither customized region nor customized compositing period defined in Parameter dictionary 

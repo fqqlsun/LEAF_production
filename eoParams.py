@@ -1,7 +1,9 @@
 import ee 
 
 import ImgSet as IS
+import Image as Img
 import eoTileGrids as eoTG
+import re
 
 
 #############################################################################################################
@@ -27,73 +29,13 @@ DefaultParams = {
     'end_date':  '',
     'scene_ID': '',
     'projection': 'EPSG:3979',
-    'prod_way': '',              # The way of generating products, 'tile' or 'customized'
-    'CloudScore': False
+    'CloudScore': False,
+
+    'current_month': -1,
+    'current_tile': '',
+    'time_str': '',
+    'region_str': ''
 }
-
-
-
-
-############################################################################################################# 
-# Description: Obtain a parameter dictionary for LEAF tool
-#############################################################################################################
-def get_LEAF_params(inParams):
-  out_Params = update_default_params(inParams)  # Modify default parameter dictionary with a given one
-  out_Params['nbYears'] = -1                    # Produce monthly products in most cases
-  out_Params['unit']    = 2                     # Always surface reflectance for LEAF production
-
-  return out_Params  
-
-
-
-#############################################################################################################
-# Description: Obtain a parameter dictionary for Mosaic tool
-#############################################################################################################
-def get_mosaic_params(inParams):
-  out_Params = update_default_params(inParams)  # Modify default parameter dictionary with a given one
-  out_Params['prod_names'] = ['mosaic']         # Of course, product name should be always 'mosaic'
-
-  return out_Params  
-
-
-
-#############################################################################################################
-# Description: Obtain a parameter dictionary for land cover classification tool
-#############################################################################################################
-def get_LC_params(inParams):
-  out_Params = update_default_params(inParams) # Modify default parameter dictionary with a given one
-  out_Params['prod_names'] = ['mosaic']        # Of course, product name should be always 'mosaic'
-
-  return out_Params 
-
-
-
-#############################################################################################################
-# Description: This function modifies default parameter dictionary based on a given parameter dictionary.
-# 
-# Note:        The given parameetr dictionary does not have to include all "key:value" pairs, just only the
-#              pairs need to be modified.
-#
-# Revision history:  2022-Mar-29  Lixin Sun  Initial creation
-#
-#############################################################################################################
-def update_default_params(inParams):  
-  out_Params = DefaultParams
-
-  # get the number of keys in the given dictionary
-  inKeys = inParams.keys()  
-  
-  # For each key in the given dictionary, modify corresponding "key:value" pair
-  for ikey in inKeys:
-    out_Params[ikey] = inParams.get(ikey)
-  
-  # Ensure "CloudScore" is False if sensor type is not Sentinel-2 data
-  sensor_type = out_Params['sensor'].lower()
-  if sensor_type.find('s2') < 0:
-    out_Params['CloudScore'] = False 
-
-  # return modified parameter dictionary 
-  return out_Params
 
 
 
@@ -124,10 +66,158 @@ def is_custom_region(inParams):
 def is_custom_window(inParams):
   start_len = len(inParams['start_date'])
   end_len   = len(inParams['end_date'])
-  #stop_len  = len(inParams['stop_date'])
-  print('<is_custom_window> The string lengths of start and end dates are:', start_len, end_len)
-
+  #print('<is_custom_window> start and end date lengthes are:', start_len, end_len)
+  
   return True if start_len > 7 and end_len > 7 else False
+  
+
+
+#############################################################################################################
+# Description: This function makes the year values corresponding to 'start_date', 'end_date' and 'year' keys
+#              in a execution parameter dictionary are consistent.
+# 
+# Revision history:  2024-Apr-08  Lixin Sun  Initial creation
+#
+#############################################################################################################
+def year_consist(inParams):
+  start_date = str(inParams['start_date'])
+  end_date   = str(inParams['end_date'])  
+  
+  if len(start_date) > 7 and len(end_date) > 7:
+    # Modify the year of 'end_date' string using the year of 'start_date'  
+    start_tokens = re.split('-|_', start_date)
+    end_tokens   = re.split('-|_', end_date)
+    inParams['end_date'] = start_tokens[0] + '-' + end_tokens[1] + '-' + end_tokens[2]
+  
+    # Modify the value corresponding 'year' key in parameter dictionary
+    inParams['year'] = start_tokens[0]
+
+  return inParams
+
+
+
+#############################################################################################################
+# Description: This function sets value for 'time_str' key based on if a customized time window has been 
+#              specified.
+# 
+# Revision history:  2024-Apr-08  Lixin Sun  Initial creation
+#
+#############################################################################################################
+def set_time_str(inParams, custon_window = True):
+  current_month = inParams['current_month']
+
+  if custon_window == True:
+    inParams['time_str'] = str(inParams['start_date']) + '_' + str(inParams['end_date'])
+
+  elif current_month > 0 and current_month < 13:
+    inParams['time_str'] = Img.get_MonthName(current_month)
+
+  else:
+    inParams['time_str'] = 'season'
+
+  return inParams
+
+
+
+#############################################################################################################
+# Description: This function sets value for 'region_str' key based on if a customized spatial region has been 
+#              specified.
+# 
+# Revision history:  2024-Apr-08  Lixin Sun  Initial creation
+#
+#############################################################################################################
+def set_region_str(inParams, custon_region = True):
+  if custon_region == True:
+    inParams['region_str'] = 'custom_region'
+    
+  else:
+    inParams['region_str'] = inParams['current_tile']
+
+  return inParams
+
+
+
+
+
+#############################################################################################################
+# Description: This function modifies default parameter dictionary based on a given parameter dictionary.
+# 
+# Note:        The given parameetr dictionary does not have to include all "key:value" pairs, only the pairs
+#              as needed.
+#
+# Revision history:  2022-Mar-29  Lixin Sun  Initial creation
+#                    2024-Apr-08  Lixin Sun  Incorporated modifications according to customized time window
+#                                            and spatial region.
+#############################################################################################################
+def update_default_params(inParams):  
+  out_Params = DefaultParams
+
+  # get the number of keys in the given dictionary
+  inKeys = inParams.keys()  
+  
+  # For each key in the given dictionary, modify corresponding "key:value" pair
+  for ikey in inKeys:
+    out_Params[ikey] = inParams.get(ikey)
+  
+  # Ensure "CloudScore" is False if sensor type is not Sentinel-2 data
+  sensor_type = out_Params['sensor'].lower()
+  if sensor_type.find('s2') < 0:
+    out_Params['CloudScore'] = False 
+  
+  #==========================================================================================================
+  # If a customized time window has been provided
+  #==========================================================================================================
+  if is_custom_window(out_Params) == True:
+    #Ensure all the year values in a parameter dictionary are consistent 
+    out_Params = year_consist(out_Params)
+    #Set value associated with 'time_str' key
+    out_Params = set_time_str(out_Params, True)
+ 
+  #==========================================================================================================
+  # If a customized spatial region has been provided
+  #==========================================================================================================
+  if is_custom_region(out_Params) == True: 
+    #Set value associated with 'region_str' key
+    out_Params = set_region_str(out_Params, True)
+  
+  # return modified parameter dictionary 
+  return out_Params
+
+
+
+############################################################################################################# 
+# Description: Obtain a parameter dictionary for LEAF tool
+#############################################################################################################
+def get_LEAF_params(inParams):
+  out_Params = update_default_params(inParams)  # Modify default parameters with given ones
+  out_Params['nbYears'] = -1                    # Produce monthly products in most cases
+  out_Params['unit']    = 2                     # Always surface reflectance for LEAF production
+
+  return out_Params  
+
+
+
+#############################################################################################################
+# Description: Obtain a parameter dictionary for Mosaic tool
+#############################################################################################################
+def get_mosaic_params(inParams):
+  out_Params = update_default_params(inParams)  # Modify default parameter dictionary with a given one
+  out_Params['prod_names'] = ['mosaic']         # Of course, product name should be always 'mosaic'
+
+  return out_Params  
+
+
+
+#############################################################################################################
+# Description: Obtain a parameter dictionary for land cover classification tool
+#############################################################################################################
+def get_LC_params(inParams):
+  out_Params = update_default_params(inParams) # Modify default parameter dictionary with a given one
+  out_Params['prod_names'] = ['mosaic']        # Of course, product name should be always 'mosaic'
+
+  return out_Params 
+
+
 
 
 
@@ -144,12 +234,15 @@ def get_spatial_region(inParams):
 
   if 'custom_region' in all_keys:
     return inParams['custom_region']
-  elif 'tile_name' in all_keys:
-    tile   = inParams['tile_name']    
-    return eoTG.PolygonDict.get(tile)
+  
+  elif len(inParams['current_tile']) > 2:
+    return eoTG.PolygonDict.get(inParams['current_tile'])
+  
+  elif len(inParams['tile_names'][0]) > 2:
+    return eoTG.PolygonDict.get(inParams['tile_names'][0])
+  
   else:
-    tile   = inParams['tile_names'][0]
-    return eoTG.PolygonDict.get(tile)
+    print('<get_spatial_region> No spatial region defined!!!!')
 
 
 
@@ -160,19 +253,37 @@ def get_spatial_region(inParams):
 # Revision history:  2024-Feb-27  Lixin Sun  Initial creation
 #
 #############################################################################################################
-def get_time_window(inParams):
-  all_keys = inParams.keys()
-
+def get_time_window(inParams):  
   if is_custom_window(inParams) == True:
-    #year      = inParams['year']
-    start_str = inParams['start_date']
-    end_str   = inParams['end_date']
-    return ee.Date(start_str), ee.Date(end_str)
-  elif 'month' in all_keys:
-    return IS.month_range(inParams['year'], inParams['month'])
-  elif 'nbYears' in all_keys:
-    nYears = inParams['nbYears']
-    year   = inParams['year']
-    return IS.summer_range(year) if nYears < 0 else IS.month_range(year, inParams['months'][0])
+    # Extract veg parameters for a customized time window    
+    start_date = ee.Date(inParams['start_date'])
+    end_date   = ee.Date(inParams['end_date'])
+
+    start_year = start_date.get('year')
+    end_date   = end_date.update(start_year)
+
+    return start_date, end_date
+  
   else:
-    return IS.month_range(inParams['year'], inParams['months'][0])
+    current_month = inParams['current_month']
+    if current_month > 0:
+      if current_month > 12:
+        current_month = 12
+
+      # Extract veg parameters on a monthly basis
+      return IS.month_range(inParams['year'], current_month)
+    else:  
+      nYears = inParams['nbYears']
+      year   = inParams['year']
+   
+      if nYears < 0 or current_month < 0:
+        return IS.summer_range(year) 
+      else:
+        month = max(inParams['months'])
+        if month > 12:
+          month = 12
+
+        if month < 1:
+          month = 1
+
+        return IS.month_range(year, month)

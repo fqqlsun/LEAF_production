@@ -943,32 +943,36 @@ def export_one_param(exe_Params, Region, inMap, task_list):
   #==========================================================================================================
   # Obtain required parameters from parameter dictionary
   #==========================================================================================================  
-  year_str     = str(exe_Params['year'])   
-  region_str   = str(exe_Params['tile_name'])
-  scale_str    = str(exe_Params['spatial_scale'])
-  given_folder = str(exe_Params['out_folder'])
+  year_str     = str(exe_Params['year'])  
+  scale_str    = str(exe_Params['spatial_scale'])  
   prod_name    = str(exe_Params['prod_name'])  
   proj_str     = str(exe_Params['projection'])
 
-  tile_name    = region_str.split('_')[0]
-  form_folder  = tile_name + '_' + year_str
-  exportFolder = form_folder if len(given_folder) < 2 else given_folder  
+  #==========================================================================================================
+  # Create a output folder name as needed
+  #==========================================================================================================  
+  given_folder = str(exe_Params['out_folder'])
+
+  if len(given_folder) < 2:
+    tile_name    = region_str.split('_')[0]
+    exportFolder = tile_name + '_' + year_str
+  else:
+    exportFolder = given_folder
 
   #==========================================================================================================
-  # Create filename according to different situations
+  # Create filename 
   #==========================================================================================================  
-  if eoParams.is_custom_window(exe_Params) == False:
-    period_str = Img.get_MonthName(int(exe_Params['month']))
-  else:
-    period_str = exe_Params['start_date'] + '_to_' + exe_Params['end_date']
+  region_str = str(exe_Params['region_str'])
+  time_str   = str(exe_Params['time_str'])
 
-  filename = region_str + '_' + period_str + '_' + prod_name + '_' + scale_str + 'm'
+  filename = region_str + '_' + time_str + '_' + prod_name + '_' + scale_str + 'm'
+
   #==========================================================================================================
   # Prepare initial export dictionary and output location 
   #==========================================================================================================
   export_dict = {'image': inMap,
                  'description': filename,                 
-                 'scale': int(exe_Params['spatial_scale']),
+                 'scale': int(scale_str),
                  'crs': proj_str,   #'EPSG:3979',
                  'maxPixels': 1e11,
                  'region': ee.Geometry(Region)}  
@@ -1090,7 +1094,7 @@ def export_DateImg(mosaic, fun_Param_dict, region, task_list):
   scale_str    = str(fun_Param_dict['spatial_scale'])
   given_folder = str(fun_Param_dict['out_folder'])
 
-  form_folder  = tile_str + '_' + year_str
+  form_folder  = tile_str # + '_' + year_str
   exportFolder = form_folder if len(given_folder) < 2 else given_folder  
 
   if month >= 1 or month <= 12:
@@ -1238,8 +1242,8 @@ def SL2P_separate_params(exe_Params, inMosaic, Region, SsrData, ClassImg, task_l
   #==========================================================================================================
   # Define a function that can estimate a biophysical parameter and its corresponding QC image
   #==========================================================================================================   
-  def estimate_param_QC(fun_Param_dict, QC_img):
-    prod_dict = PROD_OPTIONS[fun_Param_dict['prod_name']]
+  def estimate_param_QC(Param_dict, QC_img):
+    prod_dict = PROD_OPTIONS[Param_dict['prod_name']]
     estim_img, NetID_map = wrapperNNets(DNet_arr, ClassImg, prod_dict, coll_dict, "estimate", mosaic)
 
     # Identify the pixels exceeding the output range 
@@ -1527,10 +1531,7 @@ def apply_SL2P(exe_Params, task_list):
   '''Produces LEAF products for one or multiple tiles in CANADA
 
     Args:
-      inRegion(ee.Geometry): A given spatial region
-      inStart(string or ee.Date): The start date of a specified time window
-      inStop(string or ee.Date): The stop date of a specified time window
-      exe_Params(Dictionary): A dictionary containing all input parameters for one execution;
+      exe_Params(Dictionary): A dictionary containing all execution input parameters;
       task_list([]): a list for storing the exporting tasks.'''  
   
   #==========================================================================================================
@@ -1538,17 +1539,20 @@ def apply_SL2P(exe_Params, task_list):
   #==========================================================================================================
   SsrData     = Img.SSR_META_DICT[exe_Params['sensor']]
   year        = int(exe_Params['year'])
-  SceneID     = exe_Params['scene_ID']          # An optional ID of a single scene/granule 
-  ProductList = exe_Params['prod_names']        # A list of products to be generated
-  ProdWay     = exe_Params['prod_way'].lower()  # A list of products to be generated
+  SceneID     = exe_Params['scene_ID']       # An optional ID of a single scene/granule 
+  ProductList = exe_Params['prod_names']     # A list of products to be generated
+  tile_name   = str(exe_Params['current_tile'])
 
   start, stop = eoParams.get_time_window(exe_Params)
   region      = eoParams.get_spatial_region(exe_Params)
-  if ProdWay.find('tile') > -1:
+  if len(tile_name) > 2:
      region = eoTG.expandSquare(region, 0.02)  
 
+  print('exe parameters:', exe_Params) 
+  return 
+
   #==========================================================================================================
-  # Obtain a global Land cover classification map and export it as necessary 
+  # Obtain a global Land cover classification map and export it as needed 
   #==========================================================================================================
   ClassImg = eoAD.get_GlobLC(year, False).uint8().clip(region)
   if Is_export_required('parti', ProductList):
@@ -1574,8 +1578,7 @@ def apply_SL2P(exe_Params, task_list):
     print("<apply_SL2P> The band names in mosiac image = ", mosaic.bandNames().getInfo())
     
     SL2P_separate_params(exe_Params, mosaic, region, SsrData, ClassImg, task_list)
-    
-    #Export acquisition date map as required
+
     if Is_export_required('date', ProductList):
       export_DateImg(mosaic, exe_Params, region, task_list)
         
@@ -1601,29 +1604,26 @@ def tile_LEAF_production(exe_Params, task_list):
   # Validate some input parameters
   #==========================================================================================================
   all_keys  = exe_Params.keys()    
-  all_valid = True if 'tile_names' in all_keys and 'months' in all_keys else False
+  all_valid = True if 'tile_names' in all_keys and 'months' in all_keys and 'year' in all_keys else False
   
   if all_valid == False:
     print('<tile_composite> !!!!!!!! Required parameters are not available !!!!!!!!')
-    return task_list
-  
-  #==========================================================================================================
-  # get the image acquisition year 
-  #==========================================================================================================
-  #year = int(exe_Params['year'])
+    return task_list 
 
   #==========================================================================================================
   # Produce porducts for eath tile specified in the list of "exe_param_dict['tile_names']"
   #==========================================================================================================
-  exe_Params['prod_way'] = 'tile'   # Mark the way of production is tile-based
+  #exe_Params['prod_way'] = 'tile'   # Mark the way of production is tile-based
 
   for tile in exe_Params['tile_names']:  
-    exe_Params['tile_name'] = tile   # Add an element with 'tile_name' as key to 'exe_param_dict'    
-    
+    exe_Params['current_tile'] = tile   # Add an element with 'tile_name' as key to 'exe_param_dict'    
+    exe_Params['region_str']   = tile   # Update region string
+
     # Produce monthly (or seasonal) porducts 
     for month in exe_Params['months']:
       # Add an element with 'month' as key to 'exe_param_dict'  
-      exe_Params['month'] = month     
+      exe_Params['current_month'] = month
+      exe_Params['time_str']      = Img.get_MonthName(int(month))
 
       # Produce vegetation parameter maps and export them in a specified way (a compact image or separate images)      
       out_style = str(exe_Params['export_style']).lower()
@@ -1664,39 +1664,60 @@ def custom_LEAF_production(exe_Params, task_list):
        task_list([]): a list for storing the exporting tasks.'''  
   
   #==========================================================================================================
-  # Validate some input parameters
+  # Ensure either time window or spatial region was customized
   #==========================================================================================================
   custom_region = eoParams.is_custom_region(exe_Params)
   custom_window = eoParams.is_custom_window(exe_Params)
-
-  is_valid = True if custom_region == True or custom_window == True else False
   
-  if is_valid == False:
-    print('<custom_LEAF_production> !!!!!!!! No customized parameter was specified !!!!!!!!')
+  if custom_region == False and custom_window == False:
+    print('<custom_LEAF_production> No customized parameter was specified !!!!!!!!')
     return 
   
   #==========================================================================================================
-  # Generate vegetation biophysical parameter maps 
+  # In the case when no-customized time window was defined  
   #==========================================================================================================
-  if custom_region == True:
-    exe_Params['tile_name'] = 'custom_region'
-
-  if custom_window == False:
+  if custom_window == False and custom_region == True:
     # Generate monthly products for a customized region 
     nb_months = len(exe_Params['months'])
-      
+    exe_Params['current_tile'] = ''
+
     if nb_months < 1:
-      print('<custom_LEAF_production> !!!!!!!! No month was specified !!!!!!!!')      
+      print('<custom_LEAF_production> No month was specified!!!')      
       return 
       
     for month in exe_Params['months']:
       # Add an element with 'month' as key to 'exe_param_dict'  
-      exe_Params['month'] = month        
-    
+      exe_Params['current_month'] = month
+      exe_Params = eoParams.set_time_str(exe_Params, False)
+
+      # Produce and export monthly or seasonal biophysical parameetr maps
+      print('\n<custom_LEAF_production> Generate and export separate biophysical maps......')        
+      apply_SL2P(exe_Params, task_list)
+  
+  #==========================================================================================================
+  # In the case when no-customized spatial region was defined  
+  #==========================================================================================================
+  elif custom_region == False and custom_window == True:
+    # Generate monthly products for a customized region 
+    nb_tiles = len(exe_Params['tile_names'])
+    exe_Params['current_month'] = -1
+
+    if nb_tiles < 1:
+      print('<custom_LEAF_production> !!!!!!!! No tile was specified !!!!!!!!')      
+      return 
+      
+    for tile in exe_Params['tile_names']:
+      # Add an element with 'month' as key to 'exe_param_dict'  
+      exe_Params['current_tile'] = tile
+      exe_Params = eoParams.set_region_str(exe_Params, False)
+
       # Produce and export monthly or seasonal biophysical parameetr maps
       print('\n<custom_LEAF_production> Generate and export separate biophysical maps......')        
       apply_SL2P(exe_Params, task_list)
 
+  #==========================================================================================================
+  # Both time window and spatial region were customized 
+  #==========================================================================================================
   else:  
     apply_SL2P(exe_Params, task_list)
 
@@ -1756,20 +1777,14 @@ def LEAF_production(inExeParams):
   #==========================================================================================================
   task_list = []
 
-  if eoParams.is_custom_region(exe_Params) == True:   
+  if eoParams.is_custom_region(exe_Params) == True or eoParams.is_custom_window(exe_Params) == True:   
     # There is a customized spatial region specified in Parameter dictionary 
-    print('\n<LEAF_production> Calling custom_LEAF_production function......')
-    exe_Params['prod_way'] = 'custom'
-    custom_LEAF_production(exe_Params, task_list)
-    
-  elif eoParams.is_custom_window(exe_Params) == True:
-    # There is a customized compositing period specified in Parameter dictionary 
-    print('\n<LEAF_production> Calling custom_LEAF_production function......')
+    print('\n<Mosaic_production> Calling custom_composite function......')
     custom_LEAF_production(exe_Params, task_list)
 
   else: 
     # There is neither customized region nor customized compositing period defined in Parameter dictionary 
-    print('\n<LEAF_production> Calling tile_LEAF_production function......')
+    print('\n<Mosaic_production> Calling tile_composite function......')
     tile_LEAF_production(exe_Params, task_list)  
     
   return task_list
