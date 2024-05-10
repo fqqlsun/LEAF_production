@@ -124,6 +124,8 @@ def is_custom_region(inParams):
 def is_custom_window(inParams):
   start_len = len(inParams['start_date'])
   end_len   = len(inParams['end_date'])
+  #stop_len  = len(inParams['stop_date'])
+  print('<is_custom_window> The string lengths of start and end dates are:', start_len, end_len)
 
   return True if start_len > 7 and end_len > 7 else False
 
@@ -162,10 +164,10 @@ def get_time_window(inParams):
   all_keys = inParams.keys()
 
   if is_custom_window(inParams) == True:
-    year = inParams['year']
+    #year      = inParams['year']
     start_str = inParams['start_date']
     end_str   = inParams['end_date']
-    return ee.Date(start_str).update(year), ee.Date(end_str).update(year)
+    return ee.Date(start_str), ee.Date(end_str)
   elif 'month' in all_keys:
     return IS.month_range(inParams['year'], inParams['month'])
   elif 'nbYears' in all_keys:

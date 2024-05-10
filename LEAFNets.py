@@ -1518,7 +1518,7 @@ def Is_export_required(InquireStr, ProductList):
 # Note: There are the following three situations where this function will be called:
 #       (1) A ee.Geometry.Polygon object is provided as the value corresponding to "custom_region" key
 #       (2) A user-specified scene ID is provided as the value corresponding to "scene_ID" key
-#       (3) A time window is provided as the values corresponding to "start_date" and "stop_date" keys
+#       (3) A time window is provided as the values corresponding to "start_date" and "end_date" keys
 #
 # Revision history:  2023-Nov-26  Lixin Sun  Initial creation 
 #
@@ -1538,9 +1538,9 @@ def apply_SL2P(exe_Params, task_list):
   #==========================================================================================================
   SsrData     = Img.SSR_META_DICT[exe_Params['sensor']]
   year        = int(exe_Params['year'])
-  SceneID     = exe_Params['scene_ID']      # An optional ID of a single scene/granule 
-  ProductList = exe_Params['prod_names']    # A list of products to be generated
-  ProdWay     = exe_Params['prod_way'].lower()    # A list of products to be generated
+  SceneID     = exe_Params['scene_ID']          # An optional ID of a single scene/granule 
+  ProductList = exe_Params['prod_names']        # A list of products to be generated
+  ProdWay     = exe_Params['prod_way'].lower()  # A list of products to be generated
 
   start, stop = eoParams.get_time_window(exe_Params)
   region      = eoParams.get_spatial_region(exe_Params)
@@ -1574,7 +1574,8 @@ def apply_SL2P(exe_Params, task_list):
     print("<apply_SL2P> The band names in mosiac image = ", mosaic.bandNames().getInfo())
     
     SL2P_separate_params(exe_Params, mosaic, region, SsrData, ClassImg, task_list)
-
+    
+    #Export acquisition date map as required
     if Is_export_required('date', ProductList):
       export_DateImg(mosaic, exe_Params, region, task_list)
         
@@ -1757,17 +1758,18 @@ def LEAF_production(inExeParams):
 
   if eoParams.is_custom_region(exe_Params) == True:   
     # There is a customized spatial region specified in Parameter dictionary 
-    print('\n<Mosaic_production> Calling custom_composite function......')
+    print('\n<LEAF_production> Calling custom_LEAF_production function......')
+    exe_Params['prod_way'] = 'custom'
     custom_LEAF_production(exe_Params, task_list)
     
   elif eoParams.is_custom_window(exe_Params) == True:
     # There is a customized compositing period specified in Parameter dictionary 
-    print('\n<Mosaic_production> Calling custom_composite function......')
+    print('\n<LEAF_production> Calling custom_LEAF_production function......')
     custom_LEAF_production(exe_Params, task_list)
 
   else: 
     # There is neither customized region nor customized compositing period defined in Parameter dictionary 
-    print('\n<Mosaic_production> Calling tile_composite function......')
+    print('\n<LEAF_production> Calling tile_LEAF_production function......')
     tile_LEAF_production(exe_Params, task_list)  
     
   return task_list
