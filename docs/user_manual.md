@@ -10,7 +10,7 @@ Go to [Account and Environment](/docs/prepare_environment.md) to get the detaile
 
 ## 2. Run the LEAF Production Tool from Jupyter Notebook
  
-It is recommanded to run LEAF production tool using a Notebook comes with LEAF production tool package. To do so, follow the next steps:
+It is recommended to run LEAF tool using the Notebook provided with this LEAF tool package. To do so, follow the following steps:
 
 (1) Open **Anaconda Prompt** and **activate your conda virtual environment dedicated for LEAF production tool**, if you have not done these yet. 
 
