@@ -255,13 +255,15 @@ def get_spatial_region(inParams):
 #############################################################################################################
 def get_time_window(inParams):  
   if is_custom_window(inParams) == True:
-    # Extract veg parameters for a customized time window    
+    # Get a customized timeframe    
     start_date = ee.Date(inParams['start_date'])
     end_date   = ee.Date(inParams['end_date'])
 
+    # Ensure the years for start_date and end_date are consistent 
     start_year = start_date.get('year')
     end_date   = end_date.update(start_year)
 
+    # Return the start and end dates of a customized timeframe
     return start_date, end_date
   
   else:
@@ -270,13 +272,14 @@ def get_time_window(inParams):
       if current_month > 12:
         current_month = 12
 
-      # Extract veg parameters on a monthly basis
+      # Return the start and end dates of a month
       return IS.month_range(inParams['year'], current_month)
     else:  
       nYears = inParams['nbYears']
       year   = inParams['year']
    
       if nYears < 0 or current_month < 0:
+        # Return start and end dates of a peak season
         return IS.summer_range(year) 
       else:
         month = max(inParams['months'])
