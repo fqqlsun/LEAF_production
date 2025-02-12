@@ -278,6 +278,39 @@ def getCollection(SsrData, Region, StartDate, EndDate, ExtraBandCode, CloudRate 
 
 
 ######################################################################################################
+# Description: This function returns the imaging geometry angles of the scene included in an image 
+#              collection.
+#
+# Revision history:  2024-Jul-10  Lixin Sun  Initial creation
+#                                            
+######################################################################################################
+def get_IC_GeoAngles(SsrData, Region, StartDate, EndDate, CloudRate = -100):  
+  '''Returns a image collection acquired by a sensor over a geographical region during a period of time  
+
+  Arg: 
+     SsrData(Dictionary): A Dictionary containing metadata associated with a sensor and data unit;
+     Region(ee.Geometry): A geospatial polygon of ROI;
+     StartDate(string or ee.Date): The start acquisition date string (e.g., '2020-07-01');
+     EndDate(string or ee.Date): The stop acquisition date string (e.g., '2020-07-31');
+     CloudRate(float): a given cloud coverage rate.'''
+  
+  ImgColl = getCollection(SsrData, Region, StartDate, EndDate, Img.EXTRA_NONE, CloudRate = -100)
+
+  img1 = ImgColl.first()
+
+  # Get the properties of the image
+  image_properties = img1.propertyNames().getInfo()
+
+  # Print out the properties and their values
+  for prop in image_properties:
+    print(f"{prop}: {img1.get(prop).getInfo()}")
+
+    
+
+
+
+
+######################################################################################################
 # Description: This function Applies mask to each image in a given image collection 
 #
 # Note:  In the mask input to "ee.Image.updateMask" function, 1 = valid, while 0 = invalid. This is 

@@ -84,7 +84,7 @@ def period_refer_mosaic(maskedImgColl, SsrData):
   ready_ImgColl = maskedImgColl.map(lambda img: Img.apply_gain_offset(img, SsrData, 100, False))  
   refer_median  = ready_ImgColl.median()
 
-  #print('<period_refer_mosaic> The bands in median mosaic:', refer_median.bandNames().getInfo())
+  print('<period_refer_mosaic> The bands in median mosaic:', refer_median.bandNames().getInfo())
 
   #==========================================================================================================
   # Extract required separate bands and calculate NDVI and modeled blue band image
@@ -1059,12 +1059,14 @@ def export_mosaic(exe_Params, mosaic, SsrData, Region, task_list):
        Region(ee.Geometry): the spatial region of interest;
        task_list([]): a list storing the links to exporting tasks.'''
   
+  print('\n<export_mosaic> Available layers in the mosaic image cube:',mosaic.bandNames().getInfo())
+
   #==========================================================================================================
   # Obtain some parameters from the given parameter dictionary
   #==========================================================================================================
   #print('\n\n<export_mosaic> exe_Params = ', exe_Params)
   year_str     = str(exe_Params['year'])     
-  Scale        = int(exe_Params['spatial_scale'])
+  Scale        = int(exe_Params['resolution'])
   given_folder = str(exe_Params['out_folder'])
   out_location = str(exe_Params['out_location']).lower()
 
@@ -1092,6 +1094,11 @@ def export_mosaic(exe_Params, mosaic, SsrData, Region, task_list):
   
   # Determine the bands to be exported according to specified spatial resolution 
   out_band_names = SsrData['OUT_BANDS'] if Scale >=20 else SsrData['10M_BANDS']
+  if exe_Params['extra_bands'] == Img.EXTRA_ANGLE:
+    out_band_names += ['cosVZA', 'cosSZA', 'cosRAA']
+
+  if 'date' in exe_Params['prod_names']:
+    out_band_names += ['date']
 
   if out_location.find('drive') > -1:  # Export to Google Drive
     print('<export_mosaic> Exporting to Google Drive......')  
@@ -1207,7 +1214,7 @@ def HLS_PeriodMosaic(DataUnit, Region, targetY, NbYs, StartD, StopD, ExtraBandCo
 # Revision history:  2024-Feb-27  Lixin Sun  Initial creation 
 #
 #############################################################################################################
-def tile_composite(exe_Params, ExtraBandCode, task_list):
+def tile_composite(exe_Params, task_list):
   '''Produces composite images for one or multiple tiles in CANADA
 
     Args:
@@ -1232,6 +1239,7 @@ def tile_composite(exe_Params, ExtraBandCode, task_list):
   year        = int(exe_Params['year'])
   nYears      = int(exe_Params['nbYears'])
   cloud_score = exe_Params['CloudScore']
+  ExtraBandCode = exe_Params['extra_bands']
 
   #==========================================================================================================
   # Produce composite images for eath tile and month/peak season
@@ -1273,7 +1281,7 @@ def tile_composite(exe_Params, ExtraBandCode, task_list):
 # Revision history:  2024-Feb-27  Lixin Sun  Initial creation 
 #
 #############################################################################################################
-def custom_composite(exe_Params, ExtraBandCode, task_list):
+def custom_composite(exe_Params, task_list):
   '''Produces composite images for a region, such as a region/tiles
 
     Args:
@@ -1298,7 +1306,8 @@ def custom_composite(exe_Params, ExtraBandCode, task_list):
   year        = int(exe_Params['year'])
   nYears      = int(exe_Params['nbYears'])
   cloud_score = exe_Params['CloudScore']  
-  
+  ExtraBandCode = exe_Params['extra_bands']
+
   if custom_region == True and custom_window == False:
     # The case of only one customized spatial region and multiple months
     region      = eoParams.get_spatial_region(exe_Params)
@@ -1372,7 +1381,7 @@ def custom_composite(exe_Params, ExtraBandCode, task_list):
 #                    2024-Feb-27  Lixin Sun  Modified so that customized spatial region or compositing period
 #                                            can be handled.
 #############################################################################################################
-def Mosaic_production(exe_Params, MixSensor, ExtraBandCode):
+def Mosaic_production(exe_Params, MixSensor):
   '''Produces various mosaic products for one or more tiles using Landsat or Sentinel2 images
      Args:
        exe_Params(Dictionary): A dictionary storing required parameters;
@@ -1392,12 +1401,12 @@ def Mosaic_production(exe_Params, MixSensor, ExtraBandCode):
   if eoParams.is_custom_region(mosaic_params) == True or eoParams.is_custom_window(mosaic_params) == True:   
     # There is a customized spatial region specified in Parameter dictionary 
     print('\n<Mosaic_production> Calling custom_composite function......')
-    custom_composite(mosaic_params, ExtraBandCode, task_list)    
+    custom_composite(mosaic_params, task_list)    
 
   else: 
     # There is neither customized region nor customized compositing period defined in Parameter dictionary 
     print('\n<Mosaic_production> Calling tile_composite function......')
-    tile_composite(mosaic_params, ExtraBandCode, task_list)  
+    tile_composite(mosaic_params, task_list)  
     
   return task_list
 
@@ -1473,7 +1482,7 @@ To run the Mosaic Tool, a set of parameters must be supplied. To simplify parame
 (4) Value for 'tile_names' key: a set of strings representing the names of grid tiles, each covering a 900km x 900km area. Providing a list of tile names allows the creation of composite images for multiple tiles through a single execution of the Mosaic Tool. 
     To generate a composite image for a customized region, an additional "key:value" pair must be included in this parameter dictionary (refer to the value specification for 'custom_region' key. 
 
-(5) Value for 'spatial_scale' key: an integer (e.g., 30 and 20 for Landsat and Sentinel-2 composites, respectively) defining the spatial resolution (in meters) for exporting resultant composite images.
+(5) Value for 'resolution' key: an integer (e.g., 30 and 20 for Landsat and Sentinel-2 composites, respectively) defining the spatial resolution (in meters) for exporting resultant composite images.
 
 (6) Value for 'out_location' key: a string specifying the destination location for exporting resultant composite images. Valid values for this key are 'drive' or 'storage', indicating Google Drive (GD) or Google Cloud Storage (GCS), respectively.
 
@@ -1491,31 +1500,32 @@ Among the 11 input parameters, two keys ('months' and 'tile_names') require list
 '''
 
 
-'''
+
 #============================================================================================
 # Define a parameter dictionary
 #============================================================================================
-user_region = ee.Geometry.Polygon([[-76.12016546887865,45.183832177265906], 
-                                   [-75.38339483899584,45.170763450281996],
-                                   [-75.39026129407397,45.5639242833682], 
-                                   [-76.10505926770678,45.56776998764525], 
-                                   [-76.12016546887865,45.183832177265906]])
+# user_region = ee.Geometry.Polygon([[-76.12016546887865,45.183832177265906], 
+#                                    [-75.38339483899584,45.170763450281996],
+#                                    [-75.39026129407397,45.5639242833682], 
+#                                    [-76.10505926770678,45.56776998764525], 
+#                                    [-76.12016546887865,45.183832177265906]])
 
-params =  {
-    'sensor': 'S2_SR',            # A sensor type string (e.g., 'S2_SR' or 'L8_SR')
-    'year': 2022,                 # An integer representing image acquisition year
-    'nbYears': -1,                 # positive int for annual product, or negative int for monthly product
-    'months': [7],                # A list of integers represening one or multiple monthes     
-    'tile_names': ['tile55'],     # A list of (sub-)tile names (defined using CCRS' tile griding system) 
-    'out_location': 'drive',      # Exporting location ('drive', 'storage' or 'asset') 
-    'spatial_scale': 10,          # Exporting spatial resolution
-    'GCS_bucket': 's2_mosaic_2020',   # An unique bucket name on Google Cloud Storage
-    'out_folder': 'test_mosaic_tool', # the folder name for exporting
-    'custom_region': user_region, # A given user-defined region. Only include this 'key:value' pair as necessary
-    'start_date': '2022-06-15',   # A string for specifying the start date of a customized compositing period.
-    'end_date': '2022-09-15',     # A string for specifying the end date of a customized compositing period.
-}
+# params =  {
+#     'sensor': 'S2_SR',            # A sensor type string (e.g., 'S2_SR' or 'L8_SR')
+#     'year': 2022,                 # An integer representing image acquisition year
+#     'nbYears': -1,                 # positive int for annual product, or negative int for monthly product
+#     'months': [7],                # A list of integers represening one or multiple monthes     
+#     'tile_names': ['tile55'],     # A list of (sub-)tile names (defined using CCRS' tile griding system) 
+#     'prod_names': ['date'],
+#     'out_folder': 'drive',      # Exporting location ('drive', 'storage' or 'asset') 
+#     'resolution': 20,          # Exporting spatial resolution
+#     'GCS_bucket': 's2_mosaic_2020',   # An unique bucket name on Google Cloud Storage
+#     'out_folder': 'test_mosaic_tool', # the folder name for exporting
+#     'extra_bands': Img.EXTRA_ANGLE,
+#     #'custom_region': user_region, # A given user-defined region. Only include this 'key:value' pair as necessary
+#     #'start_date': '2022-06-15',   # A string for specifying the start date of a customized compositing period.
+#     #'end_date': '2022-09-15',     # A string for specifying the end date of a customized compositing period.
+# }
 
 
-Mosaic_production(params, False, Img.EXTRA_NONE)
-'''
+# Mosaic_production(params, False)

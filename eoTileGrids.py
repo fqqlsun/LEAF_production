@@ -649,5 +649,4 @@ def get_9subTiles(tile_name):
     def tile_geometry(tile_name):
       return PolygonDict.get(tile_name)
 
-    return sub_tile_names.map(lambda name: tile_geometry(name))
-   
+    return sub_tile_names.map(lambda name: tile_geometry(name))  
