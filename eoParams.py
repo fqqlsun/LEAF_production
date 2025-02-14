@@ -19,36 +19,37 @@ from datetime import datetime
 #                    2024-Aug-30  Lixin Sun  Changed two keys, 'start_date' and 'end_date', to 'start_dates'
 #                                            and 'end_dates', and their corresponding values to lists. 
 #############################################################################################################
-# DefaultParams = {
-#     'sensor': 'S2_SR',           # A sensor type and data unit string (e.g., 'S2_Sr' or 'L8_SR')    
-#     'unit': 2,                   # data unite (1=> TOA reflectance; 2=> surface reflectance)
-#     'year': 2019,                # An integer representing image acquisition year
-#     'nbYears': 1,                # positive int for annual product, or negative int for monthly product
-#     'months': [5,6,7,8,9,10],    # A list of integers represening one or multiple monthes     
-#     'tile_names': ['tile55'],    # A list of (sub-)tile names (defined using CCRS' tile griding system) 
-#     'prod_names': ['mosaic'],    # ['mosaic', 'LAI', 'fCOVER', ]
-#     'out_location': 'drive',     # Exporting location ('drive', 'storage' or 'asset') 
-#     'resolution': 30,            # Exporting spatial resolution
-#     'GCS_bucket': '',            # An unique bucket name on Google Cloud Storage
-#     'out_folder': '',            # the folder name for exporting
-#     'export_style': 'separate',    
-#     'projection': 'EPSG:3979',
-#     'CloudScore': False,
+DefaultParams = {
+    'sensor': '',                # A sensor type and data unit string (e.g., 'S2_Sr' or 'L8_SR')    
+    'unit': 2,                   # data unite (1=> TOA reflectance; 2=> surface reflectance)
+    'year': 2019,                # An integer representing image acquisition year
+    'nbYears': 1,                # positive int for annual product, or negative int for monthly product
+    'months': [],                # A list of integers represening one or multiple monthes     
+    'tile_names': [],            # A list of (sub-)tile names (defined using CCRS' tile griding system) 
+    'prod_names': [],            # ['mosaic', 'LAI', 'fCOVER', 'date' ]
+    'out_location': 'drive',     # Exporting location ('drive', 'storage' or 'asset') 
+    'resolution': 30,            # Exporting spatial resolution
+    'GCS_bucket': '',            # An unique bucket name on Google Cloud Storage
+    'out_folder': '',            # the folder name for exporting
+    'export_style': 'separate',  # Two values for this key: "separate" or "compact"   
+    'projection': 'EPSG:3979',
+    'CloudScore': False,
+    'extra_bands': Img.EXTRA_NONE, 
 
-#     'monthly': True,             # A flag indicating if time windows are monthly
-#     'start_dates': [],
-#     'end_dates':  [],
-#     'regions':{},
-#     'scene_ID': '',
-#     'current_time': 0,  # The index in 'start_dates'/'end_dates'
-#     'current_region': '',
+    'monthly': True,             # A flag indicating if time windows are monthly
+    'start_dates': [],
+    'end_dates':  [],
+    'regions':{},
+    'scene_ID': '',
+    'current_time': 0,  # The index in 'start_dates'/'end_dates'
+    'current_region': '',
 
-#     'time_str': ''
-# }
+    'time_str': ''
+}
 
-all_param_keys = ['sensor', 'unit', 'year', 'nbYears', 'months', 'tile_names', 'prod_names', 'out_location', 'resolution',
-                  'GCS_bucket', 'out_folder', 'export_style', 'projection', 'CloudScore', 'extra_bands',
-                  'monthly', 'start_dates', 'end_dates', 'regions', 'scene_ID', 'current_time', 'current_region', 'time_str']
+# all_param_keys = ['sensor', 'unit', 'year', 'nbYears', 'months', 'tile_names', 'prod_names', 'out_location', 'resolution',
+#                   'GCS_bucket', 'out_folder', 'export_style', 'projection', 'CloudScore', 'extra_bands',
+#                   'monthly', 'start_dates', 'end_dates', 'regions', 'scene_ID', 'current_time', 'current_region', 'time_str']
 
 
 MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -175,108 +176,69 @@ def set_spatial_region(inParams, region_name):
 
 
 
-
-#############################################################################################################
-# Description: This function fills default values for some critical parameters
-# 
-# Revision history:  2024-Oct-08  Lixin Sun  Initial creation
-#
-#############################################################################################################
-def fill_critical_params(inParams):  
-  if 'sensor' not in inParams:
-    inParams['sensor'] = 'S2_SR'
-
-  if 'year' not in inParams:
-    inParams['year'] = datetime.now().year
-
-  if 'nbYears' not in inParams:
-    inParams['nbYears'] = 1
-  
-  if 'prod_names' not in inParams:
-    inParams['prod_names'] = []
-  
-  if 'out_location' not in inParams:
-    inParams['out_location'] = 'drive'
- 
-  if 'resolution' not in inParams:
-    inParams['resolution'] = 30
-  
-  if 'out_folder' not in inParams:
-    inParams['out_folder'] = inParams['sensor'] + '_' + inParams['year'] + '_results' 
-
-  if 'months' not in inParams:
-    inParams['months'] = []
-
-  if 'tile_names' not in inParams:
-    inParams['tile_names'] = []
-
-  if 'export_style' not in inParams:
-    inParams['export_style'] = 'separate'
-
-  if 'projection' not in inParams:
-    inParams['projection'] = 'EPSG:3979'
-  
-  if 'extra_bands' not in inParams:
-    inParams['extra_bands'] = Img.EXTRA_NONE
-
-  if 'CloudScore' not in inParams:
-    inParams['CloudScore'] = False
-
-  return inParams
-
-
-
-
-
 #############################################################################################################
 # Description: This function validate a given user parameter dictionary.
 #
 # Revision history:  2024-Jun-07  Lixin Sun  Initial creation
 #       
 #############################################################################################################
-def valid_user_params(UserParams):
-  #==========================================================================================================
-  # Ensure all the keys in user's parameter dictionary are valid
-  #==========================================================================================================
-  all_valid    = True
-  user_keys    = list(UserParams.keys())
-  default_keys = all_param_keys
-  n_user_keys  = len(user_keys)
-
-  key_presence = [element in default_keys for element in user_keys]
-  for index, pres in enumerate(key_presence):
-    if pres == False and index < n_user_keys:
-      all_valid = False
-      print('<valid_user_params> \'{}\' key in given parameter dictionary is invalid!'.format(user_keys[index]))
-  
-  if not all_valid:
-    return all_valid, None
-  
-  #==========================================================================================================
-  # Fill default values for some critical parameters as necessary
-  #==========================================================================================================
-  out_Params = fill_critical_params(UserParams)
-
+def valid_params(inParams):
+  all_valid = True
   #==========================================================================================================
   # Validate values of critical parameters
   #==========================================================================================================
-  sensor_name = str(out_Params['sensor']).upper()
-  all_SSRs = ['S2_SR', 'L5_SR', 'L7_SR', 'L8_SR', 'L9_SR']
-  if sensor_name not in all_SSRs:
+  # Confirm 'sensor' parameter
+  sensor_name = str(inParams['sensor']).upper()  
+  if sensor_name not in ['S2_SR', 'L5_SR', 'L7_SR', 'L8_SR', 'L9_SR']:
     all_valid = False
     print('<valid_user_params> Invalid sensor or unit was specified!')
-
-  year = int(out_Params['year'])
+  
+  # Confirm 'unit' parameter
+  unit = int(inParams['unit'])
+  if unit not in [1, 2]:
+    all_valid = False
+    print('<valid_user_params> Invalid data unit was specified!')
+  
+  # Confirm 'year' parameter
+  year = int(inParams['year'])
   if year < 1970 or year > datetime.now().year:
     all_valid = False
     print('<valid_user_params> Invalid year was specified!')
-
-  nYears = int(out_Params['nbYears'])
+  
+  # Confirm 'nbYears' parameter
+  nYears = int(inParams['nbYears'])
   if nYears > 3:
     all_valid = False
     print('<valid_user_params> Invalid number of years was specified!')
+  
+  # Confirm 'months' parameter
+  if not has_custom_windows(inParams):
+    nMonths = len(inParams['months'])
+    if nMonths < 1:
+      all_valid = False
+      print('<valid_user_params> No month was specified!')
+    else:
+      max_month = max(inParams['months'])
+      min_month = min(inParams['months'])
+      if max_month > 12 or min_month < 1:
+        all_valid = False
+        print('<valid_user_params> Invalid month number was specified!')
+  
+  # Confirm 'tile_names' parameter
+  if not has_custom_region(inParams):
+    tile_names = inParams['tile_names']
+    nTiles = len(tile_names)
+    if nTiles < 1:
+      all_valid = False
+      print('<valid_user_params> No tile name was specified for tile_names key!')
+  
+    for tile in tile_names:
+      if eoTG.is_valid_tile_name(tile) == False:
+        all_valid = False
+        print('<valid_user_params> {} is an invalid tile name!'.format(tile))
 
-  prod_names = out_Params['prod_names']
+  # Confirm 'prod_names' parameter
+  prod_names = inParams['prod_names']
   nProds = len(prod_names)
   if nProds < 1:
     all_valid = False
@@ -288,39 +250,25 @@ def valid_user_params(UserParams):
     all_valid = False
     print('<valid_user_params> At least one of the specified products is invalid!')
   
-  valid_out_locations = ['DRIVE', 'STORAGE', 'ASSET']
-  out_location = str(out_Params['out_location']).upper()  
-  if out_location not in valid_out_locations:
+  # Confirm 'out_location' parameter
+  out_location = str(inParams['out_location']).upper()  
+  if out_location not in ['DRIVE', 'STORAGE', 'ASSET']:
     all_valid = False
     print('<valid_user_params> Invalid out location was specified!')
 
-  resolution = int(out_Params['resolution'])
+  # Confirm 'resolution' parameter
+  resolution = int(inParams['resolution'])
   if resolution < 1:
     all_valid = False
     print('<valid_user_params> Invalid spatial resolution was specified!')
 
-  out_folder = str(out_Params['out_folder'])
+  # Confirm 'out_folder' parameter
+  out_folder = str(inParams['out_folder'])
   if Path(out_folder) == False or len(out_folder) < 2:
     all_valid = False
     print('<valid_user_params> The specified output path is invalid!')
-
-  max_month = max(out_Params['months'])
-  if max_month > 12:
-    all_valid = False
-    print('<valid_user_params> Invalid month number was specified!')
-
-  tile_names = out_Params['tile_names']
-  nTiles = len(tile_names)
-  if nTiles < 1:
-    all_valid = False
-    print('<valid_user_params> No tile name was specified for tile_names key!')
-  
-  for tile in tile_names:
-    if eoTG.is_valid_tile_name(tile) == False:
-      all_valid = False
-      print('<valid_user_params> {} is an invalid tile name!'.format(tile))
-  
-  return all_valid, out_Params
+    
+  return all_valid
 
 
 
@@ -397,11 +345,32 @@ def form_spatial_regions(inParams):
 #                                            handled as customized time windows.    
 #############################################################################################################
 def update_default_params(inParams):  
-  all_valid, out_Params = valid_user_params(inParams)
+  out_Params = DefaultParams
+  
+  #==========================================================================================================
+  # Merge given user parameters into "out_Params"
+  #==========================================================================================================
+  user_keys      = list(inParams.keys())  
+  invalid_params = {}
 
-  if all_valid == False or out_Params == None:
+  for user_key in user_keys:
+    if user_key in out_Params:
+      out_Params[user_key] = inParams[user_key]
+    else:
+      invalid_params[user_key] = inParams[user_key]
+  
+  if len(invalid_params) > 0:
+    print('\n\n<update_default_params>The following given key-value pairs are invalid!')
+    print(invalid_params)
     return None
 
+  #==========================================================================================================
+  # Confirm all required parameters are valid
+  #==========================================================================================================
+  if not valid_params(out_Params):
+    print('\n\n<update_default_params>The following given key-value pairs are invalid!')
+    return None
+  
   #==========================================================================================================
   # If regular months (e.g., 5,6,7) or season (e.g., -1) are specified, then convert them to date strings and
   # save in the lists corresponding to 'start_dates' and 'end_dates' keys. In this way, regular months/season
@@ -427,8 +396,8 @@ def update_default_params(inParams):
 #############################################################################################################
 def get_LEAF_params(inParams):
   print('\n\n<get_LEAF_params> input parameters:', inParams)
-  out_Params = update_default_params(inParams)  # Modify default parameters with given ones  
-  out_Params['unit'] = 2                     # Always surface reflectance for LEAF production
+  inParams['unit'] = 2                     # Always surface reflectance for LEAF production
+  out_Params = update_default_params(inParams)  # Modify default parameters with given ones    
   
   print('\n\n<get_LEAF_params> output parameters:', out_Params)
   return out_Params  
@@ -452,8 +421,8 @@ def get_mosaic_params(inParams):
 # Description: Obtain a parameter dictionary for land cover classification tool
 #############################################################################################################
 def get_LC_params(inParams):
-  out_Params = update_default_params(inParams) # Modify default parameter dictionary with a given one
-  out_Params['prod_names'] = ['mosaic']        # Of course, product name should be always 'mosaic'
+  inParams['prod_names'] = ['mosaic']        # Of course, product name should be always 'mosaic'
+  out_Params = update_default_params(inParams) # Modify default parameter dictionary with a given one  
 
   return out_Params 
 

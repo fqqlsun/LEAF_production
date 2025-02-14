@@ -1154,7 +1154,7 @@ def attach_LSAngleBands(LS_sr_img, LS_toa_img_coll):
 # Revision history:  2022-Mar-30  Lixin Sun  Initial creation 
 #
 #############################################################################################################
-def export_mosaic(exe_Params, mosaic, SsrData, Region, for_LEAF, task_list):
+def export_mosaic(exe_Params, mosaic, SsrData, Region, task_list):
   '''Exports one set of LEAF products to either Google Drive or Google Cloud Storage
 
      Args:
@@ -1165,7 +1165,9 @@ def export_mosaic(exe_Params, mosaic, SsrData, Region, for_LEAF, task_list):
        for_LEAF(Boolean): A flag indicating if the mosaic is for LEAF;
        task_list([]): a list storing the links to exporting tasks.'''
   
-  print('\n\n<export_mosaic> band names in mosaic = ', mosaic.bandNames().getInfo())
+  bands_in_mosaic = mosaic.bandNames().getInfo()
+  print('\n\n<export_mosaic> band names in mosaic = ', bands_in_mosaic)
+
   #==========================================================================================================
   # Obtain some parameters from the given parameter dictionary
   #==========================================================================================================  
@@ -1199,8 +1201,9 @@ def export_mosaic(exe_Params, mosaic, SsrData, Region, for_LEAF, task_list):
   
   # Determine the bands to be exported according to specified spatial resolution 
   out_band_names = SsrData['OUT_BANDS'] if Scale >=20 else SsrData['10M_BANDS']
-  if for_LEAF:
-    out_band_names = out_band_names + ['cosVZA', 'cosSZA', 'cosRAA']
+  angle_bands = ['cosVZA', 'cosSZA', 'cosRAA']
+  if all(item in bands_in_mosaic for item in angle_bands):
+    out_band_names = out_band_names + angle_bands
 
   if out_location.find('drive') > -1:  # Export to Google Drive
     print('<export_mosaic> Exporting to Google Drive......')
@@ -1336,12 +1339,16 @@ def Mosaic_production(inParams, MixSensor):
        exe_Params(Dictionary): A dictionary storing required parameters;
        MixSensor(Boolean): Indicate if to utilize mixed image data;
        ExtraBandCode(int): A integer(EXTRA_NONE, EXTRA_ANGLE, EXTRA_NDVI) representing extra bands to be attached to each image.'''
-  
+  task_list = []
   #==========================================================================================================
   # Standardize parameter dictionary for composite generation
   #==========================================================================================================
   params = eoPM.get_mosaic_params(inParams)
-
+  
+  if params == None:
+    print('\n<Mosaic_production> Failed to generate input parameters for compositing!')
+    return task_list
+  
   #==========================================================================================================
   # get some required parameters
   #==========================================================================================================
@@ -1353,8 +1360,7 @@ def Mosaic_production(inParams, MixSensor):
 
   #==========================================================================================================
   # Produce composite images for each region and each time window
-  #==========================================================================================================
-  task_list = []
+  #==========================================================================================================  
   region_names = params['regions'].keys()
   nTimes = len(params['start_dates'])
   
@@ -1378,7 +1384,7 @@ def Mosaic_production(inParams, MixSensor):
       #mosaic = LEAF_Mosaic(ssr_data, region, start, stop, True)
 
       # Export spectral mosaic images
-      export_mosaic(params, mosaic, ssr_data, region, True, task_list)
+      export_mosaic(params, mosaic, ssr_data, region, task_list)
     
   return task_list
 
@@ -1484,13 +1490,14 @@ Among the 11 input parameters, two keys ('months' and 'tile_names') require list
 #     'sensor': 'S2_SR',            # A sensor type string (e.g., 'S2_SR' or 'L8_SR')
 #     'year': 2022,                 # An integer representing image acquisition year
 #     'nbYears': -1,                 # positive int for annual product, or negative int for monthly product
-#     'months': [7,8,9],                # A list of integers represening one or multiple monthes     
-#     'tile_names': ['tile33'],     # A list of (sub-)tile names (defined using CCRS' tile griding system) 
+#     'months': [8],                 # A list of integers represening one or multiple monthes     
+#     'tile_names': ['tile33_911'],     # A list of (sub-)tile names (defined using CCRS' tile griding system) 
 #     'out_location': 'drive',      # Exporting location ('drive', 'storage' or 'asset') 
 #     'prod_names': ['mosaic'],
-#     'resolution': 20,             # Exporting spatial resolution
+#     'resolution': 100,             # Exporting spatial resolution
 #     'GCS_bucket': 's2_mosaic_2020',   # An unique bucket name on Google Cloud Storage
 #     'out_folder': 'LEAF_mosaic',   # the folder name for exporting
+#     'export_style': 'compact',
 
 #     #'custom_region': user_region, # A given user-defined region. Only include this 'key:value' pair as necessary
 #     #'start_dates': ['2022-06-15'], # A list of strings representing the start dates of customized compositing periods.
