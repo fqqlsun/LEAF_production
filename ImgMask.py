@@ -87,7 +87,9 @@ def S2_ClearMask(inImg, inUnit):
   qa  = inImg.select(['QA60']).uint16()
 
   scl = ee.Image.constant(0)
-  scl = scl.where(ee.Number(inUnit).eq(2), inImg.select(['SCL']))
+  if inUnit == 2:
+    scl = inImg.select(['SCL'])
+  #scl = scl.where(ee.Number(inUnit).eq(2), inImg.select(['SCL']))
 
   cloud  = ee.Image.constant(1 << 10)   # Opaque clouds
   cirrus = ee.Image.constant(1 << 11)   # Cirrus clouds

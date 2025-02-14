@@ -40,6 +40,7 @@ WV_band        = 10
 
 
 pix_score       = 'pix_score'
+cloud_score     = 'cs'
 score_target    = 'score_target'
 pix_date        = 'date'
 neg_blu_score   = 'neg_blu_score'
@@ -305,7 +306,6 @@ SSR_META_DICT = {
 
 DATA_TYPE   = ee.List(['S2_SR', 'LS8_SR', 'LS9_SR', 'LS7_SR', 'LS5_SR', 'S2_TOA', 'LS8_TOA', 'LS9_TOA', 'LS7_TOA', 'LS5_TOA'])
 STD_6_BANDS = ['blue', 'green', 'red', 'nir', 'swir1', 'swir2']
-MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 
 
@@ -406,7 +406,7 @@ def get_cloud_rate(SsrData, Region):
   latitude = ee.Number(centre.coordinates().get(1))
   
   # Determine cloud coverage percentage based on sensor type and location
-  ST2_rate = ee.Algorithms.If(latitude.lt(55), 85, 70)
+  ST2_rate = ee.Algorithms.If(latitude.lt(55), 80, 65)
   LS_rate  = 90
 
   return ee.Algorithms.If(ssr_code.gt(MAX_LS_CODE), ST2_rate, LS_rate)
@@ -605,22 +605,6 @@ def attach_NDVIBand(Image, SsrData):
 
 
 
-#############################################################################################################
-# Description: This function returns a month name string according to a month number integer.
-#  
-# Revision history:  2022-Aug-10  Lixin Sun  Initial creation
-#
-#############################################################################################################
-def get_MonthName(month_numb):
-  month = int(month_numb)
-
-  if month > 0 and month < 13:
-    return MONTH_NAMES[month-1]
-  else:
-    return 'season'
-
-
-
 
 
 #############################################################################################################
@@ -743,3 +727,158 @@ def manage_tasks(manage_type, filter):
     for task in task_list:
       if task['metadata']['description'].find(filter) > -1: 
         print(task['metadata'])
+
+
+
+
+#print(get_file_list('C:\Work_documents\Global_mosaic_samples_median_refer', 'biome5', '.csv'))
+#############################################################################################################
+# Description: This function creates names for an export folder and file.
+#
+# Revision history:  2022-Nov-14  Lixin Sun  Initial creation 
+#
+#############################################################################################################
+def get_folder_file_names(inParams, prod_name): 
+  year_str     = str(inParams['year'])  
+  scale_str    = str(inParams['resolution'])  
+  given_folder = str(inParams['out_folder'])
+  region_str   = str(inParams['current_region'])
+  time_str     = str(inParams['time_str'])
+
+  #==========================================================================================================
+  # Create a output folder name as needed
+  #==========================================================================================================  
+  if len(given_folder) < 2:
+    exportFolder = region_str.split('_')[0] + '_' + year_str
+  else:
+    exportFolder = given_folder
+
+  #==========================================================================================================
+  # Create filename 
+  #==========================================================================================================  
+  filename = region_str + '_' + time_str + '_' + prod_name + '_' + scale_str + 'm'
+  
+  return exportFolder, filename
+
+
+
+ 
+#############################################################################################################
+# Description: This function exports one 64-Bits image that contains FOUR biophysical parameter maps and one 
+#              QC map to either Google Drive or Google Cloud Storage
+#
+# Revision history:  2022-Nov-14  Lixin Sun  Initial creation 
+#
+#############################################################################################################
+def export_compact_params(fun_Param_dict, region, compactImg, task_list):
+  '''Exports a 64-Bits image that contains FOUR biophysical parameter maps and one QC map to either GD or GCS.
+
+     Args:
+       fun_Param_dict(dictionary): a dictionary storing required running parameters;
+       region(ee.Geometry): the spatial region of interest;       
+       compactImg(ee.Image): an 64-bits image containing FOUR biophysical parameter maps and one QC map;
+       task_list([]): a list storing the links to exporting tasks. '''
+  #==========================================================================================================
+  # Create the names of exporting folder anf files 
+  #==========================================================================================================
+  month        = int(fun_Param_dict['month'])
+  year_str     = str(fun_Param_dict['year'])   
+  tile_str     = str(fun_Param_dict['tile_name'])
+  scale_str    = str(fun_Param_dict['resolution'])
+  given_folder = str(fun_Param_dict['folder'])
+  
+  tile_name    = tile_str.split('_')[0]
+  form_folder  = tile_name + '_' + year_str
+  exportFolder = form_folder if len(given_folder) < 2 else given_folder
+
+  month_name   = eoPM.get_MonthName(month)
+  filename = tile_str + '_' + year_str
+  if month < 1 or month > 12:
+    filename = filename + '_bioParams_QC_' + scale_str + 'm'
+  else:
+    filename = filename + '_' + month_name + '_bioParams_QC_' + scale_str + 'm'
+
+  #==========================================================================================================
+  # Prepare initial export dictionary and output location 
+  #==========================================================================================================
+  export_dict = {'image': compactImg,
+                 'description': filename,
+                 'fileNamePrefix': filename,
+                 'scale': int(fun_Param_dict['resolution']),
+                 'crs': 'EPSG:3979',
+                 'maxPixels': 1e11,
+                 'region': region}
+
+  #==========================================================================================================
+  # Export a 64-bits image containing FOUR biophysical parameter maps and one map to either GD or GCS
+  #==========================================================================================================
+  out_location = str(fun_Param_dict['location']).lower()
+
+  if out_location.find('drive') > -1:
+    export_dict['folder'] = exportFolder
+    task_list.append(ee.batch.Export.image.toDrive(**export_dict).start())
+  elif out_location.find('storage') > -1:
+    export_dict['bucket'] = str(fun_Param_dict['bucket'])
+    export_dict['fileNamePrefix'] = exportFolder + '/' + filename
+    task_list.append(ee.batch.Export.image.toCloudStorage(**export_dict).start())
+
+
+
+
+#############################################################################################################
+# Description: This function exports one biophysical parameter map to either GD or GCS.
+#
+# Revision history:  2022-Nov-14  Lixin Sun  Initial creation 
+#
+#############################################################################################################
+def export_one_map(inParams, Region, OutMap, ProdName, task_list):
+  '''Exports one biophysical parameter map to one of three places: GD, GCS or GEE assets.
+
+     Args:
+       exe_Params(dictionary): a dictionary storing other required running parameters;
+       Region(ee.Geometry): the spatial region of interest;
+       OutMap(ee.Image): a map/image to be exported;
+       prod_name(string): a name string for exported image/map; 
+       task_list([]): a list storing the links to exporting tasks. '''
+
+  #==========================================================================================================
+  # Create a output folder name as needed
+  #==========================================================================================================  
+  #prod_name = str(exe_Params['prod_name'])  
+  exportFolder, filename = get_folder_file_names(inParams, ProdName)
+
+  #==========================================================================================================
+  # Prepare initial export dictionary and output location 
+  #==========================================================================================================
+  scale_str = int(inParams['resolution'])  
+  proj_str  = str(inParams['projection'])
+
+  export_dict = {'image': OutMap,
+                 'description': filename,                 
+                 'scale': scale_str,
+                 'crs': proj_str,   #'EPSG:3979',
+                 'maxPixels': 1e11,
+                 'region': ee.Geometry(Region)}  
+
+  #==========================================================================================================
+  # Export a biophysical parameter map to one of three places: GD, GCS or GEE Assets
+  #==========================================================================================================  
+  out_location = str(inParams['out_location']).lower()
+
+  if out_location.find('drive') > -1:
+    print('<export_one_param> Exporting a resultant map to Google Drive......')
+    export_dict['folder']         = exportFolder
+    export_dict['fileNamePrefix'] = filename
+    task_list.append(ee.batch.Export.image.toDrive(**export_dict).start())
+
+  elif out_location.find('storage') > -1:
+    print('<export_one_param> Exporting biophysical map to Google Cloud Storage......')
+    export_dict['bucket']         = str(inParams['bucket'])
+    export_dict['fileNamePrefix'] = exportFolder + '/' + filename
+    task_list.append(ee.batch.Export.image.toCloudStorage(**export_dict).start())
+
+  elif out_location.find('asset') > -1:
+    print('<export_one_param> Exporting biophysical map to GEE Assets......')
+    asset_root             = 'projects/ee-lsunott/assets/'
+    export_dict['assetId'] = asset_root + exportFolder + '/' + filename
+    task_list.append(ee.batch.Export.image.toAsset(**export_dict).start())

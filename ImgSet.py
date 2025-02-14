@@ -1,7 +1,11 @@
-######################################################################################################
+#############################################################################################################
 # Description: most codes in this file were converted from JavaScript on 2021-Apr-09
-######################################################################################################
+#############################################################################################################
 import ee 
+
+import pandas as pd
+import calendar
+from datetime import datetime
 
 import Image as Img
 import ImgMask as IM
@@ -9,79 +13,97 @@ import ImgMask as IM
 
 
 
-######################################################################################################
+
+#############################################################################################################
 # Description: This function returns the last date of a specified month.
 #
 # Revision history:  2022-Aug-08  Lixin Sun  Initial creation
 #
-######################################################################################################
-def month_end(Month):
-  month = ee.Number(Month)
-  cond  = month.eq(ee.Number(1)).Or(month.eq(ee.Number(3))).Or(month.eq(ee.Number(5))) \
-         .Or(month.eq(ee.Number(7))).Or(month.eq(ee.Number(8))).Or(month.eq(ee.Number(10))) \
-         .Or(month.eq(ee.Number(12)))
+#############################################################################################################
+def month_end(Year, Month, gee_number):
+  last_day = calendar.monthrange(Year, Month)[1]
 
-  return ee.Algorithms.If(cond, ee.Number(31), ee.Algorithms.If(month.eq(ee.Number(2)), ee.Number(28), ee.Number(30)))
+  return last_day if not gee_number else ee.Number(last_day)
+         
+  # month = ee.Number(Month)
+  # cond  = month.eq(ee.Number(1)).Or(month.eq(ee.Number(3))).Or(month.eq(ee.Number(5))) \
+  #        .Or(month.eq(ee.Number(7))).Or(month.eq(ee.Number(8))).Or(month.eq(ee.Number(10))) \
+  #        .Or(month.eq(ee.Number(12)))
 
-
-
-######################################################################################################
-# Description: Creates the start and end date strings of a specified year and month
-#
-# Revision history:  2021-May-20  Lixin Sun  Initial creation
-#                    2021-Oct-15  Lixin Sun  Added a new case when "inMonth" is out of valid range
-#                                            (1 to 12), then the start and end dates of the peak season
-#                                            will be returned. 
-######################################################################################################
-def month_range(Year, Month):
-  '''Creates the start and end date strings of a specified year and month
-     Args:
-       Year(int or ee.Number): A specified year;
-       Month(int or ee.Number): A specified month. When the value of this argument is out of range
-                               (1 to 12), a time range for a peak season is returned. '''
-  year  = ee.Number(Year)
-  month = ee.Number(Month)
-  
-  year  = ee.Algorithms.If(year.lt(ee.Number(1980)).Or(year.gt(ee.Number(2050))), ee.Number(2020), year)
-  month = ee.Algorithms.If(month.lt(ee.Number(1)).Or(month.gt(ee.Number(12))), ee.Number(7), month)
-
-  start_date = ee.Date.fromYMD(year, month, ee.Number(1))
-  end_date   = ee.Date.fromYMD(year, month, month_end(month))
-
-  return start_date, end_date  
+  # return ee.Algorithms.If(cond, ee.Number(31), ee.Algorithms.If(month.eq(ee.Number(2)), ee.Number(28), ee.Number(30)))
 
 
 
 
 
-
-######################################################################################################
+#############################################################################################################
 # Description: This function creates starting and stoping ee.Dates for a summer 
 #
 # Revision history:  2021-May-20  Lixin Sun  Initial creation
 #
-######################################################################################################
-def summer_range(Year):
+#############################################################################################################
+def summer_range(Year, ee_Date_format = True):
   '''Returns the stop date of growing peak season. 
   Arg: 
      Year(int): A regular pyhton integer, rather than a GEE object'''
-  start = ee.Date.fromYMD(2000, 6, 15).update(Year)
-  stop  = ee.Date.fromYMD(2000, 9, 15).update(Year)
   
-  return start, stop
+  return ee.Date.fromYMD(Year, 6, 15), ee.Date.fromYMD(Year, 9, 15) if ee_Date_format else str(Year) + '-06-15', str(Year) + '-09-15'
 
 
 
 
-
-######################################################################################################
+#############################################################################################################
 # Description: This function creates a summer centre date string 
-######################################################################################################
+#############################################################################################################
 def summer_centre(Year):
   '''Returns the middle date of growing peak season. 
   Arg: 
     Year(int): A regular pyhton integer, rather than a GEE object'''
   return ee.Date.fromYMD(Year, 7, 31)
+
+
+
+
+
+#############################################################################################################
+# Description: Creates the start and end date strings of a specified year and month
+#
+# Revision history:  2021-May-20  Lixin Sun  Initial creation
+#                    2021-Oct-15  Lixin Sun  Added a new case where if "Month" is out of the 1 to 12 range,
+#                                            the start and end dates of the peak season will be returned. 
+#############################################################################################################
+def month_range(Year, Month, ee_Date_format = True):
+  '''Creates the start and end date strings of a specified year and month
+     Args:
+       Year(int or ee.Number): A specified year;
+       Month(int or ee.Number): A specified month. When the value of this argument is out of range
+                               (1 to 12), a time range for a peak season is returned. '''
+  #==========================================================================================================
+  # Validate the given 'Year' integer
+  #==========================================================================================================
+  current_year = datetime.now().year
+  if Year < 1970:
+    Year = 1970
+  elif Year > current_year:
+    Year = current_year
+  
+  #==========================================================================================================
+  # Return proper start and end dates for a specified period
+  #==========================================================================================================
+  if Month < 1 or Month > 12:
+    return summer_range(Year, ee_Date_format)
+  else:
+    if not ee_Date_format:
+      year_month_str = str(Year) + '-' + str(Month)
+      return year_month_str + '-1', year_month_str + '-' + str(month_end(Year, Month, False))
+
+    else:  
+      start_date = ee.Date.fromYMD(Year, Month, 1)
+      end_date   = ee.Date.fromYMD(Year, Month, month_end(Year, Month, True))
+
+      return start_date, end_date  
+
+
 
 
 
@@ -176,13 +198,13 @@ def getCollection(SsrData, Region, StartDate, EndDate, ExtraBandCode, CloudRate 
      EndDate(string or ee.Date): The stop acquisition date string (e.g., '2020-07-31');
      CloudRate(float): a given cloud coverage rate.'''
   
-  print('<getCollection> SsrData info:', SsrData)
+  #print('<getCollection> SsrData info:', SsrData)
   # Cast the input parameters into proper formats  
   region = ee.Geometry(Region)
   start  = ee.Date(StartDate)
   end    = ee.Date(EndDate)
   year   = int(start.get('year').getInfo())
-  print('\n<getCollection> The year of time window = ', year) 
+  #print('\n<getCollection> The year of time window = ', year) 
 
   #===================================================================================================
   # Determine a cloud coverage percentage/rate 
@@ -191,7 +213,7 @@ def getCollection(SsrData, Region, StartDate, EndDate, ExtraBandCode, CloudRate 
   # (2) a given cloud coverage percentage/rate (CloudRate) 
   #===================================================================================================
   cloud_rate = Img.get_cloud_rate(SsrData, region) if CloudRate < 0 or CloudRate > 99.99 else ee.Number(CloudRate)
-  print('<getCollection> Used cloud rate = ', cloud_rate.getInfo())
+  #print('<getCollection> Used cloud rate = ', cloud_rate.getInfo())
 
   #===================================================================================================
   # "filterMetadata" Has been deprecated. But tried to use "ee.Filter.gte(property, value)", did 
@@ -268,15 +290,14 @@ def getCollection(SsrData, Region, StartDate, EndDate, ExtraBandCode, CloudRate 
                                        .filterMetadata(SsrData['CLOUD'], 'less_than', cloud_rate) \
                                        #.filterMetadata(SsrData['SZA'], 'less_than', 70.0) 
 
-  print('\n<getCollection> The name of data catalog = ', CollName)             
-  print('<getCollection> The number of images in selected image collection = ', coll.size().getInfo())
+  #print('\n<getCollection> The name of data catalog = ', CollName)             
+  #print('<getCollection> The number of images in selected image collection = ', coll.size().getInfo())
 
   return coll 
   
   
 
-
-
+  
 ######################################################################################################
 # Description: This function returns the imaging geometry angles of the scene included in an image 
 #              collection.
@@ -284,7 +305,7 @@ def getCollection(SsrData, Region, StartDate, EndDate, ExtraBandCode, CloudRate 
 # Revision history:  2024-Jul-10  Lixin Sun  Initial creation
 #                                            
 ######################################################################################################
-def get_IC_GeoAngles(SsrData, Region, StartDate, EndDate, CloudRate = -100):  
+def get_ImgColl_Angles(SsrData, Region, StartDate, EndDate, CloudRate = -100):  
   '''Returns a image collection acquired by a sensor over a geographical region during a period of time  
 
   Arg: 
@@ -294,18 +315,71 @@ def get_IC_GeoAngles(SsrData, Region, StartDate, EndDate, CloudRate = -100):
      EndDate(string or ee.Date): The stop acquisition date string (e.g., '2020-07-31');
      CloudRate(float): a given cloud coverage rate.'''
   
-  ImgColl = getCollection(SsrData, Region, StartDate, EndDate, Img.EXTRA_NONE, CloudRate = -100)
+  def form_key(product_ID):
+    #PRODUCT_ID: S2B_MSIL2A_20200801T182919_N0214_R027_T12VWK_20200801T223038
+    tokens = str(product_ID).split('_')
+    return tokens[0] + '_' + tokens[5][1:] + '_' + tokens[2] + '_' + tokens[1][3:]
 
-  img1 = ImgColl.first()
-
-  # Get the properties of the image
-  image_properties = img1.propertyNames().getInfo()
-
-  # Print out the properties and their values
-  for prop in image_properties:
-    print(f"{prop}: {img1.get(prop).getInfo()}")
-
+  def get_metadata(image):
+    # Extract relevant metadata fields
+    metadata = image.toDictionary(['PRODUCT_ID', 
+                                   #'system:id',                                    
+                                   'system:asset_size',
+                                   'MEAN_SOLAR_ZENITH_ANGLE', 
+                                   'MEAN_SOLAR_AZIMUTH_ANGLE',
+                                   'MEAN_INCIDENCE_ZENITH_ANGLE_B8A',
+                                   'MEAN_INCIDENCE_AZIMUTH_ANGLE_B8A'])
+    return ee.Feature(None, metadata)
     
+    #system:index: 20200801T182919_20200801T182920_T12VWK
+    #system:id: COPERNICUS/S2_SR_HARMONIZED/20200801T182919_20200801T182920_T12VWK
+    #PRODUCT_ID: S2B_MSIL2A_20200801T182919_N0214_R027_T12VWK_20200801T223038
+    #GRANULE_ID: L2A_T12VWK_A017785_20200801T182920
+    
+    #STAC_S2_ID: S2B_17UMP_20210830_1_L2A
+    #<s2:granule_id>: S2B_OPER_MSI_L2A_TL_S2RP_20230122T030310_A023418_T17UMP_N05.00
+    #<datetime>: 2021-08-30T16:39:57.611000Z
+  
+  ImgColl = getCollection(SsrData, Region, StartDate, EndDate, Img.EXTRA_NONE, CloudRate)
+  #print('<get_ImgColl_Angles> the properties of a image = ',ImgColl.first().toDictionary().getInfo())
+
+  ImgColl_meta = ImgColl.map(get_metadata)
+  
+  metadata_list = ImgColl_meta.getInfo()['features']
+    
+  keyed_meta = {}
+  prod_id = []
+  #sys_id = []
+  asset_size = []
+  sza = []
+  saa = []
+  vza = []
+  vaa = []
+  for metadata in metadata_list:
+    #key = form_key(metadata['properties']['PRODUCT_ID'])
+    #keyed_meta[key] = metadata['properties']
+    #print(keyed_meta)    
+    prod_id.append(metadata['properties']['PRODUCT_ID'])
+    #sys_id.append(metadata['properties']['system:id'])    
+    asset_size.append(metadata['properties']['system:asset_size'])
+    sza.append(metadata['properties']['MEAN_SOLAR_ZENITH_ANGLE'])
+    saa.append(metadata['properties']['MEAN_SOLAR_AZIMUTH_ANGLE'])
+    vza.append(metadata['properties']['MEAN_INCIDENCE_ZENITH_ANGLE_B8A'])
+    vaa.append(metadata['properties']['MEAN_INCIDENCE_AZIMUTH_ANGLE_B8A'])
+    
+
+  data = {'prod_id': prod_id, 'asset_size': asset_size, 'sza': sza, 'saa': saa, 'vza': vza,'vaa': vaa}
+  print(data)
+  
+  out_df = pd.DataFrame(data)
+    
+  #full_path = inDir + '\\' + out_CSV_filename
+  full_path = 'C:\\Work_documents\\scene_geo_angles\\test_angle.csv'
+  out_df.to_csv(full_path, index=False)
+  
+  return data
+
+  
 
 
 
@@ -338,7 +412,7 @@ def mask_collection(ImgColl, SsrData, CloudScore):
   
   elif ssr_code > Img.MAX_LS_CODE and ssr_code < Img.MOD_sensor: # for Sentinel-2 data
     if CloudScore == True:
-      thresh = 0.6    
+      thresh = 0.8
       return ImgColl.map(lambda img: img.updateMask(img.select('cs').gte(thresh)))
     else:
       return ImgColl.map(lambda img: apply_mask(img))  

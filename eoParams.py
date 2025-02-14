@@ -1,45 +1,74 @@
 import ee 
+#ee.Authenticate()
+ee.Initialize()
+
 
 import ImgSet as IS
 import Image as Img
 import eoTileGrids as eoTG
+
 import re
-
 from pathlib import Path
-
+from datetime import datetime
 
 
 #############################################################################################################
 # Description: Define a default execution parameter dictionary. 
 # 
 # Revision history:  2022-Mar-29  Lixin Sun  Initial creation
+#                    2024-Aug-30  Lixin Sun  Changed two keys, 'start_date' and 'end_date', to 'start_dates'
+#                                            and 'end_dates', and their corresponding values to lists. 
+#############################################################################################################
+# DefaultParams = {
+#     'sensor': 'S2_SR',           # A sensor type and data unit string (e.g., 'S2_Sr' or 'L8_SR')    
+#     'unit': 2,                   # data unite (1=> TOA reflectance; 2=> surface reflectance)
+#     'year': 2019,                # An integer representing image acquisition year
+#     'nbYears': 1,                # positive int for annual product, or negative int for monthly product
+#     'months': [5,6,7,8,9,10],    # A list of integers represening one or multiple monthes     
+#     'tile_names': ['tile55'],    # A list of (sub-)tile names (defined using CCRS' tile griding system) 
+#     'prod_names': ['mosaic'],    # ['mosaic', 'LAI', 'fCOVER', ]
+#     'out_location': 'drive',     # Exporting location ('drive', 'storage' or 'asset') 
+#     'resolution': 30,            # Exporting spatial resolution
+#     'GCS_bucket': '',            # An unique bucket name on Google Cloud Storage
+#     'out_folder': '',            # the folder name for exporting
+#     'export_style': 'separate',    
+#     'projection': 'EPSG:3979',
+#     'CloudScore': False,
+
+#     'monthly': True,             # A flag indicating if time windows are monthly
+#     'start_dates': [],
+#     'end_dates':  [],
+#     'regions':{},
+#     'scene_ID': '',
+#     'current_time': 0,  # The index in 'start_dates'/'end_dates'
+#     'current_region': '',
+
+#     'time_str': ''
+# }
+
+all_param_keys = ['sensor', 'unit', 'year', 'nbYears', 'months', 'tile_names', 'prod_names', 'out_location', 'resolution',
+                  'GCS_bucket', 'out_folder', 'export_style', 'projection', 'CloudScore', 'extra_bands',
+                  'monthly', 'start_dates', 'end_dates', 'regions', 'scene_ID', 'current_time', 'current_region', 'time_str']
+
+
+MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+
+#############################################################################################################
+# Description: This function returns a month name string according to a month number integer.
+#  
+# Revision history:  2022-Aug-10  Lixin Sun  Initial creation
 #
 #############################################################################################################
-DefaultParams = {
-    'sensor': 'S2_SR',           # A sensor type and data unit string (e.g., 'S2_Sr' or 'L8_SR')    
-    'unit': 2,                   # data unite (1=> TOA reflectance; 2=> surface reflectance)
-    'year': 2019,                # An integer representing image acquisition year
-    'nbYears': 1,                # positive int for annual product, or negative int for monthly product
-    'months': [5,6,7,8,9,10],    # A list of integers represening one or multiple monthes     
-    'tile_names': ['tile55'],    # A list of (sub-)tile names (defined using CCRS' tile griding system) 
-    'prod_names': ['mosaic'],    # ['mosaic', 'LAI', 'fCOVER', ]
-    'out_location': 'drive',     # Exporting location ('drive', 'storage' or 'asset') 
-    'resolution': 30,            # Exporting spatial resolution
-    'GCS_bucket': '',            # An unique bucket name on Google Cloud Storage
-    'out_folder': '',            # the folder name for exporting
-    'export_style': 'separate',
-    'start_date': '',
-    'end_date':  '',
-    'scene_ID': '',
-    'projection': 'EPSG:3979',
-    'CloudScore': False,
-    'extra_bands': Img.EXTRA_NONE,
+def get_MonthName(month_numb):
+  month = int(month_numb)
 
-    'current_month': -1,
-    'current_tile': '',
-    'time_str': '',
-    'region_str': ''
-}
+  if month > 0 and month < 13:
+    return MONTH_NAMES[month-1]
+  else:
+    return 'season'
+  
+
 
 
 
@@ -49,79 +78,79 @@ DefaultParams = {
 # Revision history:  2024-Feb-27  Lixin Sun  Initial creation
 #
 #############################################################################################################
-def is_custom_region(inParams):
-  all_keys = inParams.keys()
+def has_custom_region(inParams):  
+  n_custom_regions = len(inParams['regions']) if 'regions' in inParams else 0
+  
+  if 'scene_ID' not in inParams:
+    inParams['scene_ID'] = ''
 
-  if 'custom_region' in all_keys:
-    return True
-  elif 'scene_ID' in all_keys: 
-    return True if len(inParams['scene_ID']) > 5 else False
-  else:
-    return False 
+  return True if n_custom_regions > 0 or len(inParams['scene_ID']) > 5 else False 
+
+
 
 
 
 #############################################################################################################
-# Description: This function tells if there is a customized time window defined in parameter dictionary.
+# Description: This function tells if customized time windows are defined in a given parameter dictionary.
 # 
 # Revision history:  2024-Feb-27  Lixin Sun  Initial creation
 #
 #############################################################################################################
-def is_custom_window(inParams):
-  start_len = len(inParams['start_date'])
-  end_len   = len(inParams['end_date'])
-  #print('<is_custom_window> start and end date lengthes are:', start_len, end_len)
+def has_custom_windows(inParams):
+  start_len = len(inParams['start_dates']) if 'start_dates' in inParams else 0
+  end_len   = len(inParams['end_dates']) if 'end_dates' in inParams else 0
+
+  custom_time = False
+  if start_len >= 1 and end_len >= 1 and start_len == end_len:
+    custom_time = True
   
-  return True if start_len > 7 and end_len > 7 else False
+  elif start_len >= 1 and end_len >= 1 and start_len != end_len:  
+    print('\n<has_custom_window> Inconsistent customized time list!')
   
+  return custom_time
+  
+
 
 
 
 #############################################################################################################
-# Description: This function makes the year values corresponding to 'start_date', 'end_date' and 'year' keys
-#              in a execution parameter dictionary are consistent.
+# Description: This function sets values for 'curent_time' and 'time_str' keys based on 'current_time' input
 # 
 # Revision history:  2024-Apr-08  Lixin Sun  Initial creation
 #
 #############################################################################################################
-def year_consist(inParams):
-  start_date = str(inParams['start_date'])
-  end_date   = str(inParams['end_date'])  
+def set_current_time(inParams, current_time):
+  '''Sets values for 'curent_time' and 'time_str' keys based on 'current_time' input
+     Args:
+       inParams(Dictionary): A dictionary storing required input parameters;
+       current_time(Integer): An index in 'start_dates' and 'end_dates' lists.'''
   
-  if len(start_date) > 7 and len(end_date) > 7:
-    # Modify the year of 'end_date' string using the year of 'start_date'  
-    start_tokens = re.split('-|_', start_date)
-    end_tokens   = re.split('-|_', end_date)
-    inParams['end_date'] = start_tokens[0] + '-' + end_tokens[1] + '-' + end_tokens[2]
+  if 'start_dates' not in inParams or 'end_dates' not in inParams:
+    print('\n<set_current_time> There is no \'start_dates\' or \'end_dates\' key!')
+    return None
   
-    # Modify the value corresponding 'year' key in parameter dictionary
-    inParams['year'] = start_tokens[0]
+  #==========================================================================================================
+  # Ensure the given 'current_time' is valid.
+  #==========================================================================================================
+  ndates = len(inParams['start_dates'])
+
+  if current_time < 0 or current_time >= ndates:
+    print('\n<set_current_time> Invalid \'current_time\' was provided!')
+    return None
+  
+  #==========================================================================================================
+  # Set values for 'current_time' and 'time_str' keys
+  #==========================================================================================================
+  inParams['current_time'] = current_time
+
+  if inParams['monthly']:
+    inParams['time_str'] = get_MonthName(int(inParams['months'][current_time]))
+  else:  
+    inParams['time_str'] = str(inParams['start_dates'][current_time]) + '_' + str(inParams['end_dates'][current_time])
 
   return inParams
 
 
-
-
-#############################################################################################################
-# Description: This function sets value for 'time_str' key based on if a customized time window has been 
-#              specified.
-# 
-# Revision history:  2024-Apr-08  Lixin Sun  Initial creation
-#
-#############################################################################################################
-def set_time_str(inParams, custon_window = True):
-  current_month = inParams['current_month']
-
-  if custon_window == True:
-    inParams['time_str'] = str(inParams['start_date']) + '_' + str(inParams['end_date'])
-
-  elif current_month > 0 and current_month < 13:
-    inParams['time_str'] = Img.get_MonthName(current_month)
-
-  else:
-    inParams['time_str'] = 'season'
-
-  return inParams
 
 
 
@@ -132,14 +161,69 @@ def set_time_str(inParams, custon_window = True):
 # Revision history:  2024-Apr-08  Lixin Sun  Initial creation
 #
 #############################################################################################################
-def set_region_str(inParams, custon_region = True):
-  if custon_region == True:
-    inParams['region_str'] = 'custom_region'
+def set_spatial_region(inParams, region_name):
+  region_names = inParams['regions'].keys()
+
+  if region_name not in region_names:
+    print('\n<set_spatial_region> Invalid region name!')
+    return None
     
-  else:
-    inParams['region_str'] = inParams['current_tile']
+  inParams['current_region'] = region_name
 
   return inParams
+
+
+
+
+
+#############################################################################################################
+# Description: This function fills default values for some critical parameters
+# 
+# Revision history:  2024-Oct-08  Lixin Sun  Initial creation
+#
+#############################################################################################################
+def fill_critical_params(inParams):  
+  if 'sensor' not in inParams:
+    inParams['sensor'] = 'S2_SR'
+
+  if 'year' not in inParams:
+    inParams['year'] = datetime.now().year
+
+  if 'nbYears' not in inParams:
+    inParams['nbYears'] = 1
+  
+  if 'prod_names' not in inParams:
+    inParams['prod_names'] = []
+  
+  if 'out_location' not in inParams:
+    inParams['out_location'] = 'drive'
+ 
+  if 'resolution' not in inParams:
+    inParams['resolution'] = 30
+  
+  if 'out_folder' not in inParams:
+    inParams['out_folder'] = inParams['sensor'] + '_' + inParams['year'] + '_results' 
+
+  if 'months' not in inParams:
+    inParams['months'] = []
+
+  if 'tile_names' not in inParams:
+    inParams['tile_names'] = []
+
+  if 'export_style' not in inParams:
+    inParams['export_style'] = 'separate'
+
+  if 'projection' not in inParams:
+    inParams['projection'] = 'EPSG:3979'
+  
+  if 'extra_bands' not in inParams:
+    inParams['extra_bands'] = Img.EXTRA_NONE
+
+  if 'CloudScore' not in inParams:
+    inParams['CloudScore'] = False
+
+  return inParams
+
 
 
 
@@ -152,11 +236,11 @@ def set_region_str(inParams, custon_region = True):
 #############################################################################################################
 def valid_user_params(UserParams):
   #==========================================================================================================
-  # Check if the keys in user parameter dictionary are valid
+  # Ensure all the keys in user's parameter dictionary are valid
   #==========================================================================================================
   all_valid    = True
   user_keys    = list(UserParams.keys())
-  default_keys = list(DefaultParams.keys())
+  default_keys = all_param_keys
   n_user_keys  = len(user_keys)
 
   key_presence = [element in default_keys for element in user_keys]
@@ -165,72 +249,137 @@ def valid_user_params(UserParams):
       all_valid = False
       print('<valid_user_params> \'{}\' key in given parameter dictionary is invalid!'.format(user_keys[index]))
   
-  if all_valid:
-    return all_valid
+  if not all_valid:
+    return all_valid, None
   
   #==========================================================================================================
-  # Validate some critical individual 'key:value' pairs
+  # Fill default values for some critical parameters as necessary
   #==========================================================================================================
-  outParams = {}  
+  out_Params = fill_critical_params(UserParams)
 
-  outParams['sensor'] = str(UserParams['sensor']).upper()
+  #==========================================================================================================
+  # Validate values of critical parameters
+  #==========================================================================================================
+  sensor_name = str(out_Params['sensor']).upper()
   all_SSRs = ['S2_SR', 'L5_SR', 'L7_SR', 'L8_SR', 'L9_SR']
-  if outParams['sensor'] not in all_SSRs:
+  if sensor_name not in all_SSRs:
     all_valid = False
     print('<valid_user_params> Invalid sensor or unit was specified!')
 
-  outParams['year'] = int(UserParams['year'])
-  if outParams['year'] < 1970 or outParams['year'] > 2200:
+  year = int(out_Params['year'])
+  if year < 1970 or year > datetime.now().year:
     all_valid = False
     print('<valid_user_params> Invalid year was specified!')
 
-  outParams['nbYears'] = int(UserParams['nbYears'])
-  if outParams['nbYears'] > 3:
+  nYears = int(out_Params['nbYears'])
+  if nYears > 3:
     all_valid = False
     print('<valid_user_params> Invalid number of years was specified!')
 
-  outParams['months'] = UserParams['months']
-  max_month = max(outParams['months'])
-  if max_month > 12:
-    all_valid = False
-    print('<valid_user_params> Invalid month number was specified!')
-
-  outParams['tile_names'] = UserParams['tile_names']
-  nTiles = len(outParams['tile_names'])
-  if nTiles < 1:
-    all_valid = False
-    print('<valid_user_params> No tile name was specified for tile_names key!')
-  
-  for tile in outParams['tile_names']:
-    if eoTG.is_valid_tile_name(tile) == False:
-      all_valid = False
-      print('<valid_user_params> {} is an invalid tile name!'.format(tile))
-
-  outParams['prod_names'] = UserParams['prod_names']
-  nProds = len(outParams['prod_names'])
+  prod_names = out_Params['prod_names']
+  nProds = len(prod_names)
   if nProds < 1:
     all_valid = False
     print('<valid_user_params> No product name was specified for prod_names key!')
   
-  user_prods = list(outParams['prod_names'])
-  prod_names = ['LAI', 'fAPAR', 'fCOVER', 'Albedo', 'mosaic', 'QC', 'date', 'partition']
-  presence = [element in prod_names for element in user_prods]
+  valid_prod_names = ['LAI', 'fAPAR', 'fCOVER', 'Albedo', 'mosaic', 'QC', 'date', 'partition']
+  presence = [element in valid_prod_names for element in prod_names]
   if False in presence:
     all_valid = False
     print('<valid_user_params> At least one of the specified products is invalid!')
+  
+  valid_out_locations = ['DRIVE', 'STORAGE', 'ASSET']
+  out_location = str(out_Params['out_location']).upper()  
+  if out_location not in valid_out_locations:
+    all_valid = False
+    print('<valid_user_params> Invalid out location was specified!')
 
-  outParams['resolution'] = int(UserParams['resolution'])
-  if outParams['resolution'] < 1:
+  resolution = int(out_Params['resolution'])
+  if resolution < 1:
     all_valid = False
     print('<valid_user_params> Invalid spatial resolution was specified!')
 
-  outParams['out_folder'] = str(UserParams['out_folder'])
-  if Path(outParams['out_folder']) == False or len(outParams['out_folder']) < 2:
+  out_folder = str(out_Params['out_folder'])
+  if Path(out_folder) == False or len(out_folder) < 2:
     all_valid = False
     print('<valid_user_params> The specified output path is invalid!')
-  
-  return all_valid
 
+  max_month = max(out_Params['months'])
+  if max_month > 12:
+    all_valid = False
+    print('<valid_user_params> Invalid month number was specified!')
+
+  tile_names = out_Params['tile_names']
+  nTiles = len(tile_names)
+  if nTiles < 1:
+    all_valid = False
+    print('<valid_user_params> No tile name was specified for tile_names key!')
+  
+  for tile in tile_names:
+    if eoTG.is_valid_tile_name(tile) == False:
+      all_valid = False
+      print('<valid_user_params> {} is an invalid tile name!'.format(tile))
+  
+  return all_valid, out_Params
+
+
+
+
+#############################################################################################################
+# Description: This function creates the start and end dates for a list of user-specified months and save 
+#              them into two lists with 'start_dates' and 'end_dates' keys.
+#
+# Revision history  2024-Sep-03  Lixin Sun  Initial creation
+#
+#############################################################################################################
+def form_time_windows(inParams):
+  if not has_custom_windows(inParams):
+    #There is no customized time window defined
+    inParams['monthly'] = True
+    nMonths = len(inParams['months'])  # get the number of specified months
+
+    year = inParams['year']
+    inParams['start_dates'] = []
+    inParams['end_dates']   = []
+    for index in range(nMonths):
+      month = inParams['months'][index]
+      start, end = IS.month_range(year, month, False)
+
+      inParams['start_dates'].append(start)
+      inParams['end_dates'].append(end) 
+
+  else:  #There are customized time windows defined
+    inParams['monthly'] = False
+    # nStarts = len(inParams['start_dates'])
+    # nEnds   = len(inParams['end_dates'])
+
+    # if nStarts != nEnds:
+    #   print('<form_time_windows>')
+
+  return set_current_time(inParams, 0)
+  
+
+
+
+
+#############################################################################################################
+# Description: This function creates the start and end dates for a list of user-specified months and save 
+#              them into two lists with 'start_dates' and 'end_dates' keys.
+#
+# Revision history  2024-Sep-03  Lixin Sun  Initial creation
+#
+#############################################################################################################
+def form_spatial_regions(inParams):
+  if not has_custom_region(inParams):
+    inParams['regions'] = {}
+    for tile_name in inParams['tile_names']:      
+      if eoTG.is_valid_tile_name(tile_name):
+        inParams['regions'][tile_name] = eoTG.PolygonDict.get(tile_name)
+    
+    return set_spatial_region(inParams, inParams['tile_names'][0])  
+  
+  else:
+    return inParams
 
 
 
@@ -244,43 +393,32 @@ def valid_user_params(UserParams):
 # Revision history:  2022-Mar-29  Lixin Sun  Initial creation
 #                    2024-Apr-08  Lixin Sun  Incorporated modifications according to customized time window
 #                                            and spatial region.
+#                    2024-Sep-03  Lixin Sun  Adjusted to ensure that regular months/season will also be 
+#                                            handled as customized time windows.    
 #############################################################################################################
 def update_default_params(inParams):  
-  if valid_user_params(inParams) == False:
-    return None  
-  
-  out_Params = DefaultParams
+  all_valid, out_Params = valid_user_params(inParams)
 
-  # get the number of keys in the given dictionary
-  inKeys = inParams.keys()  
-  
-  # For each key in the given dictionary, modify corresponding "key:value" pair
-  for ikey in inKeys:
-    out_Params[ikey] = inParams.get(ikey)
-  
-  # Ensure "CloudScore" is False if sensor type is not Sentinel-2 data
-  sensor_type = out_Params['sensor'].lower()
-  if sensor_type.find('s2') < 0:
-    out_Params['CloudScore'] = False 
-  
+  if all_valid == False or out_Params == None:
+    return None
+
   #==========================================================================================================
-  # If a customized time window has been provided
+  # If regular months (e.g., 5,6,7) or season (e.g., -1) are specified, then convert them to date strings and
+  # save in the lists corresponding to 'start_dates' and 'end_dates' keys. In this way, regular months/season
+  # will be dealed with as customized time windows.    
   #==========================================================================================================
-  if is_custom_window(out_Params) == True:
-    #Ensure all the year values in a parameter dictionary are consistent 
-    out_Params = year_consist(out_Params)
-    #Set value associated with 'time_str' key
-    out_Params = set_time_str(out_Params, True)
+  out_Params = form_time_windows(out_Params)  
  
   #==========================================================================================================
-  # If a customized spatial region has been provided
+  # If only regular tile names are specified, then create a dictionary with tile names and their 
+  # corresponding 'ee.Geometry.Polygon' objects as keys and values, respectively.   
   #==========================================================================================================
-  if is_custom_region(out_Params) == True: 
-    #Set value associated with 'region_str' key
-    out_Params = set_region_str(out_Params, True)
-  
+  out_Params = form_spatial_regions(out_Params)  
+ 
   # return modified parameter dictionary 
   return out_Params
+
+
 
 
 
@@ -288,11 +426,14 @@ def update_default_params(inParams):
 # Description: Obtain a parameter dictionary for LEAF tool
 #############################################################################################################
 def get_LEAF_params(inParams):
-  out_Params = update_default_params(inParams)  # Modify default parameters with given ones
-  out_Params['nbYears'] = -1                    # Produce monthly products in most cases
-  out_Params['unit']    = 2                     # Always surface reflectance for LEAF production
-
+  print('\n\n<get_LEAF_params> input parameters:', inParams)
+  out_Params = update_default_params(inParams)  # Modify default parameters with given ones  
+  out_Params['unit'] = 2                     # Always surface reflectance for LEAF production
+  
+  print('\n\n<get_LEAF_params> output parameters:', out_Params)
   return out_Params  
+
+
 
 
 
@@ -300,9 +441,8 @@ def get_LEAF_params(inParams):
 # Description: Obtain a parameter dictionary for Mosaic tool
 #############################################################################################################
 def get_mosaic_params(inParams):
+  inParams['prod_names'] = ['mosaic']           # Product name should always be 'mosaic'
   out_Params = update_default_params(inParams)  # Modify default parameter dictionary with a given one
-  if 'mosaic' not in out_Params['prod_names']:
-    out_Params['prod_names'] += ['mosaic']         # Of course, product name should be always 'mosaic'
 
   return out_Params  
 
@@ -320,9 +460,6 @@ def get_LC_params(inParams):
 
 
 
-
-
-
 #############################################################################################################
 # Description: This function returns a valid spatial region defined in parameter dictionary.
 # 
@@ -330,19 +467,15 @@ def get_LC_params(inParams):
 #
 #############################################################################################################
 def get_spatial_region(inParams):
-  all_keys = inParams.keys()
+  reg_name = inParams['current_region']
+  valid_reg_names = inParams['regions'].keys()
 
-  if 'custom_region' in all_keys:
-    return inParams['custom_region']
-  
-  elif len(inParams['current_tile']) > 2:
-    return eoTG.PolygonDict.get(inParams['current_tile'])
-  
-  elif len(inParams['tile_names'][0]) > 2:
-    return eoTG.PolygonDict.get(inParams['tile_names'][0])
-  
+  if reg_name in valid_reg_names:
+    return inParams['regions'][reg_name]
   else:
-    print('<get_spatial_region> No spatial region defined!!!!')
+    print('\n<get_spatial_region> Invalid spatial region name provided!')
+    return None
+
 
 
 
@@ -351,39 +484,45 @@ def get_spatial_region(inParams):
 # Description: This function returns a valid time window defined in parameter dictionary.
 # 
 # Revision history:  2024-Feb-27  Lixin Sun  Initial creation
-#
+#                    2024-Sep-03  Lixin Sun  Added 'AutoIncr' input parameter so that the value 
+#                                            corresponding to 'current_time' is increased automatically. 
 #############################################################################################################
-def get_time_window(inParams):  
-  if is_custom_window(inParams) == True:
-    # Extract veg parameters for a customized time window    
-    start_date = ee.Date(inParams['start_date'])
-    end_date   = ee.Date(inParams['end_date'])
+def get_time_window(inParams, ee_Date_format = True):
+  current_time = inParams['current_time']
+  nDates       = len(inParams['start_dates'])
+    
+  if current_time >= nDates:
+    print('\n<get_time_window> Invalidate \'current_time\' value!')
+    return None, None
 
-    start_year = start_date.get('year')
-    end_date   = end_date.update(start_year)
-
-    return start_date, end_date
+  start = inParams['start_dates'][current_time]
+  end   = inParams['end_dates'][current_time]
   
+  if ee_Date_format:
+    return ee.Date(start), ee.Date(end)  
   else:
-    current_month = inParams['current_month']
-    if current_month > 0:
-      if current_month > 12:
-        current_month = 12
+    return start, end
 
-      # Extract veg parameters on a monthly basis
-      return IS.month_range(inParams['year'], current_month)
-    else:  
-      nYears = inParams['nbYears']
-      year   = inParams['year']
-   
-      if nYears < 0 or current_month < 0:
-        return IS.summer_range(year) 
-      else:
-        month = max(inParams['months'])
-        if month > 12:
-          month = 12
 
-        if month < 1:
-          month = 1
 
-        return IS.month_range(year, month)
+
+
+# params =  {
+#      'sensor': 'S2_SR',           # A sensor type string (e.g., 'S2_SR' or 'L8_SR')
+#      'unit': 2,                   # A data unit code (1 or 2 for TOA or surface reflectance)   
+#      'year': 2023,                # An integer representing image acquisition year
+#      'nbYears': 1,                # positive int for annual product, or negative int for monthly product
+#      'months': [7, 6, 8],               # A list of integers represening one or multiple monthes     
+#      'tile_names': ['tile23'],    # A list of (sub-)tile names (defined using CCRS' tile griding system) 
+#      'prod_names': ['mosaic'],          #['mosaic', 'LAI', 'fCOVER', ]
+#      'out_location': 'drive',        # Exporting location ('drive', 'storage' or 'asset') 
+#      'resolution': 30,            # Exporting spatial resolution
+#      'GCS_bucket': 's2_mosaic_2020',  # An unique bucket name on Google Cloud Storage
+#      'out_folder': 'water_samples_May10',   # the folder name for exporting
+
+#      'start_dates': [],
+#      'end_dates': []
+# }
+
+
+# update_default_params(params)

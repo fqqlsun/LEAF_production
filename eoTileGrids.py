@@ -1,4 +1,6 @@
 import ee 
+#ee.Authenticate()
+ee.Initialize()
 
 '''
 TILE_CLOUD_RATES = {'tile13': 10, 'tile14': 10, 'tile21': 40, 'tile22': 30, 'tile23': 25, 'tile24': 20, 'tile25': 20,
@@ -649,4 +651,5 @@ def get_9subTiles(tile_name):
     def tile_geometry(tile_name):
       return PolygonDict.get(tile_name)
 
-    return sub_tile_names.map(lambda name: tile_geometry(name))  
+    return sub_tile_names.map(lambda name: tile_geometry(name))
+   

@@ -1330,7 +1330,7 @@ def HLS_PeriodMosaic(DataUnit, Region, targetY, NbYs, StartD, StopD, ExtraBandCo
 #                    2024-Feb-27  Lixin Sun  Modified so that customized spatial region or compositing period
 #                                            can be handled.
 #############################################################################################################
-def Mosaic_production(inParams, MixSensor, ExtraBandCode):
+def Mosaic_production(inParams, MixSensor):
   '''Produces various mosaic products for one or more tiles using Landsat or Sentinel2 images
      Args:
        exe_Params(Dictionary): A dictionary storing required parameters;
@@ -1348,6 +1348,7 @@ def Mosaic_production(inParams, MixSensor, ExtraBandCode):
   ssr_data    = Img.SSR_META_DICT[params['sensor']]
   year        = int(params['year'])
   nYears      = int(params['nbYears'])
+  extra_bands = int(params['extra_bands'])
   cloud_score = params['CloudScore']
 
   #==========================================================================================================
@@ -1372,12 +1373,12 @@ def Mosaic_production(inParams, MixSensor, ExtraBandCode):
 
       # Produce and export mosaic images for a time period and a region
       print('\n<Mosaic_production> Generate and export composite images for {}th time period and {} region......'.format(TIndex+1, reg_name))        
-      #mosaic = HomoPeriodMosaic(ssr_data, region, year, nYears, start, stop, ExtraBandCode, cloud_score)      
-      #mosaic = Img.apply_gain_offset(mosaic, ssr_data, 100, False)
-      mosaic = LEAF_Mosaic(ssr_data, region, start, stop, True)
+      mosaic = HomoPeriodMosaic(ssr_data, region, year, nYears, start, stop, extra_bands, cloud_score)      
+      mosaic = Img.apply_gain_offset(mosaic, ssr_data, 100, False)
+      #mosaic = LEAF_Mosaic(ssr_data, region, start, stop, True)
 
       # Export spectral mosaic images
-      #export_mosaic(params, mosaic, ssr_data, region, True, task_list)
+      export_mosaic(params, mosaic, ssr_data, region, True, task_list)
     
   return task_list
 
@@ -1483,16 +1484,19 @@ Among the 11 input parameters, two keys ('months' and 'tile_names') require list
 #     'sensor': 'S2_SR',            # A sensor type string (e.g., 'S2_SR' or 'L8_SR')
 #     'year': 2022,                 # An integer representing image acquisition year
 #     'nbYears': -1,                 # positive int for annual product, or negative int for monthly product
-#     'months': [8],                # A list of integers represening one or multiple monthes     
+#     'months': [7,8,9],                # A list of integers represening one or multiple monthes     
 #     'tile_names': ['tile33'],     # A list of (sub-)tile names (defined using CCRS' tile griding system) 
 #     'out_location': 'drive',      # Exporting location ('drive', 'storage' or 'asset') 
+#     'prod_names': ['mosaic'],
 #     'resolution': 20,             # Exporting spatial resolution
 #     'GCS_bucket': 's2_mosaic_2020',   # An unique bucket name on Google Cloud Storage
-#     'out_folder': 'LEAF_mosaic',    # the folder name for exporting
+#     'out_folder': 'LEAF_mosaic',   # the folder name for exporting
+
 #     #'custom_region': user_region, # A given user-defined region. Only include this 'key:value' pair as necessary
-#     'start_date': '2022-06-15',   # A string for specifying the start date of a customized compositing period.
-#     'end_date': '2022-09-15',     # A string for specifying the end date of a customized compositing period.
+#     #'start_dates': ['2022-06-15'], # A list of strings representing the start dates of customized compositing periods.
+#     #'end_dates': ['2022-09-15'],   # A list of strings representing the end dates of customized compositing periods.
+#     #'CloudScore': False
 # }
 
 
-# Mosaic_production(params, False, Img.EXTRA_ANGLE)
+# Mosaic_production(params, False)
