@@ -45,9 +45,13 @@ def month_end(Year, Month, gee_number):
 def summer_range(Year, ee_Date_format = True):
   '''Returns the stop date of growing peak season. 
   Arg: 
-     Year(int): A regular pyhton integer, rather than a GEE object'''
+     Year(int): A regular pyhton integer, rather than a GEE object;
+     ee_Date_format(Boolean): A flag for indicating if returned dates are in ee.Date format.'''
   
-  return ee.Date.fromYMD(Year, 6, 15), ee.Date.fromYMD(Year, 9, 15) if ee_Date_format else str(Year) + '-06-15', str(Year) + '-09-15'
+  if ee_Date_format:
+    return ee.Date.fromYMD(Year, 6, 15), ee.Date.fromYMD(Year, 9, 15)
+  else:
+    return str(Year) + '-06-15', str(Year) + '-09-15'
 
 
 
@@ -91,7 +95,8 @@ def month_range(Year, Month, ee_Date_format = True):
   # Return proper start and end dates for a specified period
   #==========================================================================================================
   if Month < 1 or Month > 12:
-    return summer_range(Year, ee_Date_format)
+    start_date, end_date = summer_range(Year, ee_Date_format)
+    return start_date, end_date 
   else:
     if not ee_Date_format:
       year_month_str = str(Year) + '-' + str(Month)
@@ -189,14 +194,15 @@ def time_window_size(StartD, StopD):
 #                                            Sentinel-2 image collection.
 ######################################################################################################
 def getCollection(SsrData, Region, StartDate, EndDate, ExtraBandCode, CloudRate = -100):  
-  '''Returns a image collection acquired by a sensor over a geographical region during a period of time  
+  '''Returns a image collection acquired by a sensor over a spatial region during a period of time  
 
   Arg: 
-     SsrData(Dictionary): A Dictionary containing metadata associated with a sensor and data unit;
+     SsrData(Dictionary): A Dictionary containing metadata associated with a sensor;
      Region(ee.Geometry): A geospatial polygon of ROI;
-     StartDate(string or ee.Date): The start acquisition date string (e.g., '2020-07-01');
-     EndDate(string or ee.Date): The stop acquisition date string (e.g., '2020-07-31');
-     CloudRate(float): a given cloud coverage rate.'''
+     StartDate(string or ee.Date): The start acquisition date (e.g., '2020-07-01');
+     EndDate(string or ee.Date): The stop acquisition date (e.g., '2020-07-31');
+     ExtraBandCode(int): An integr representing additional band type to be attached;
+     CloudRate(float): A given cloud coverage rate.'''
   
   #print('<getCollection> SsrData info:', SsrData)
   # Cast the input parameters into proper formats  
@@ -225,12 +231,13 @@ def getCollection(SsrData, Region, StartDate, EndDate, ExtraBandCode, CloudRate 
 
   if ssr_code == Img.MOD_sensor: # for MODIS data
     coll = ee.ImageCollection(CollName).filterBounds(region).filterDate(start, end) 
+    
   elif ssr_code > Img.MAX_LS_CODE and ssr_code < Img.MOD_sensor: 
     # for Sentinel-2 data   
     # Note: Limiting SZA < 70.0 could lead to an empty image coolection for some Canadian Northen regions 
     coll = ee.ImageCollection(CollName).filterBounds(region).filterDate(start, end) \
-               .filterMetadata(SsrData['CLOUD'], 'less_than', cloud_rate) \
-               .filterMetadata('system:asset_size', 'greater_than', 1000000) # Added on Feb 13, 2024
+               .filterMetadata(SsrData['CLOUD'], 'less_than', cloud_rate) 
+               #.filterMetadata('system:asset_size', 'greater_than', 1000000) # Added on Feb 13, 2024
                #.filterMetadata(SsrData['SZA'], 'less_than', 70.0) \
                #.limit(10000)
                #.filterMetadata(SsrData['CLOUD'], 'less_than', cloud_up) \
@@ -239,10 +246,10 @@ def getCollection(SsrData, Region, StartDate, EndDate, ExtraBandCode, CloudRate 
     # Attach a "Cloud Score+" band to each image in Sentinel-2 image collection
     # Note: This function is unstable for now (Feb. 10, 2024)
     #-------------------------------------------------------------------------------------------
-    csPlus = ee.ImageCollection('GOOGLE/CLOUD_SCORE_PLUS/V1/S2_HARMONIZED') \
+    CS_plus = ee.ImageCollection('GOOGLE/CLOUD_SCORE_PLUS/V1/S2_HARMONIZED') \
                .filterBounds(region).filterDate(start, end)
     
-    coll   = coll.map(lambda img: img.linkCollection(csPlus, ['cs']))
+    coll   = coll.map(lambda img: img.linkCollection(CS_plus, ['cs']))
 
   elif ssr_code < Img.MAX_LS_CODE: 
     # for Landsat data
@@ -393,18 +400,20 @@ def get_ImgColl_Angles(SsrData, Region, StartDate, EndDate, CloudRate = -100):
 # Revision history:  2023-Nov-09  Lixin Sun  Initial creation 
 #                    2023-Nov-20  Lixin Sun  Added CloudScore input parameter.
 ######################################################################################################
-def mask_collection(ImgColl, SsrData, CloudScore):  
-  '''Returns a image collection acquired by a sensor over a geographical region during a period of time  
+def mask_collection(ImgColl, Year, SsrData, CloudScore, CS_thresh):  
+  '''Returns a image collection with cloud/shadow masks applied to each image in the collection.  
 
   Arg: 
      ImgColl(ee.ImageCollection): a given image collection;
+     Year(int): An integer representing a targeted year;
      SsrData(Dictionary): a Dictionary containing metadata associated with a sensor and data unit;     
-     CloudScore(Boolean): a boolean variable indicating if to apply CloudScore+ mask to S2 image.'''
+     CloudScore(Boolean): a boolean variable indicating if to apply CloudScore+ mask to S2 image;
+     CS_thresh(float): a given threshold for CS+, will be applied when CloudScore == True.'''
   
   ssr_code = dict(SsrData)['SSR_CODE']
 
-  def apply_mask(image):
-      mask = IM.Img_VenderMask(image, SsrData, IM.CLEAR_MASK)
+  def apply_mask(image, Year):
+      mask = IM.Img_VenderMask(image, Year, SsrData, IM.CLEAR_MASK)
       return image.updateMask(mask.Not()) 
   
   if ssr_code == Img.MOD_sensor: # for MODIS data
@@ -412,15 +421,15 @@ def mask_collection(ImgColl, SsrData, CloudScore):
   
   elif ssr_code > Img.MAX_LS_CODE and ssr_code < Img.MOD_sensor: # for Sentinel-2 data
     if CloudScore == True:
-      thresh = 0.8
+      thresh = CS_thresh
       return ImgColl.map(lambda img: img.updateMask(img.select('cs').gte(thresh)))
     else:
-      return ImgColl.map(lambda img: apply_mask(img))  
+      return ImgColl.map(lambda img: apply_mask(img, Year))  
     
   elif ssr_code < Img.MAX_LS_CODE: # for Landsat data
-    return ImgColl.map(lambda img: apply_mask(img))
+    return ImgColl.map(lambda img: apply_mask(img, Year))
   elif ssr_code == Img.HLS_sensor:
-    return ImgColl.map(lambda img: apply_mask(img))
+    return ImgColl.map(lambda img: apply_mask(img, Year))
 
 
 
@@ -537,3 +546,7 @@ def get_MultiSummers_Coll(SsrData, Region, SeasonStart, SeasonStop, StartYear, S
   print('\n<get_MultiSummers_Coll> nb of images in init coll = ', init_coll.size().getInfo())  
 
   return ee.ImageCollection(years.iterate(annual_coll, init_coll))
+
+
+
+

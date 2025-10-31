@@ -149,7 +149,7 @@ def get_CanLC(Year):
 #
 # The class mapping between CCRS land cover legend and SL2P class legend: 
 #
-#            CCRS class legend                     ==>     Biome                    ==>  SL2P class legend
+#            CCRS class legend                     ==>     Biome (for RF model)     ==>  SL2P class legend
 # ==================================================================================================================
 # C1: Temperate or sub-polar needleleaf forest     ==>     C7: needleleaf forest    ==>  C3: needleaf model
 # C2: Sub-polar taiga needleleaf forest            ==>     C7: needleleaf forest    ==>  C3: needleaf model
@@ -184,7 +184,6 @@ def get_GlobLC(Year, IsBiome):
   '''Returns a proper land cover mosaic based on a given region and year.
 
      Args:
-       Region(ee.Geometry): A spatial region defining the location of the mosaic;
        Year(int or string): The target year;
        IsBiome(Boolean): Flag indicating if a biome map will be returned. Only when RF model is used'''
   #==========================================================================================================

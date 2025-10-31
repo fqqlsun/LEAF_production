@@ -38,6 +38,15 @@ RED1_band      = 8
 RED1_band      = 9
 WV_band        = 10
 
+BLU_MED     = 'blu_med'
+GRN_MED     = 'grn_med' 
+RED_MED     = 'red_med' 
+NIR_MED     = 'nir_med'
+SW1_MED     = 'sw1_med'
+SW2_MED     = 'sw2_med'
+BLU_MIN     = 'blu_min'
+NIR_MIN     = 'nir_min'
+
 
 pix_score       = 'pix_score'
 cloud_score     = 'cs'
@@ -311,6 +320,7 @@ STD_6_BANDS = ['blue', 'green', 'red', 'nir', 'swir1', 'swir2']
 
 
 
+
 #############################################################################################################
 # Description: This function returns sensor_code, tile_name and acquisition date according to a given 
 #              Image ID string.   
@@ -464,25 +474,36 @@ def get_gain_offset(SsrData, MaxRef):
 #
 # Revision history:  2022-Mar-24  Lixin Sun  Initial creation
 #                    2022-Mar-28  Lixin Sun  Add 'MaxRef' parameter so that different reflectance
-#                                            ranges ([0 to 1] or [0 to 100]) can be handled.  
+#                                            ranges ([0 to 1] or [0 to 100]) can be handled.
+#                    2025-may-28  Lixin Sun  Change the last input parameter from "Boolean" to 
+#                                            "Int" so that this functiopn can handle three 
+#                                            scenarios: nbBands = one of (<=6, >=6, <0)
 ###################################################################################################
-def apply_gain_offset(Image, SsrData, MaxRef, all_bands):
+def apply_gain_offset(Image, SsrData, MaxRef, nbBands):
   '''Returns a rescaling factor based on given sensor code and data unit.
 
      Args:        
        image(ee.Image): A given ee.Image object to which gain and offset will be applied  
        SsrData(Dictionary): A Dictionary containing metadata associated with a sensor and data unit;
        MaxREF: The maximum reflectance value (1 or 100);
-       all_bands(Boolean): A flag indicating if apply gain and offset to all bands or not.''' 
+       nbBands(Boolean): A integer specifying how many bands will be rescaled in this function.''' 
   image = ee.Image(Image)
   
   gain, offset = get_gain_offset(SsrData, MaxRef)
   #print('<apply_gain_offset> Rescaling gain and offset = \n',gain_offset[0], gain_offset[1])
   
-  if all_bands == True:
+  if nbBands < 0:
     return image.multiply(gain).add(offset)
-  else:
-    opti_names = SsrData['ALL_BANDS']                 # Get the names of all optical bands
+  
+  elif nbBands <= 6:
+    opti_names = SsrData['SIX_BANDS']                 # Get the names of SIX commonly used bands
+    opti_img   = image.select(opti_names)             # Extract SIX commonly used optical bands from the given image
+    opti_img   = opti_img.multiply(gain).add(offset)  # Apply gain and offset
+
+    return image.addBands(opti_img, opti_names, True) # Put back the rescaled optical bands into original image
+  
+  elif nbBands > 6:
+    opti_names = SsrData['OUT_BANDS']                 # Get the names of all optical bands
     opti_img   = image.select(opti_names)             # Extract all optical bands from the given image
     opti_img   = opti_img.multiply(gain).add(offset)  # Apply gain and offset
 
@@ -877,8 +898,4 @@ def export_one_map(inParams, Region, OutMap, ProdName, task_list):
     export_dict['fileNamePrefix'] = exportFolder + '/' + filename
     task_list.append(ee.batch.Export.image.toCloudStorage(**export_dict).start())
 
-  elif out_location.find('asset') > -1:
-    print('<export_one_param> Exporting biophysical map to GEE Assets......')
-    asset_root             = 'projects/ee-lsunott/assets/'
-    export_dict['assetId'] = asset_root + exportFolder + '/' + filename
-    task_list.append(ee.batch.Export.image.toAsset(**export_dict).start())
+  

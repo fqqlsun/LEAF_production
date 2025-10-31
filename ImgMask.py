@@ -33,8 +33,8 @@ def mask_from_MODIS(Image, SsrData, MODIS_mosaic):
   # Apply gain and offset to both MODIS and S2/LS images
   #==========================================================================================================
   modis_ssrData = Img.SSR_META_DICT['MOD_SR']
-  modis = Img.apply_gain_offset(MODIS_mosaic, modis_ssrData, 100.0, False)
-  image = Img.apply_gain_offset(Image, SsrData, 100.0, False)
+  modis = Img.apply_gain_offset(MODIS_mosaic, modis_ssrData, 100.0, 10)
+  image = Img.apply_gain_offset(Image, SsrData, 100.0, 10)
 
   #==========================================================================================================
   # Obtain related bands in high-resolution image and then calculate NDVI map
@@ -80,22 +80,32 @@ def mask_from_MODIS(Image, SsrData, MODIS_mosaic):
 # Description: Returns a clear-sky mask (1 indicates cloud/cloud shadow) for a given Sentinel-2 image
 #
 # Revision history:  2023-Dec-02  Lixin Sun  Created for usable in the "map" function
-# 
+#                    2025-Mar-31  Lixin Sun  Updated to align with the changes in Sentinel-2 image 
 #############################################################################################################
-def S2_ClearMask(inImg, inUnit):
-  # For Sentinel-2, only two bands, 'QA60' and 'SCL', include mask information  
-  qa  = inImg.select(['QA60']).uint16()
+def S2_ClearMask(inImg, Year, inUnit):
+  # For Sentinel-2, only two bands, 'QA60' and 'SCL', include mask information    
 
-  scl = ee.Image.constant(0)
-  if inUnit == 2:
+  scl  = ee.Image.constant(0)
+  mask = ee.Image.constant(0)
+  if inUnit == 2:   #The given image is surface reflectance
     scl = inImg.select(['SCL'])
   #scl = scl.where(ee.Number(inUnit).eq(2), inImg.select(['SCL']))
 
-  cloud  = ee.Image.constant(1 << 10)   # Opaque clouds
-  cirrus = ee.Image.constant(1 << 11)   # Cirrus clouds
+  if Year > 2023:
+    cloud  = inImg.select(['MSK_CLASSI_OPAQUE'])
+    cirrus = inImg.select(['MSK_CLASSI_CIRRUS'])
 
-  mask = qa.bitwiseAnd(cloud).Or(qa.bitwiseAnd(cirrus))
-  return mask.Or(scl.eq(3)).Or(scl.eq(8)).Or(scl.eq(9)).Or(scl.eq(10))
+    mask = cloud.eq(1).Or(cirrus.eq(1))
+  else:
+    qa = inImg.select(['QA60']).uint16()
+
+    cloud  = ee.Image.constant(1 << 10)   # Opaque clouds
+    cirrus = ee.Image.constant(1 << 11)   # Cirrus clouds
+
+    mask = qa.bitwiseAnd(cloud).Or(qa.bitwiseAnd(cirrus))
+
+  # Note: Adding SCL=7 will cause the misiing of boundary pixels between water and land 
+  return mask.Or(scl.eq(3)).Or(scl.eq(8)).Or(scl.eq(9)).Or(scl.eq(10))   #.Or(scl.eq(7))
 
   
 
@@ -151,17 +161,19 @@ def HLS_ClearMask(inImg):
 #                    2023-Nov-30  Lixin Sun  Added mask option for harmonized Landsat and Sentinel-2 images
 #
 #############################################################################################################
-def Img_VenderMask(Image, SsrData, MaskType, MODIS_mosaic = None):
+def Img_VenderMask(Image, Year, SsrData, MaskType, MODIS_mosaic = None):
   '''This function extracts a specified mask from the intrinsic QA band of a given Landsat image.
 
      Args:
        Image(ee.Image): a given image with the bands of a specified sensor;
+       Year(int): An integer representing a targeted year;
        SsrData(Dictionary): a dictionary containing some info on a sensor  (LS 5/7/8/9 and S2);       
        MaskType(int): the mask type code (CLEAR_MASK, WATER_MASK, SNOW_MASK and SATU_MASK);
        MODIS_mosaic(ee.Image): An optional MODIS mosaic image.'''         
  
   ssr_code  = SsrData['SSR_CODE']
   data_unit = SsrData['DATA_UNIT']
+
   mask_type = int(MaskType)  
 
   if ssr_code == Img.MOD_sensor:  # For MODIS image
@@ -181,7 +193,7 @@ def Img_VenderMask(Image, SsrData, MaskType, MODIS_mosaic = None):
     return mask
   elif ssr_code > Img.MAX_LS_CODE and ssr_code < Img.MOD_sensor:  # For Sentinel-2 image
     if mask_type == CLEAR_MASK:
-      return S2_ClearMask(Image, data_unit)
+      return S2_ClearMask(Image, Year, data_unit)
     else:
       scl = ee.Image.constant(0)
       scl = scl.where(ee.Number(data_unit).eq(2), Image.select(['SCL']))
@@ -237,28 +249,48 @@ def Img_VenderMask(Image, SsrData, MaskType, MODIS_mosaic = None):
 # Revision history:  2023-Nov-10  Lixin Sun  Initial creation
 #
 #############################################################################################################
-def Img_ClearMask(Image, SsrData):
-  '''Creates a value-invalid pixel mask (1 => value_invalid pixel) for an image.
+# def Img_ClearMask(Image, SsrData):
+#   '''Creates a value-invalid pixel mask (1 => value_invalid pixel) for an image.
 
-     Args:
-       Image(ee.Image): a given ee.Image object;
-       SsrData(Dictionary): A Dictionary with metadata for a sensor and data unit;
-       MaxRef(int): a maximum reflectance value (1 or 100).'''
-  ssr_code  = SsrData['SSR_CODE']
+#      Args:
+#        Image(ee.Image): a given ee.Image object;
+#        SsrData(Dictionary): A Dictionary with metadata for a sensor and data unit.'''
+#   ssr_code = SsrData['SSR_CODE']
   
-  if ssr_code > Img.MAX_LS_CODE: # for Sentinel-2 data   
-    img_foot = Image.geometry()
-    csPlus   = ee.ImageCollection('GOOGLE/CLOUD_SCORE_PLUS/V1/S2_HARMONIZED').filterBounds(img_foot)
+#   if ssr_code > Img.MAX_LS_CODE: # for Sentinel-2 data   
+#     img_foot = Image.geometry()
+#     csPlus   = ee.ImageCollection('GOOGLE/CLOUD_SCORE_PLUS/V1/S2_HARMONIZED').filterBounds(img_foot)
     
-    img      = Image.linkCollection(csPlus, ['cs'])
+#     img      = Image.linkCollection(csPlus, ['cs'])
 
-    return img.select('cs').lt(0.6)
+#     return img.select('cs').lt(0.6)
   
-  else: # for Landsat data
-    return Img_VenderMask(Image, SsrData, CLEAR_MASK)
+#   else:
+#     return Img_VenderMask(Image, SsrData, CLEAR_MASK)
 
 
+def Image_ClearMask(inImg, Year, SsrData, CloudScore, CS_thresh):
+  '''
+    CS_thresh(float): a given threshold for CS+, will be applied when CloudScore == True.
+  '''
+  
+  ssr_code  = SsrData['SSR_CODE']
 
+  def apply_mask(image, Year):
+    mask = Img_VenderMask(image, Year, SsrData, CLEAR_MASK)
+    return image.updateMask(mask.Not()) 
+  
+  if ssr_code == Img.MOD_sensor: # for MODIS data
+    return inImg
+  
+  elif ssr_code > Img.MAX_LS_CODE and ssr_code < Img.MOD_sensor:  # for Sentinel-2 data
+    if CloudScore == True:
+      thresh = CS_thresh
+      return inImg.updateMask(inImg.select('cs').gte(thresh))
+    else:
+      return apply_mask(inImg, Year)    
+  else:
+    return apply_mask(inImg, Year)    
 
 
 
@@ -423,7 +455,7 @@ def Img_WaterMask(Image, SsrData, MaxRef):
 #                    2022-Nov-15  Lixin Sun  Removed the limit that maximum reflectance value must be 100.
 # 
 #############################################################################################################
-def Img_SnowMask(Image, SsrData, MaxRef):
+def Img_SnowMask(Image, Year, SsrData, MaxRef):
   '''Creates a snow/ice pixel mask (1 => snow/ice) for an image.
 
      Args:
@@ -437,7 +469,7 @@ def Img_SnowMask(Image, SsrData, MaxRef):
   grn_thresh = ee.Number(0.1).multiply(MaxRef)
   data_mask = ee.Image(ndsi.gt(0.2).And(grn.gt(grn_thresh)))  
   
-  intrin_mask = Img_VenderMask(Image, SsrData, SNOW_MASK)
+  intrin_mask = Img_VenderMask(Image, Year, SsrData, SNOW_MASK)
 
   return data_mask.Or(intrin_mask)
 
@@ -493,22 +525,21 @@ def STDImg_SnowCloudMask(inSTD_Img, MaxRef):
 #                    2022_Jul-26  Lixin Sun  Replaced "Img_VenderMask" for CLEAR_MASK with "Img_ClearMask", 
 #                                            which includes customized cloud and shadow detections.
 #############################################################################################################
-def Img_ValidMask(Image, SsrData, MaxRef):
+def Img_ValidMask(Image, Year, SsrData, MaxRef):
   '''Creates a valid pixel mask (mask out cloud, shadow, invalid value and saturated pixels) for an image.
 
      Args:
        Image(ee.Image): a given ee.Image object;
        SsrData(Dictionary): A Dictionary containing metadata associated with a sensor and data unit;
        MaxRef(int): a maximum reflectance value (1 or 100).'''
-
-  clear_mask = Img_VenderMask(Image, SsrData, CLEAR_MASK)
-  satur_mask = Img_VenderMask(Image, SsrData, SATU_MASK)
+  
+  clear_mask = Img_VenderMask(Image, Year, SsrData, CLEAR_MASK)
+  satur_mask = Img_VenderMask(Image, Year, SsrData, SATU_MASK)
   value_mask = Img_ValueMask (Image, SsrData, MaxRef)
 
   #print('clear_mask bands = ', clear_mask.bandNames().getInfo())
   #print('satue_mask bands = ', satur_mask.bandNames().getInfo())
   #print('value_mask bands = ', value_mask.bandNames().getInfo())
-
 
   return clear_mask.Or(satur_mask).Or(value_mask).rename(['ValidMask'])
   #return clear_mask.Or(value_mask).rename(['ValidMask'])
@@ -561,3 +592,8 @@ def WaterMask(img):
 
   water_mask = img.select([0]).multiply(0)
   return water_mask.add(GL_water)
+
+
+
+
+  

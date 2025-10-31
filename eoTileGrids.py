@@ -653,3 +653,21 @@ def get_9subTiles(tile_name):
 
     return sub_tile_names.map(lambda name: tile_geometry(name))
    
+
+
+#############################################################################################################
+# Description: This function converts a tile polygon to anticlockwise coordinates, as required for querying
+#              ICESat-2 data.
+#############################################################################################################
+def To_ICESat_polygon(RegionName):
+  coord_list = list(ee.Geometry(RegionName).coordinates().getInfo())[0]
+  coord_string = ','.join(str(coord) for pair in coord_list for coord in pair)
+
+  print("coord string = ", coord_string)
+ 
+  return coord_string
+
+
+#new_polygon = To_ICESat_polygon(geoTile55)
+
+
