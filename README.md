@@ -1,3 +1,4 @@
+## GEE-based LEAF Production Tool
 This is Landscape Evolution And Forecasting (LEAF) production tool developed using the Python programming language and Google Earth Engine (GEE) Python API. It enables users to generate biophysical parameter maps efficiently from the surface reflectance satellite imagery available in GEE. This tool offers two key features: (1) It allows users to define diverse production requirements by configuring a flexible input parameter dictionary. (2) All results can be exported in a batch mode to a specified location,  either Google Drive or Google Cloud Storage. 
 
 The standard outputs of this tool are organized into tiles, which cover an area of 900km x 900km as per [the CCRS' tile grid system](/wiki_images/CCRS_tile_grid_system.png). In total, there are 26 tiles that encompass the Canadian landmass. However, users also have the option to define a customized polygon to specify a desired spatial area for production. 
