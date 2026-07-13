@@ -17,7 +17,7 @@ The following figure shows the flowchart of LEAF production tool.
 For the information on how to set up an environment for running LEAF production tool on Windows platform, please refer to [User Guide](/docs/user_manual.md). To improve or update this tool, please review [code architecture](/docs/code_architecture.md). 
 
 ## How to Contribute
-See [CONTRIBUTING.md]()
+See [CONTRIBUTING](CONTRIBUTING.md)
 ## License
 Unless otherwise noted, the source code of this project is covered under Crown Copyright, Government of Canada, and is distributed under the [MIT License](LICENSE).
 
