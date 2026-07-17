@@ -20,16 +20,6 @@ The operational logic and processing pipeline of the tool are illustrated in the
 
 * **Flexible Configuration:** A highly customizable input parameter dictionary allowing users to define diverse, tailored production requirements for both submodules.
 * **Seamless Batch Exporting:** Results can be exported in batch mode to either **Google Drive** or **Google Cloud Storage (GCS)**.
-  
----
-
-## Google Earth Engine (GEE) Access & Compliance
-
-Before deploying or running this software, please note the following platform and legal requirements:
-
-* **User Account Obligation:** Users must independently obtain and maintain their own valid [Google Earth Engine Account](https://earthengine.google.com/). 
-* **Terms of Service:** Your utilization of this tool and any subsequent processing jobs are entirely bound by and governed under [Google's Earth Engine Terms of Service](https://earthengine.google.com/terms/).
-* **Data & Platform Disclaimer:** Releasing this source code **does not grant** users access to the Google Earth Engine infrastructure, compute allocations, or its underlying spatial datasets. Users are completely responsible for managing their own platform permissions, cloud project billing, and data quotas.
 
 ---
 
@@ -67,6 +57,16 @@ The QC map provides pixel-level data lineage and condition tracking via an **8-b
 | **Bit 1** | `1` | Output product is out of physical range |
 | **Bit 2** | `1` | Invalid pixel (due to cloud, shadow, snow, ice, water, or sensor saturation) |
 | **Bits 3–7** | *Sensor Code* | Identifies the source satellite platform: <br>• `40` = Landsat 5<br>• `56` = Landsat 7<br>• `64` = Landsat 8<br>• `72` = Landsat 9<br>• `168` = Sentinel-2 |
+
+---
+
+## Google Earth Engine (GEE) Access & Compliance
+
+Before deploying or running this software, please note the following platform and legal requirements:
+
+* **User Account Obligation:** Users must independently obtain and maintain their own valid [Google Earth Engine Account](https://earthengine.google.com/). 
+* **Terms of Service:** Your utilization of this tool and any subsequent processing jobs are entirely bound by and governed under [Google's Earth Engine Terms of Service](https://earthengine.google.com/terms/).
+* **Data & Platform Disclaimer:** Releasing this source code **does not grant** users access to the Google Earth Engine infrastructure, compute allocations, or its underlying spatial datasets. Users are completely responsible for managing their own platform permissions, cloud project billing, and data quotas.
 
 ---
 
