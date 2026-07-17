@@ -79,7 +79,9 @@ Because the heavy computational lifting (pixel-level map algebra, cloud masking,
 * **Network Connectivity:** A stable, unrestricted internet connection capable of communicating with Google Cloud endpoints via HTTPS.
 * **Core Dependencies:** 
   * `earthengine-api` (Google Earth Engine Python client)
-  * `google-auth` (for account credential handshake)
+  * `Numpy` (numerical array processing)
+  * `Pandas ` (tabular data handling)
+  * `scikit-learn` (machine learning - RandomForestRegressor)
 
 ---
 
