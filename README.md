@@ -24,14 +24,28 @@ Unless otherwise noted, the source code of this project is covered under Crown C
 The Canada wordmark and related graphics associated with this distribution are protected under trademark law and copyright law. No permission is granted to use them outside the parameters of the Government of Canada's corporate identity program. For more information, see [Federal identity requirements](https://www.canada.ca/en/government/system/government-communications/federal-identity-requirements.html).
 
 
-# Landscape Evolution And Forecasting (LEAF) Production Tool
+# GEE-HybridTC (Landscape Evolution And Forecasting - LEAF)
 
-The **Landscape Evolution And Forecasting (LEAF)** production tool is a high-performance geospatial pipeline developed in Python utilizing the **Google Earth Engine (GEE) Python client API (`earthengine-api`)**. 
+**GEE-HybridTC** is a high-performance, cloud-native temporal compositing pipeline implemented within the **Landscape Evolution And Forecasting (LEAF)** production tool framework. It utilizes a novel hybrid approach to reconstruct clear, gap-free, high-quality biophysical parameter maps and temporal composite images from multi-spectral Earth observation data.
 
-LEAF enables researchers and developers to efficiently generate high-quality biophysical parameter maps and temporal composite images directly from GEE's massive surface reflectance satellite imagery catalog.
+**Crucial Platform Requirement:**  
+> ⚠️ **Platform Dependency Notice:** GEE-HybridTC is strictly designed to operate on the Google Earth Engine (GEE) platform via the GEE Python Client API (`earthengine-api`). It is explicitly **not intended to function as a standalone software package** independent of Google's cloud architecture. 
+
+---
+
+## Google Earth Engine (GEE) Access & Compliance
+
+Before deploying or attempting to run this software, please carefully read the following access and legal requirements:
+
+* **User Account Obligation:** Users must independently obtain and maintain their own valid [Google Earth Engine Account](https://earthengine.google.com/). 
+* **Terms of Service:** Your utilization of GEE-HybridTC and any subsequent data processing tasks are bound by and governed under [Google's Earth Engine Terms of Service](https://earthengine.google.com/terms/).
+* **Data & Platform Disclaimer:** The public release of this source code by the authors **does not grant** users access to the Google Earth Engine infrastructure, compute allocations, or its underlying spatial datasets. Users are completely responsible for managing their own platform permissions, cloud project billing, and data quotas.
+
+---
 
 ## Key Features
 
+* **Advanced Hybrid Compositing:** Implements the innovative spline-STL approach for sub-monthly temporal resolution enhancement of satellite imagery.
 * **Flexible Configuration:** Features a highly customizable input parameter dictionary allowing users to define diverse, tailored production requirements.
 * **Seamless Batch Exporting:** Supports robust, asynchronous batch-export workflows delivering outputs directly to either **Google Drive** or **Google Cloud Storage (GCS)**.
 * **Hybrid Spatial Scoping:** Processes data using either standard predefined national grids or custom user-defined spatial regions (polygons).
@@ -40,9 +54,9 @@ LEAF enables researchers and developers to efficiently generate high-quality bio
 
 ## Workflow Overview
 
-The operational logic and processing pipeline of the LEAF production tool are illustrated in the flowchart below:
+The operational logic and processing pipeline of the LEAF/GEE-HybridTC production tool are illustrated in the flowchart below:
 
-![LEAF Production Tool Flowchart](/wiki_images/flowchart.png)
+![LEAF/GEE-HybridTC Production Tool Flowchart](/wiki_images/flowchart.png)
 
 ---
 
@@ -57,7 +71,7 @@ The tool partitions and processes standard outputs using a systematic tiling fra
 
 ## Product Specifications & Data Formats
 
-LEAF currently supports the generation of **four core biophysical products**. Each generated product tile outputs a separate GeoTIFF file along with two auxiliary context layers: a **Quality Control (QC) map** and an **Acquisition Date map**.
+The framework currently supports the generation of **four core biophysical products**. Each generated product tile outputs a separate GeoTIFF file along with two auxiliary context layers: a **Quality Control (QC) map** and an **Acquisition Date map**.
 
 ### Data Storage & Scaling Factors
 To optimize storage and processing bandwidth, pixel values are stored as **8-bit unsigned integers (`uint8`)** and must be converted back to physical units using product-specific rescaling factors:
@@ -83,10 +97,82 @@ The QC map provides pixel-level data lineage and condition tracking via an **8-b
 
 ---
 
+## System Requirements
+
+Because the heavy computational lifting (pixel-level map algebra and cloud masking) is executed on Google Earth Engine's cloud servers, local client machine requirements are minimal:
+
+* **Operating System:** Windows 10/11, macOS, or Linux.
+* **Python Runtime:** Python 3.8 or greater.
+* **Network Connectivity:** A stable, unrestricted internet connection capable of communicating with Google Cloud endpoints via HTTPS.
+* **Core Dependencies:** 
+  * `earthengine-api` (Google Earth Engine Python client)
+  * `google-auth` (for account credential handshake)
+
+---
+
+## Installation Instructions
+
+Follow these steps to set up the execution environment on your local system:
+
+<Sequence>
+{/* Reason: Environment setup and GEE authentication requires a strict linear sequence; skipping authentication or initializing out of order causes runtime failures. */}
+  <Step title="Clone the Repository" subtitle="Step 1">
+    Clone this repository to your local directory using git:
+    ```bash
+    git clone [https://github.com/your-username/GEE-HybridTC.git](https://github.com/your-username/GEE-HybridTC.git)
+    cd GEE-HybridTC
+    ```
+  </Step>
+  <Step title="Configure Environment" subtitle="Step 2">
+    Create a clean Python virtual environment and activate it:
+    ```bash
+    python -m venv venv
+    # On Windows:
+    .\venv\Scripts\activate
+    # On macOS/Linux:
+    source venv/bin/activate
+    ```
+  </Step>
+  <Step title="Install Core Dependencies" subtitle="Step 3">
+    Install the official Google Earth Engine client library along with any auxiliary workflow packages:
+    ```bash
+    pip install earthengine-api
+    ```
+  </Step>
+  <Step title="Authenticate with GEE" subtitle="Step 4">
+    Authorize your local machine to interact with your GEE cloud instance. Run the command line tool and follow the browser prompts to log into your approved Google account:
+    ```bash
+    earthengine authenticate
+    ```
+  </Step>
+</Sequence>
+
+For detailed, operating-system-specific troubleshooting (particularly for deep corporate or academic firewalls under Windows platforms), please refer directly to the comprehensive [User Guide](/docs/user_manual.md).
+
+---
+
+## Known Limitations
+
+While GEE-HybridTC is a robust production tool, users should be aware of the following operational constraints:
+* **GEE Quota Limits:** Large batch processing exports spanning multiple years or massive custom regions may occasionally encounter Earth Engine memory ceilings (`User memory limit exceeded`) or user rate-limiting constraints. Users can mitigate this by chunking their runs into smaller temporal or spatial subsets.
+* **Persistent Persistent Cloud Cover:** In sub-polar or intensely cloud-dominated macroclimates where zero clear-sky satellite inputs are recorded across entire seasons, the underlying spline-STL interpolation algorithms may exhibit higher uncertainty or default to flag pixels as invalid within the QC layer.
+* **Sensor-Specific Calibration:** Minor discrepancies in biophysical product cross-calibration may occur at transition edges where data streams blend between older sensors (e.g., Landsat 5) and newer architectures (e.g., Sentinel-2).
+
+---
+
+## Citation Information
+
+If you use this software tool, the underlying `HybridTC` algorithm, or data generated by it in a scientific publication, thesis, or academic report, please cite the following original work:
+
+> *[Placeholder: Insert your primary publication details here]*  
+> **Example Format:**  
+> Sun, L., et al. (2026). A Hybrid Temporal Compositing Algorithm for Multispectral Surface Reflectance Imagery. *Journal of Remote Sensing / Hydrology Source*. DOI: [Insert DOI Link Here]
+
+---
+
 ## Documentation & Development
 
-* **Installation & Setup:** For step-by-step instructions on setting up your environment on Windows platforms, see the [User Guide](/docs/user_manual.md).
-* **Architecture Overview:** To understand the internal design, dependencies, or to modify and update the core pipelines, please review the [Code Architecture Guide](/docs/code_architecture.md).
+* **Architecture Overview:** To understand the internal software design, script dependencies, or to modify and update the core pipelines, please review the [Code Architecture Guide](/docs/code_architecture.md).
 
 ## How to Contribute
 We welcome community enhancements, bug fixes, and documentation improvements. Please review our [CONTRIBUTING.md](CONTRIBUTING.md) guidelines before submitting a Pull Request.
@@ -95,4 +181,4 @@ We welcome community enhancements, bug fixes, and documentation improvements. Pl
 Unless otherwise noted, the source code of this project is covered under Crown Copyright, Government of Canada, and is distributed under the [MIT License](LICENSE).
 
 ### Trademark & Corporate Identity Notice
-The Canada wordmark and related graphics associated with this distribution are protected under international trademark and copyright law. No permission is granted to use them outside the parameters of the Government of Canada's corporate identity program. For explicit guidelines, please refer to the [Federal Identity Requirements](https://www.canada.ca/en/government/system/government-communications/federal-identity-requirements.html).
+The Canada wordmark and related graphics associated with this distribution are protected under international trademark and copyright law. No permission is granted to use them outside the parameters of the Government of Canada's corporate identity program. For explicit guidelines, please refer to the [Federal Identity Requirements](https://www.canada.ca/en/government/system/government-communications/federal-identity-requirements.html).identity-requirements.html).
