@@ -87,42 +87,7 @@ Because the heavy computational lifting (pixel-level map algebra, cloud masking,
 
 ## Installation Instructions
 
-Follow these steps to set up the execution environment on your local system:
-
-<Sequence>
-{/* Reason: Environment setup and GEE authentication requires a strict linear sequence; skipping authentication or initializing out of order causes runtime failures. */}
-  <Step title="Clone the Repository" subtitle="Step 1">
-    Clone this repository to your local directory using git:
-    ```bash
-    git clone [https://github.com/your-username/GEE-based-LEAF-Production-Tool.git](https://github.com/your-username/GEE-based-LEAF-Production-Tool.git)
-    cd GEE-based-LEAF-Production-Tool
-    ```
-  </Step>
-  <Step title="Configure Environment" subtitle="Step 2">
-    Create a clean Python virtual environment and activate it:
-    ```bash
-    python -m venv venv
-    # On Windows:
-    .\venv\Scripts\activate
-    # On macOS/Linux:
-    source venv/bin/activate
-    ```
-  </Step>
-  <Step title="Install Core Dependencies" subtitle="Step 3">
-    Install the official Google Earth Engine client library along with any auxiliary workflow packages:
-    ```bash
-    pip install earthengine-api
-    ```
-  </Step>
-  <Step title="Authenticate with GEE" subtitle="Step 4">
-    Authorize your local machine to interact with your GEE cloud instance. Run the command line tool and follow the browser prompts to log into your approved Google account:
-    ```bash
-    earthengine authenticate
-    ```
-  </Step>
-</Sequence>
-
-For detailed, operating-system-specific troubleshooting (particularly for deep corporate or academic firewalls under Windows platforms), please refer directly to the comprehensive [User Guide](/docs/user_manual.md).
+For the information on how to set up an environment for running GEE-LEAF production tool on Windows platform, please refer to [User Guide](/docs/user_manual.md).
 
 ---
 
