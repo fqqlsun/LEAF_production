@@ -16,6 +16,13 @@ The operational logic and processing pipeline of the tool are illustrated in the
 
 ---
 
+## Key Features
+
+* **Flexible Configuration:** A highly customizable input parameter dictionary allowing users to define diverse, tailored production requirements for both submodules.
+* **Seamless Batch Exporting:** Results can be exported in batch mode to either **Google Drive** or **Google Cloud Storage (GCS)**.
+  
+---
+
 ## Google Earth Engine (GEE) Access & Compliance
 
 Before deploying or running this software, please note the following platform and legal requirements:
@@ -23,13 +30,6 @@ Before deploying or running this software, please note the following platform an
 * **User Account Obligation:** Users must independently obtain and maintain their own valid [Google Earth Engine Account](https://earthengine.google.com/). 
 * **Terms of Service:** Your utilization of this tool and any subsequent processing jobs are entirely bound by and governed under [Google's Earth Engine Terms of Service](https://earthengine.google.com/terms/).
 * **Data & Platform Disclaimer:** Releasing this source code **does not grant** users access to the Google Earth Engine infrastructure, compute allocations, or its underlying spatial datasets. Users are completely responsible for managing their own platform permissions, cloud project billing, and data quotas.
-
----
-
-## Key Features
-
-* **Flexible Configuration:** A highly customizable input parameter dictionary allowing users to define diverse, tailored production requirements for both submodules.
-* **Seamless Batch Exporting:** Results can be exported in batch mode to either **Google Drive** or **Google Cloud Storage (GCS)**.
 
 ---
 
