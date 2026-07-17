@@ -1,39 +1,8 @@
-## GEE-based LEAF Production Tool
-This Landscape Evolution And Forecasting (LEAF) production tool was developed using Python and Google Earth Engine (GEE) Python client API (earthengine-api). It enables users to efficiently generate biophysical parameter maps and temporal composite images from GEE's surface reflectance satellite imagery catalog. The tool features two primary capabilities: (1) a highly flexiable input parameter dictionary that allows users to customize diverse production requirements, and (2) a batch-export mode to output results to either Google Drive or Google Cloud Storage. 
-
-The standard outputs of this tool are organized into tiles, which cover an area of 900km x 900km as per [the CCRS' tile grid system](/wiki_images/CCRS_tile_grid_system.png). In total, there are 26 tiles that encompass the Canadian landmass. However, users also have the option to define a customized polygon to specify a desired spatial area for production. 
-
-This tool currently supports the generation of four types of biophysical products: LAI, fCOVER, fAPAR and Albedo. Each product is associated with a corresponding GeoTiff image in outputs. Additionally, for each tile, there is a QC (Quality Control) map and an acquisition date map. The pixel values of the biophysical maps are stored as 8-bits unsigned integers, with specific rescaling factors applied. For LAI, the rescaling factor is 20, while for the remaining three biophyscal maps, it is 200.
-
-The 8-bits bitmask for the QC map is structured as follows:
-   * bit 0: 1 indicates the input is out of range
-   * bit 1: 1 represents the output is out of range
-   * bit 2, 1 indicates an invalid pixel due to various reasons such as cloud, shadow, snow, ice, water, or saturation.
-   * bit 3-7: Correspond to the sensor type code. For Landsat 5, 7, 8, 9, and Sentinel-2, their respective sensor type codes are 40, 56, 64, 72, and 168.
-
-The following figure shows the flowchart of LEAF production tool.
-![](/wiki_images/flowchart.png)
-
-For the information on how to set up an environment for running LEAF production tool on Windows platform, please refer to [User Guide](/docs/user_manual.md). To improve or update this tool, please review [code architecture](/docs/code_architecture.md). 
-
-## How to Contribute
-See [CONTRIBUTING](CONTRIBUTING.md)
-## License
-Unless otherwise noted, the source code of this project is covered under Crown Copyright, Government of Canada, and is distributed under the [MIT License](LICENSE).
-
-The Canada wordmark and related graphics associated with this distribution are protected under trademark law and copyright law. No permission is granted to use them outside the parameters of the Government of Canada's corporate identity program. For more information, see [Federal identity requirements](https://www.canada.ca/en/government/system/government-communications/federal-identity-requirements.html).
-
-
-
-
-
-
-
 # GEE-LEAF Production Tool
 
-The **GEE-LEAF (Landscape Evolution And Forecasting) Production Tool** contains two primary operational submodules:
-1. **Biophysical Parameter Mapping:** Four vegetation biophysical parameters (LAI, fCOVER, fAPAR, and Albedo) maps can be generated with this tool from either Sentinel-2 or Landsat imagery available in GEE's data catalog.
-2. **Temporal Composite Image Generation:** Create a cloud-free composite image using either Sentinel-2 or Landsat imagery available in GEE's data catalog.
+The **GEE-LEAF (Landscape Evolution And Forecasting) Production Tool** is designed to execute on the Google Earth Engine (GEE) platform. It consists two operational submodules driven by GEE's Sentinel-2 or Landsat data archives:
+1. **Biophysical Parameter Mapping:** Generate four core vegetation biophysical parameters (LAI, fCOVER, fAPAR, and Albedo) maps.
+2. **Temporal Composite Image Generation:** Create a cloud-free composite imagery.
 
 **Crucial Platform Requirement:**  
 > ⚠️ **Platform Dependency Notice:** This tool is strictly designed to operate on the Google Earth Engine platform. It is explicitly **not intended to function as a standalone software package** independent of Google's cloud infrastructure.
