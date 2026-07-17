@@ -1,8 +1,8 @@
 # GEE-LEAF Production Tool
 
 The **GEE-LEAF (Landscape Evolution And Forecasting) Production Tool** is designed to execute on the Google Earth Engine (GEE) platform. It consists two operational submodules driven by GEE's Sentinel-2 or Landsat data archives:
-1. **Biophysical Parameter Mapping:** Generate four core vegetation biophysical parameters (LAI, fCOVER, fAPAR, and Albedo) maps.
-2. **Temporal Composite Image Generation:** Create a cloud-free composite imagery.
+1. **Biophysical Parameter Mapping:** Generate four core vegetation biophysical parameters (LAI, fCOVER, fAPAR, and Albedo) maps. Run this module using the [biophysical_mapping.ipynb](biophysical_mapping.ipynb) notebook.
+2. **Temporal Composite Image Generation:** Create a cloud-free composite imagery. Run this module using the [temporal_compositing.ipynb](temporal_compositing.ipynb) notebook.
 
 **Crucial Platform Requirement:**  
 > ⚠️ **Platform Dependency Notice:** This tool is strictly designed to operate on the Google Earth Engine platform. It is explicitly **not intended to function as a standalone software package** independent of Google's cloud infrastructure.
