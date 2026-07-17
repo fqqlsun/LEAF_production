@@ -24,39 +24,43 @@ Unless otherwise noted, the source code of this project is covered under Crown C
 The Canada wordmark and related graphics associated with this distribution are protected under trademark law and copyright law. No permission is granted to use them outside the parameters of the Government of Canada's corporate identity program. For more information, see [Federal identity requirements](https://www.canada.ca/en/government/system/government-communications/federal-identity-requirements.html).
 
 
-# GEE-HybridTC (Landscape Evolution And Forecasting - LEAF)
 
-**GEE-HybridTC** is a high-performance, cloud-native temporal compositing pipeline implemented within the **Landscape Evolution And Forecasting (LEAF)** production tool framework. It utilizes a novel hybrid approach to reconstruct clear, gap-free, high-quality biophysical parameter maps and temporal composite images from multi-spectral Earth observation data.
+
+
+
+
+# GEE-LEAF Production Tool
+
+The **GEE-LEAF (Landscape Evolution And Forecasting) Production Tool** contains two primary operational submodules:
+1. **Biophysical Parameter Mapping:** Four vegetation biophysical parameters (LAI, fCOVER, fAPAR, and Albedo) maps can be generated with this tool from either Sentinel-2 or Landsat imagery available in GEE's data catalog.
+2. **Temporal Composite Image Generation:** Create a cloud-free composite image using either Sentinel-2 or Landsat imagery available in GEE's data catalog.
 
 **Crucial Platform Requirement:**  
-> ⚠️ **Platform Dependency Notice:** GEE-HybridTC is strictly designed to operate on the Google Earth Engine (GEE) platform via the GEE Python Client API (`earthengine-api`). It is explicitly **not intended to function as a standalone software package** independent of Google's cloud architecture. 
+> ⚠️ **Platform Dependency Notice:** This tool is strictly designed to operate on the Google Earth Engine platform. It is explicitly **not intended to function as a standalone software package** independent of Google's cloud infrastructure.
+
+---
+## Workflow Overview
+
+The operational logic and processing pipeline of the tool are illustrated in the flowchart below:
+
+![GEE-based LEAF Production Tool Flowchart](/wiki_images/flowchart.png)
 
 ---
 
 ## Google Earth Engine (GEE) Access & Compliance
 
-Before deploying or attempting to run this software, please carefully read the following access and legal requirements:
+Before deploying or running this software, please note the following platform and legal requirements:
 
 * **User Account Obligation:** Users must independently obtain and maintain their own valid [Google Earth Engine Account](https://earthengine.google.com/). 
-* **Terms of Service:** Your utilization of GEE-HybridTC and any subsequent data processing tasks are bound by and governed under [Google's Earth Engine Terms of Service](https://earthengine.google.com/terms/).
-* **Data & Platform Disclaimer:** The public release of this source code by the authors **does not grant** users access to the Google Earth Engine infrastructure, compute allocations, or its underlying spatial datasets. Users are completely responsible for managing their own platform permissions, cloud project billing, and data quotas.
+* **Terms of Service:** Your utilization of this tool and any subsequent processing jobs are entirely bound by and governed under [Google's Earth Engine Terms of Service](https://earthengine.google.com/terms/).
+* **Data & Platform Disclaimer:** Releasing this source code **does not grant** users access to the Google Earth Engine infrastructure, compute allocations, or its underlying spatial datasets. Users are completely responsible for managing their own platform permissions, cloud project billing, and data quotas.
 
 ---
 
 ## Key Features
 
-* **Advanced Hybrid Compositing:** Implements the innovative spline-STL approach for sub-monthly temporal resolution enhancement of satellite imagery.
-* **Flexible Configuration:** Features a highly customizable input parameter dictionary allowing users to define diverse, tailored production requirements.
-* **Seamless Batch Exporting:** Supports robust, asynchronous batch-export workflows delivering outputs directly to either **Google Drive** or **Google Cloud Storage (GCS)**.
-* **Hybrid Spatial Scoping:** Processes data using either standard predefined national grids or custom user-defined spatial regions (polygons).
-
----
-
-## Workflow Overview
-
-The operational logic and processing pipeline of the LEAF/GEE-HybridTC production tool are illustrated in the flowchart below:
-
-![LEAF/GEE-HybridTC Production Tool Flowchart](/wiki_images/flowchart.png)
+* **Flexible Configuration:** A highly customizable input parameter dictionary allowing users to define diverse, tailored production requirements for both submodules.
+* **Seamless Batch Exporting:** Results can be exported in batch mode to either **Google Drive** or **Google Cloud Storage (GCS)**.
 
 ---
 
@@ -71,7 +75,7 @@ The tool partitions and processes standard outputs using a systematic tiling fra
 
 ## Product Specifications & Data Formats
 
-The framework currently supports the generation of **four core biophysical products**. Each generated product tile outputs a separate GeoTIFF file along with two auxiliary context layers: a **Quality Control (QC) map** and an **Acquisition Date map**.
+The **Biophysical Parameter Mapping Submodule** currently supports the generation of **four core products**. Each generated product tile outputs a separate GeoTIFF file along with two auxiliary context layers: a **Quality Control (QC) map** and an **Acquisition Date map**.
 
 ### Data Storage & Scaling Factors
 To optimize storage and processing bandwidth, pixel values are stored as **8-bit unsigned integers (`uint8`)** and must be converted back to physical units using product-specific rescaling factors:
@@ -99,7 +103,7 @@ The QC map provides pixel-level data lineage and condition tracking via an **8-b
 
 ## System Requirements
 
-Because the heavy computational lifting (pixel-level map algebra and cloud masking) is executed on Google Earth Engine's cloud servers, local client machine requirements are minimal:
+Because the heavy computational lifting (pixel-level map algebra, cloud masking, and hybrid temporal fitting) is executed on Google Earth Engine's cloud servers, local client machine requirements are minimal:
 
 * **Operating System:** Windows 10/11, macOS, or Linux.
 * **Python Runtime:** Python 3.8 or greater.
@@ -119,8 +123,8 @@ Follow these steps to set up the execution environment on your local system:
   <Step title="Clone the Repository" subtitle="Step 1">
     Clone this repository to your local directory using git:
     ```bash
-    git clone [https://github.com/your-username/GEE-HybridTC.git](https://github.com/your-username/GEE-HybridTC.git)
-    cd GEE-HybridTC
+    git clone [https://github.com/your-username/GEE-based-LEAF-Production-Tool.git](https://github.com/your-username/GEE-based-LEAF-Production-Tool.git)
+    cd GEE-based-LEAF-Production-Tool
     ```
   </Step>
   <Step title="Configure Environment" subtitle="Step 2">
@@ -151,18 +155,9 @@ For detailed, operating-system-specific troubleshooting (particularly for deep c
 
 ---
 
-## Known Limitations
-
-While GEE-HybridTC is a robust production tool, users should be aware of the following operational constraints:
-* **GEE Quota Limits:** Large batch processing exports spanning multiple years or massive custom regions may occasionally encounter Earth Engine memory ceilings (`User memory limit exceeded`) or user rate-limiting constraints. Users can mitigate this by chunking their runs into smaller temporal or spatial subsets.
-* **Persistent Persistent Cloud Cover:** In sub-polar or intensely cloud-dominated macroclimates where zero clear-sky satellite inputs are recorded across entire seasons, the underlying spline-STL interpolation algorithms may exhibit higher uncertainty or default to flag pixels as invalid within the QC layer.
-* **Sensor-Specific Calibration:** Minor discrepancies in biophysical product cross-calibration may occur at transition edges where data streams blend between older sensors (e.g., Landsat 5) and newer architectures (e.g., Sentinel-2).
-
----
-
 ## Citation Information
 
-If you use this software tool, the underlying `HybridTC` algorithm, or data generated by it in a scientific publication, thesis, or academic report, please cite the following original work:
+If you use this software tool, its submodules, or data generated by it in a scientific publication, thesis, or academic report, please cite the following original work:
 
 > *[Placeholder: Insert your primary publication details here]*  
 > **Example Format:**  
@@ -181,4 +176,4 @@ We welcome community enhancements, bug fixes, and documentation improvements. Pl
 Unless otherwise noted, the source code of this project is covered under Crown Copyright, Government of Canada, and is distributed under the [MIT License](LICENSE).
 
 ### Trademark & Corporate Identity Notice
-The Canada wordmark and related graphics associated with this distribution are protected under international trademark and copyright law. No permission is granted to use them outside the parameters of the Government of Canada's corporate identity program. For explicit guidelines, please refer to the [Federal Identity Requirements](https://www.canada.ca/en/government/system/government-communications/federal-identity-requirements.html).identity-requirements.html).
+The Canada wordmark and related graphics associated with this distribution are protected under international trademark and copyright law. No permission is granted to use them outside the parameters of the Government of Canada's corporate identity program. For explicit guidelines, please refer to the [Federal Identity Requirements](https://www.canada.ca/en/government/system/government-communications/federal-identity-requirements.html).identity-requirements.html).identity-requirements.html).
