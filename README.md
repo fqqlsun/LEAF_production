@@ -18,7 +18,7 @@ The operational logic and processing pipeline of the tool are illustrated in the
 
 ## Key Features
 
-* **Flexible Configuration:** A highly customizable input parameter dictionary allowing users to define diverse, tailored production requirements for both submodules.
+* **Flexible Configuration:** A highly customizable input parameter dictionary that allows users to define a wide range of production requirements for both submodules.
 * **Seamless Batch Exporting:** Results can be exported in batch mode to either **Google Drive** or **Google Cloud Storage (GCS)**.
 
 ---
