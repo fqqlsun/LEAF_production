@@ -76,34 +76,6 @@ def get_GlobNLight(target_year, Smooth, Radius):
 
 
 
-#############################################################################################################
-# Description: This function returns a road density mosaic image from an image collection stored on
-#              GEE assets.
-#
-# Revision history:  2021-Jun-30  Lixin Sun  Initial creation
-#                    2022-Feb-04  Lixin Sun  Removed road density filtering process.
-#############################################################################################################
-def get_roadDensity(region):
-  '''Creates a road density mosaic image from an image collection stored on GEE assets and filter
-     it with a urban area mask. 
-
-     Args:
-       region(ee.Geometry): The spatial region of ROI. '''
-  CAN_road_density = ee.ImageCollection('users/ORS_code/Canada_road_density')
-
-  #==================================================================================================
-  # Give a band name to each road density tile so that they can be mosaiced  
-  #==================================================================================================
-  def select_road(img):
-    return img.select([0], [RoadDensity_name])
-
-  density_ImgColl = CAN_road_density.map(lambda img: select_road(img))
-  
-  #==================================================================================================
-  # Conduct quality mosaic and then clip it with a given region
-  #==================================================================================================
-  return density_ImgColl.qualityMosaic(RoadDensity_name).clip(region)
-
 
 
 
@@ -231,85 +203,7 @@ def get_GlobLC(Year, IsBiome):
 
 
 
-
-
-#############################################################################################################
-# Description: This function returns a specified global DEM mosaic.
-# 
-# Revision history:  2022-Aug-25  Lixin Sun  Initial creation
-#
-#############################################################################################################  
-def get_GlobDEM(DEM_name):
-  '''Returns a DEM covering a specified region.
-
-     Args:
-       DEM_name(string): A given DEM name string ('Copernicus', 'ALOS' or 'NASA_SRTM').'''
-  
-  dem_name = DEM_name.lower()
-
-  if dem_name.find('coperni') > -1:
-    glo30 = ee.ImageCollection("projects/sat-io/open-datasets/GLO-30")
-    proj  = glo30.first().select(0).projection()
-    print('bands in dem:', glo30.first().bandNames().getInfo())
-
-    return glo30.mosaic().setDefaultProjection(proj).rename('dem')    
-
-  elif dem_name.find('alos') > -1:
-    ALOS_DEM = ee.ImageCollection('JAXA/ALOS/AW3D30/V3_2')
-    proj     = ALOS_DEM.first().select(0).projection()
-
-    # Reproject an image mosaic using a projection from one of the image tiles,
-    # rather than using the default projection returned by .mosaic().
-    return ALOS_DEM.select('DSM').mosaic().setDefaultProjection(proj).rename('dem')
-  
-  elif dem_name.find('aster') > -1:
-    aster_dataset = ee.Image('projects/sat-io/open-datasets/ASTER/GDEM')
-
-    return aster_dataset.rename('dem')
-  
-  elif dem_name.find('nasa') > -1 or dem_name.find('usgs') > -1:
-    # This DEM data covers partial Canada
-    nasa_dataset = ee.Image('USGS/SRTMGL1_003')
-    return nasa_dataset.select('elevation').rename('dem')
-  
-
-
     
-#############################################################################################################
-# Description: This function returns a specified global slope mosaic.
-# 
-# Revision history:  2023-Aug-21  Lixin Sun  Initial creation
-#
-#############################################################################################################  
-def get_GlobSlope(DEM_name):
-  '''Returns a DEM covering a specified region.
-
-     Args:
-       DEM_name(string): A given DEM name string ('Copernicus', 'ALOS' or 'NASA_SRTM').'''
-  
-  return ee.Terrain.slope(get_GlobDEM(DEM_name))
-
-
-
-
-#############################################################################################################
-# Description: This function returns a global tree and building height map.
-# 
-# Revision history:  2022-Aug-25  Lixin Sun  Initial creation
-#
-#############################################################################################################  
-def get_GlobHeight():
-  '''Returns a DEM covering a specified region.
-
-     Args:'''
-
-  glodem30 = ee.ImageCollection("projects/sat-io/open-datasets/GLO-30").mosaic()
-  fabdem30 = ee.ImageCollection("projects/sat-io/open-datasets/FABDEM").mosaic()
-  
-  return glodem30.subtract(fabdem30)
-
-
-
 
 
 #############################################################################################################
@@ -341,36 +235,4 @@ def get_GlobWater(OccThresh):
 
 
 
-
-#############################################################################################################
-# Description: This function returns a global map that labels permanent land and permanent water, and with
-#              temporary water pixels masked.
-#
-# Note:        (1) In returned map, permanent land and water pixels are labelled with 1 and 2, respectively,
-#                  and rest pixels are masked out.
-#              (2) The value range of "occurrence" layer is between 0 and 100.
-# 
-# Revision history:  2023-Aug-25  Lixin Sun  Initial creation
-#    
-#############################################################################################################  
-def get_water_land_map(OccThresh):
-  '''Returns a global water map.
-     Args:
-       OccThresh(int): A goven occurence threshold.'''
-
-  JRC_water = ee.Image("JRC/GSW1_4/GlobalSurfaceWater")
-  ESA_LC    = ee.ImageCollection('ESA/WorldCover/v200').max()
-
-  zero_img  = ESA_LC.multiply(0)
-  land_mask = zero_img.where(ESA_LC.neq(80), ee.Image.constant(1))
-
-  binary_mask = JRC_water.select('occurrence').gt(OccThresh).add(1)  # 1 and 2 represent temporary and permanent water  
-
-  water_map   = binary_mask.unmask().add(1)    # Values 1, 2 and 3 represent land, temporary and permanent water 
-  water_map   = water_map.where(land_mask.lt(1).And(water_map.eq(1)), ee.Image.constant(0))
-
-  water_map   = water_map.where(water_map.eq(2), ee.Image.constant(0))   # 0, 1 and 3 represent temporary water, permanent land and water    
-  water_map   = water_map.where(water_map.eq(3), ee.Image.constant(2))   # 0, 1 and 2 represent temporary water, permanent land and water    
-  
-  return water_map.updateMask(ESA_LC)
 

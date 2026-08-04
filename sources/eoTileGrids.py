@@ -534,24 +534,11 @@ PolygonDict   = ee.Dictionary.fromLists(tile_name_list, polygon_list)
 # This dictionary enable customized spatial regions can also be handled in the same way as regular tiles. 
 ##############################################################################################################
 #polygon = ee.Geometry.Polygon([[-76.18, 46.56], [-73.35, 46.56], [-73.35, 45.03], [-76.18, 45.03]])
-Can_LLPolygon = ee.Geometry.Polygon([[-141.5,  59],  [-51,  61],  [-49,  44],  [-74,  37.6],  [-95.2,  48.3],  [-120.5,  46]])
-LLPolygon     = ee.Geometry.Polygon([[-90,  70],  [-70,  70],  [-70,  42],  [-90,  42]])
 RingOfFire    = ee.Geometry.Polygon([[-90.95,  56.94],  [-77.72,  55.61],  [-80.82,  48.23],  [-91.86,  49.33]])
 Canada        = ee.Geometry.Polygon([[-177.2923,  66.9063],  [-7.6309,  57.0210],  [-57.5425,  31.7174],  [-122.9136,  36.2150]])
-SmallRegion   = ee.Geometry.Polygon([[-75.97,  46.49],  [-75.42,  45.52],  [-75.47,  45.24],  [-75.95,  45.23]])
-StasCan_area  = ee.Geometry.Polygon([[-131.95,  59.58],  [-109.99, 60.63],  [-110.02, 49.99],  [-128.23, 48.66]])
-UK_area       = ee.Geometry.Polygon([[0.96379,50.914],[0.97,50.91699], [1.373,51.143], [1.3924,51.16121], [1.3993,51.17487], [1.759,52.4823], 
-                            [1.73,52.632],[-0.761797,60.818],[-0.772,60.8295], [-0.84,60.8422],[-0.882,60.8457],[-0.8989,60.841],
-                            [-6.151,59.1008], [-8.6496,57.8312], [-8.650,57.8294], [-8.1819,54.4662], [-6.3583,49.8912], [-6.3481,49.8867],
-                            [-6.3453,49.885], [-5.2072,49.9610], [-5.2023,49.9615], [0.2375,50.7373], [0.2558,50.7402],[0.9637,50.9140]])
 
-Atlanta_area = ee.Geometry.Polygon([[-88.41568065366418,30.497290425390574], [-81.67007518491418,30.686434050479342], [-77.80288768491418,34.22665016289597],
-                                    [-76.33071971616418,36.590254220879906], [-88.02017284116418,36.6960351636716], [-88.41568065366418,30.497290425390574]])
-
-Mexico_area = ee.Geometry.Polygon([[-104.3997,19.1605], [-101.1587,17.4291], [-95.6985,18.4950], [-97.8409,21.9072], [-105.4324,21.8766], [-104.3997,19.1605]])
-
-custom_names    = ee.List(['ROF', 'Canada', 'small_region', 'StasCan', 'UK', 'Atlanta', 'Mexico'])
-custom_polygons = ee.List([RingOfFire, Canada, SmallRegion, StasCan_area, UK_area, Atlanta_area, Mexico_area])
+custom_names    = ee.List(['ROF', 'Canada'])
+custom_polygons = ee.List([RingOfFire, Canada])
 
 custom_RegionDict = ee.Dictionary.fromLists(custom_names, custom_polygons)
 
@@ -666,8 +653,4 @@ def To_ICESat_polygon(RegionName):
   print("coord string = ", coord_string)
  
   return coord_string
-
-
-#new_polygon = To_ICESat_polygon(geoTile55)
-
 
